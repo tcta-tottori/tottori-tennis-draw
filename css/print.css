@@ -1,0 +1,151 @@
+/* ============================================
+   鳥取県テニス協会 ドロー会議システム
+   印刷用スタイルシート
+   ============================================ */
+
+@media print {
+  /* --- ページ設定: A3横向き --- */
+  @page {
+    size: A3 landscape;
+    margin: 10mm;
+  }
+
+  /* --- 印刷時に非表示にする要素 --- */
+  .app-header,
+  .tab-nav,
+  .toolbar.no-print,
+  .no-print,
+  .toast-container,
+  .modal-overlay,
+  .btn,
+  .ocr-controls,
+  .camera-container,
+  .entry-summary,
+  .empty-message {
+    display: none !important;
+  }
+
+  /* --- ボディリセット --- */
+  body {
+    background-color: #ffffff;
+    color: #000000;
+    font-size: 10pt;
+    min-width: auto;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* --- メインコンテンツ --- */
+  .app-main {
+    padding: 0;
+    max-width: none;
+    margin: 0;
+  }
+
+  /* --- 全画面を非表示にして、ドロー表のみ表示 --- */
+  .screen {
+    display: none !important;
+  }
+
+  #screen-bracket {
+    display: block !important;
+  }
+
+  #screen-bracket .screen-title {
+    font-size: 14pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 5mm;
+    color: #000000;
+  }
+
+  /* --- ドロー表コンテナ --- */
+  .bracket-container {
+    border: none;
+    padding: 0;
+    margin: 0;
+    min-height: auto;
+    overflow: visible;
+    background-color: #ffffff;
+  }
+
+  .bracket-svg-wrapper {
+    overflow: visible;
+  }
+
+  /* --- SVGトーナメント表 --- */
+  #bracket-svg {
+    width: 100%;
+    height: auto;
+    max-width: none;
+  }
+
+  /* SVGの罫線を鮮明に表示 */
+  #bracket-svg line,
+  #bracket-svg path,
+  #bracket-svg rect,
+  #bracket-svg polyline {
+    stroke: #000000;
+    stroke-width: 1px;
+    shape-rendering: crispEdges;
+    vector-effect: non-scaling-stroke;
+  }
+
+  #bracket-svg text {
+    fill: #000000;
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    font-size: 9pt;
+  }
+
+  /* --- エントリーリストテーブル（印刷時非表示） --- */
+  #bracket-entry-list {
+    display: none !important;
+  }
+
+  /* --- テーブル印刷対応（もし他画面を印刷する場合） --- */
+  .data-table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .data-table thead th {
+    background-color: #e5e7eb !important;
+    border: 1px solid #000000;
+    padding: 4px 6px;
+    font-size: 9pt;
+  }
+
+  .data-table tbody td {
+    border: 1px solid #000000;
+    padding: 3px 6px;
+    font-size: 9pt;
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background-color: #f3f4f6 !important;
+  }
+
+  /* --- カード --- */
+  .card {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 5mm;
+  }
+
+  /* --- ページ分割制御 --- */
+  .card,
+  .table-wrapper {
+    break-inside: avoid;
+  }
+
+  h2, h3 {
+    break-after: avoid;
+  }
+
+  /* --- リンク --- */
+  a {
+    color: #000000;
+    text-decoration: none;
+  }
+}

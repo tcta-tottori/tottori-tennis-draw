@@ -66,8 +66,9 @@ window.AppConfig = {
 
   // デフォルト大会日程
   DEFAULT_TOURNAMENTS: [
-    { name: '令和7年度 鳥取県テニス選手権大会', events: '男女シングルス・ダブルス', date: '11/9', dayOfWeek: '(日)', venue: 'ヤマタスポーツパーク・テニスコート', reserveDate: '11/16', reserveVenue: '' },
     { name: '令和7年度 鳥取市長杯', events: '男女シングルス', date: '6/15', dayOfWeek: '(日)', venue: 'ヤマタスポーツパーク・テニスコート', reserveDate: '6/22', reserveVenue: '' },
+    { name: '令和7年度 会長杯団体戦', events: '団体戦', date: '7/13', dayOfWeek: '(日)', venue: 'ヤマタスポーツパーク・テニスコート', reserveDate: '7/20', reserveVenue: '' },
+    { name: '令和7年度 鳥取県テニス選手権大会', events: '男女シングルス・ダブルス', date: '11/9', dayOfWeek: '(日)', venue: 'ヤマタスポーツパーク・テニスコート', reserveDate: '11/16', reserveVenue: '' },
   ],
 
   // ランキングシート設定（gidベースで全シートを定義）

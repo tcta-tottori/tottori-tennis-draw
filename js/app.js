@@ -26,8 +26,12 @@ window.App = {
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.switchScreen(btn.dataset.screen);
+        this._closeDrawer();
       });
     });
+
+    // ハンバーガーメニュー
+    this._initHamburgerMenu();
 
     // ドロー結果の復元
     this._restoreDrawResults();
@@ -55,6 +59,46 @@ window.App = {
 
     // デフォルトURLをセットして自動読み込み
     this._autoLoadSpreadsheets();
+  },
+
+  _initHamburgerMenu() {
+    const btn = document.getElementById('hamburger-btn');
+    const overlay = document.getElementById('drawer-overlay');
+    const closeBtn = document.getElementById('drawer-close');
+
+    if (btn) {
+      btn.addEventListener('click', () => this._toggleDrawer());
+    }
+    if (overlay) {
+      overlay.addEventListener('click', () => this._closeDrawer());
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this._closeDrawer());
+    }
+  },
+
+  _toggleDrawer() {
+    const nav = document.getElementById('drawer-nav');
+    const overlay = document.getElementById('drawer-overlay');
+    const btn = document.getElementById('hamburger-btn');
+    if (!nav) return;
+    const isOpen = nav.classList.contains('open');
+    if (isOpen) {
+      this._closeDrawer();
+    } else {
+      nav.classList.add('open');
+      if (overlay) overlay.classList.add('open');
+      if (btn) btn.classList.add('open');
+    }
+  },
+
+  _closeDrawer() {
+    const nav = document.getElementById('drawer-nav');
+    const overlay = document.getElementById('drawer-overlay');
+    const btn = document.getElementById('hamburger-btn');
+    if (nav) nav.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
+    if (btn) btn.classList.remove('open');
   },
 
   /**
@@ -453,11 +497,26 @@ window.App = {
       const furiganaTotal = Object.keys(RankingLoader.furiganaMap || {}).length;
       if (furiganaCountEl) furiganaCountEl.textContent = furiganaTotal + '件';
 
-      // 種目別の詳細表示
+      // 種目別の詳細表示（男女色分け）
       const detailEl = document.getElementById('data-summary-detail');
       if (detailEl && detailLines.length > 0) {
-        detailEl.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:#555;">' +
-          detailLines.map(l => '<span>' + l + '</span>').join('') + '</div>';
+        const maleLines = [];
+        const femaleLines = [];
+        for (const evt of AppConfig.EVENTS) {
+          if (status[evt.code] && status[evt.code].count > 0) {
+            const line = '<span>' + evt.shortName + ': ' + status[evt.code].count + '名</span>';
+            if (evt.code.startsWith('m')) maleLines.push(line);
+            else if (evt.code.startsWith('l')) femaleLines.push(line);
+          }
+        }
+        let html = '';
+        if (maleLines.length > 0) {
+          html += '<div style="margin-bottom:6px;"><span style="font-size:12px;font-weight:600;color:#1e40af;margin-right:8px;">男子</span><span style="display:inline-flex;flex-wrap:wrap;gap:6px 12px;font-size:13px;color:#1e40af;">' + maleLines.join('') + '</span></div>';
+        }
+        if (femaleLines.length > 0) {
+          html += '<div><span style="font-size:12px;font-weight:600;color:#be185d;margin-right:8px;">女子</span><span style="display:inline-flex;flex-wrap:wrap;gap:6px 12px;font-size:13px;color:#be185d;">' + femaleLines.join('') + '</span></div>';
+        }
+        detailEl.innerHTML = html;
       }
     }
   },
@@ -627,10 +686,10 @@ window.App = {
       const isEntered = p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false;
       if (isEntered) tr.classList.add('row-entered');
 
-      const furiganaHtml = furigana ? '<span style="display:block;font-size:10px;color:#9ca3af;line-height:1;">' + this._esc(furigana) + '</span>' : '';
+      const furiganaHtml = furigana ? '<span style="display:block;font-size:8px;color:#9ca3af;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + this._esc(furigana) + '</span>' : '';
       tr.innerHTML =
         '<td class="text-center">' + (p.rank === '-' ? '<span style="color:#9ca3af;">-</span>' : p.rank) + '</td>' +
-        '<td>' + furiganaHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
+        '<td style="min-width:140px;">' + furiganaHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
         '<td style="white-space:nowrap;">' + this._esc(p.affiliation || '') + '</td>' +
         '<td class="text-center">' + (p.points || '-') + '</td>' +
         '<td class="action-cell"></td>';
@@ -1817,6 +1876,9 @@ window.App = {
 
     const btnSave = document.getElementById('btn-tournament-save');
     if (btnSave) btnSave.addEventListener('click', () => this._saveTournament());
+
+    // 初期表示
+    this.refreshTournamentsTable();
   },
 
   refreshTournamentsTable() {
@@ -2101,14 +2163,7 @@ window.App = {
           this._renderLiveBracket();
         });
       }
-      const hScaleSlider = document.getElementById('bracket-hscale-slider');
-      if (hScaleSlider) {
-        hScaleSlider.addEventListener('input', () => {
-          const val = document.getElementById('bracket-hscale-value');
-          if (val) val.textContent = Math.round(parseFloat(hScaleSlider.value) * 100) + '%';
-          this._renderLiveBracket();
-        });
-      }
+      // 横サイズスライダーは廃止（自動フィット）
     }
 
     // 最初の種目を自動選択して抽選画面を表示
@@ -2322,32 +2377,31 @@ window.App = {
         ctrl58.appendChild(wrap);
       });
 
-      // 連動: 選択済みの位置を他のセレクトから使えないようにし、重複を自動解消
+      // 連動: 変更されたセレクトの値を優先し、重複を解消
       const syncSeed58 = (changedSeed) => {
         const selects = seeds58.map(sp => document.getElementById('seed' + sp.seed + '-position')).filter(Boolean);
-        const usedValues = new Map();
-        // 変更されたセレクトを優先
-        selects.forEach((sel, i) => {
-          if (seeds58[i].seed === changedSeed) {
-            usedValues.set(sel.value, i);
-          }
-        });
-        // 重複があれば別の位置に振り替え
-        selects.forEach((sel, i) => {
-          if (seeds58[i].seed !== changedSeed && usedValues.has(sel.value)) {
-            const available = pos58.map(String).find(p => !usedValues.has(p));
-            if (available) sel.value = available;
-          }
-          usedValues.set(sel.value, i);
-        });
-        // disabled更新
-        const allUsed = selects.map(s => s.value);
-        selects.forEach((sel) => {
-          const currentVal = sel.value;
-          Array.from(sel.options).forEach(opt => {
-            opt.disabled = allUsed.includes(opt.value) && opt.value !== currentVal;
+        if (selects.length === 0) return;
+
+        // changedSeed がある場合、そのセレクトの値を固定して他の重複を解消
+        if (changedSeed !== null) {
+          const changedIdx = seeds58.findIndex(sp => sp.seed === changedSeed);
+          const changedVal = selects[changedIdx] ? selects[changedIdx].value : null;
+
+          // 重複しているセレクトを探して別の値に振り替え
+          selects.forEach((sel, i) => {
+            if (i !== changedIdx && sel.value === changedVal) {
+              const usedVals = selects.map(s => s.value);
+              const available = pos58.map(String).find(p => !usedVals.includes(p) || p === sel.value);
+              const freeVal = pos58.map(String).find(p => {
+                return !selects.some((s2, j) => j !== i && s2.value === p);
+              });
+              if (freeVal) sel.value = freeVal;
+            }
           });
-        });
+        }
+
+        // optionのdisabled状態は設定しない（手動変更を妨げないため）
+        // 代わりに視覚的なヒントのみ
       };
       seeds58.forEach(sp => {
         const sel = document.getElementById('seed' + sp.seed + '-position');
@@ -2532,6 +2586,16 @@ window.App = {
       if (this._unplacedPlayers.length === 0 && !this._unplacedByes) {
         unplacedList.innerHTML = '<span style="color:#2E7D32;font-size:13px;">全選手が配置済みです</span>';
       } else if (this._unplacedPlayers.length > 0) {
+        // 個別ルーレット配置ボタン
+        if (this._unplacedPlayers.length > 1) {
+          const rouletteBtn = document.createElement('button');
+          rouletteBtn.className = 'btn btn-sm btn-primary';
+          rouletteBtn.style.cssText = 'margin-bottom:8px;margin-right:8px;';
+          rouletteBtn.textContent = '1人ずつルーレット配置';
+          rouletteBtn.addEventListener('click', () => this._rouletteIndividualPlayer());
+          unplacedList.appendChild(rouletteBtn);
+          unplacedList.appendChild(document.createElement('br'));
+        }
         this._unplacedPlayers.forEach((p, idx) => {
           const chip = document.createElement('button');
           chip.className = 'unplaced-chip' + (this._selectedPlayer === idx ? ' selected' : '');
@@ -2644,10 +2708,8 @@ window.App = {
     };
 
     const scaleSlider = document.getElementById('bracket-scale-slider');
-    const hScaleSlider = document.getElementById('bracket-hscale-slider');
     const scale = scaleSlider ? parseFloat(scaleSlider.value) || 1.0 : 1.0;
-    const hScale = hScaleSlider ? parseFloat(hScaleSlider.value) || 1.0 : 1.0;
-    DrawRenderer.render(wrapper, drawData, { scale: scale, hScale: hScale });
+    DrawRenderer.render(wrapper, drawData, { scale: scale });
 
     const svg = wrapper.querySelector('svg');
     if (!svg) return;
@@ -2963,7 +3025,7 @@ window.App = {
     if (!rouletteDiv) {
       rouletteDiv = document.createElement('div');
       rouletteDiv.id = 'roulette-display';
-      rouletteDiv.style.cssText = 'padding:16px;text-align:center;background:#fff;border-radius:8px;margin-top:12px;border:2px solid #1976D2;';
+      rouletteDiv.style.cssText = 'padding:10px;text-align:center;background:#fff;border-radius:8px;margin-top:8px;border:2px solid #1976D2;max-width:320px;margin-left:auto;margin-right:auto;';
       container.appendChild(rouletteDiv);
     }
 
@@ -2986,9 +3048,9 @@ window.App = {
       const group = allPositions[groupIdx];
       const shuffledPositions = DrawEngine.shuffleArray([...group.positions]);
 
-      rouletteDiv.innerHTML = '<h4 style="margin-bottom:12px;color:#1976D2;">' + group.label + ' の位置抽選</h4>' +
-        '<div id="roulette-number" style="font-size:48px;font-weight:bold;color:#333;font-family:monospace;min-height:60px;"></div>' +
-        '<p style="font-size:14px;color:#666;margin-top:8px;">Enterキーまたはクリックで確定</p>';
+      rouletteDiv.innerHTML = '<h4 style="margin-bottom:8px;color:#1976D2;font-size:13px;">' + group.label + ' の位置抽選</h4>' +
+        '<div id="roulette-number" style="font-size:28px;font-weight:bold;color:#333;font-family:monospace;min-height:36px;line-height:1.2;"></div>' +
+        '<p style="font-size:12px;color:#666;margin-top:4px;">タップまたはEnterで確定</p>';
 
       const numDisplay = document.getElementById('roulette-number');
       currentIdx = 0;
@@ -3018,8 +3080,9 @@ window.App = {
         });
 
         if (numDisplay) {
-          numDisplay.textContent = result.map((p, i) => '[' + group.seeds[i] + '] → No.' + p).join('  ');
+          numDisplay.textContent = result.map((p, i) => '[' + group.seeds[i] + ']→No.' + p).join(' ');
           numDisplay.style.color = '#2E7D32';
+          numDisplay.style.fontSize = '18px';
         }
 
         // 次のグループへ
@@ -3045,6 +3108,72 @@ window.App = {
     };
 
     showGroup(0);
+  },
+
+  /**
+   * 個別ルーレット: 未配置選手を1人ずつ空きスロットにルーレットで配置
+   */
+  _rouletteIndividualPlayer() {
+    if (!this._manualDraw || !this._unplacedPlayers || this._unplacedPlayers.length === 0) return;
+
+    const draw = this._manualDraw;
+    const emptySlots = [];
+    for (let i = 0; i < draw.length; i++) {
+      if (draw[i].isEmpty) emptySlots.push(i);
+    }
+    if (emptySlots.length === 0) return;
+
+    const player = this._unplacedPlayers[0];
+
+    // ルーレット表示
+    const unplacedArea = document.getElementById('unplaced-players');
+    if (!unplacedArea) return;
+
+    let rDiv = document.getElementById('individual-roulette-display');
+    if (!rDiv) {
+      rDiv = document.createElement('div');
+      rDiv.id = 'individual-roulette-display';
+      rDiv.style.cssText = 'padding:10px;text-align:center;background:#fff;border-radius:8px;margin:8px auto;border:2px solid #1976D2;max-width:320px;';
+      unplacedArea.appendChild(rDiv);
+    }
+
+    rDiv.innerHTML = '<p style="font-size:12px;color:#666;margin-bottom:4px;">' + this._esc(player.name) + ' の配置位置</p>' +
+      '<div id="individual-roulette-num" style="font-size:28px;font-weight:bold;color:#333;font-family:monospace;min-height:36px;line-height:1.2;"></div>' +
+      '<p style="font-size:11px;color:#666;margin-top:4px;">タップまたはEnterで確定</p>';
+
+    const numDisplay = document.getElementById('individual-roulette-num');
+    let timer = setInterval(() => {
+      const randSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+      if (numDisplay) numDisplay.textContent = 'No.' + (randSlot + 1);
+    }, 80);
+
+    const stop = () => {
+      if (timer) { clearInterval(timer); timer = null; }
+      document.removeEventListener('keydown', onKey);
+      rDiv.removeEventListener('click', stop);
+
+      // ランダムに空きスロットを選択
+      const targetSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+      if (numDisplay) {
+        numDisplay.textContent = 'No.' + (targetSlot + 1);
+        numDisplay.style.color = '#2E7D32';
+      }
+
+      // 配置
+      this._placeInDraw(draw, targetSlot, player);
+      this._unplacedPlayers.splice(0, 1);
+      this._selectedPlayer = null;
+
+      setTimeout(() => {
+        if (rDiv.parentNode) rDiv.parentNode.removeChild(rDiv);
+        this._renderManualPlacement();
+      }, 800);
+    };
+
+    const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); stop(); } };
+    document.addEventListener('keydown', onKey);
+    rDiv.addEventListener('click', stop);
+    rDiv.style.cursor = 'pointer';
   },
 
   // ================================================================
@@ -3211,6 +3340,8 @@ window.App = {
       if (btnClearEl) btnClearEl.style.display = 'none';
       const btnRedoEl = document.getElementById('btn-bracket-redo');
       if (btnRedoEl) btnRedoEl.style.display = 'none';
+      const evtNameHide = document.getElementById('bracket-current-event-name');
+      if (evtNameHide) evtNameHide.style.display = 'none';
       return;
     }
 
@@ -3219,6 +3350,15 @@ window.App = {
     if (!result) return;
 
     if (emptyMsg) emptyMsg.style.display = 'none';
+
+    // 種目名を表示
+    const evtNameEl = document.getElementById('bracket-current-event-name');
+    const evtLabelEl = document.getElementById('bracket-current-event-label');
+    if (evtNameEl && evtLabelEl) {
+      const evtDef = AppConfig.EVENTS.find(e => e.code === eventCode);
+      evtNameEl.style.display = '';
+      evtLabelEl.textContent = evtDef ? evtDef.name : eventCode;
+    }
 
     // SVG 描画
     const container = document.getElementById('bracket-container');

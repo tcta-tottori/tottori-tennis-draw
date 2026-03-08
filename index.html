@@ -13,6 +13,25 @@
 <body>
   <!-- ヘッダー -->
   <header class="app-header">
+    <!-- 砂丘シーン背景 -->
+    <div class="header-scene">
+      <svg class="header-camels" viewBox="0 0 400 80" preserveAspectRatio="xMaxYMax meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- ラクダ1（大） -->
+        <g transform="translate(280,22) scale(0.5)" opacity="0.35" fill="#8B6914">
+          <path d="M10,60 L10,45 Q10,35 15,30 Q18,27 20,30 L22,35 L24,28 Q26,22 30,20 Q35,18 38,22 L40,28 L42,25 Q44,20 48,22 L50,28 Q52,32 52,38 L52,45 L55,45 L55,52 L50,55 L50,60 L46,60 L46,50 L20,50 L20,60 L16,60 L16,50 L12,52 L10,60Z"/>
+          <circle cx="42" cy="24" r="1.5" fill="#5a4510"/>
+          <path d="M48,22 Q52,18 55,20" fill="none" stroke="#8B6914" stroke-width="1.5"/>
+        </g>
+        <!-- ラクダ2（小、遠景） -->
+        <g transform="translate(340,32) scale(0.3)" opacity="0.25" fill="#9B7924">
+          <path d="M10,60 L10,45 Q10,35 15,30 Q18,27 20,30 L22,35 L24,28 Q26,22 30,20 Q35,18 38,22 L40,28 L42,25 Q44,20 48,22 L50,28 Q52,32 52,38 L52,45 L55,45 L55,52 L50,55 L50,60 L46,60 L46,50 L20,50 L20,60 L16,60 L16,50 L12,52 L10,60Z"/>
+        </g>
+        <!-- ラクダ3（左側、遠景） -->
+        <g transform="translate(200,35) scale(0.25)" opacity="0.2" fill="#a08030">
+          <path d="M10,60 L10,45 Q10,35 15,30 Q18,27 20,30 L22,35 L24,28 Q26,22 30,20 Q35,18 38,22 L40,28 L42,25 Q44,20 48,22 L50,28 Q52,32 52,38 L52,45 L55,45 L55,52 L50,55 L50,60 L46,60 L46,50 L20,50 L20,60 L16,60 L16,50 L12,52 L10,60Z"/>
+        </g>
+      </svg>
+    </div>
     <div class="header-top">
       <div class="header-logo">
         <img src="logo.png" alt="鳥取市テニス協会">
@@ -22,7 +41,23 @@
         <h1 class="app-title">ドロー会議システム</h1>
       </div>
     </div>
-    <nav class="tab-nav">
+  </header>
+
+  <!-- ハンバーガーメニューボタン -->
+  <button id="hamburger-btn" class="hamburger-btn" aria-label="メニュー">
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+  </button>
+
+  <!-- サイドドロワーメニュー -->
+  <div id="drawer-overlay" class="drawer-overlay"></div>
+  <nav id="drawer-nav" class="drawer-nav">
+    <div class="drawer-header">
+      <span class="drawer-title">メニュー</span>
+      <button id="drawer-close" class="drawer-close">&times;</button>
+    </div>
+    <div class="drawer-menu">
       <button class="tab-btn active" data-screen="screen-data">データ読込</button>
       <button class="tab-btn" data-screen="screen-ranking">選手一覧</button>
       <button class="tab-btn" data-screen="screen-entry">エントリー</button>
@@ -30,8 +65,8 @@
       <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
       <button class="tab-btn" data-screen="screen-backup">バックアップ</button>
       <button class="tab-btn" data-screen="screen-manual">マニュアル</button>
-    </nav>
-  </header>
+    </div>
+  </nav>
 
   <!-- メインコンテンツ -->
   <main class="app-main">
@@ -138,34 +173,6 @@
           </div>
         </div>
       </details>
-
-      <!-- 読込結果サマリー -->
-      <div class="card" id="data-summary" style="display:none;margin-top:24px;">
-        <h3 class="card-title">読込結果サマリー</h3>
-        <div id="data-summary-content" class="summary-grid">
-          <div class="summary-item">
-            <span class="summary-label">選手数</span>
-            <span class="summary-value" id="summary-player-count">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">男子</span>
-            <span class="summary-value" id="summary-male-count">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">女子</span>
-            <span class="summary-value" id="summary-female-count">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">ふりがな</span>
-            <span class="summary-value" id="summary-furigana-count">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">種目数</span>
-            <span class="summary-value" id="summary-event-count">0</span>
-          </div>
-        </div>
-        <div id="data-summary-detail" style="margin-top:12px;"></div>
-      </div>
 
       <!-- 画像読込（OCR）セクション -->
       <details style="margin-top:24px;">
@@ -313,20 +320,50 @@
           </div>
         </div>
       </div>
+
+      <!-- 読込結果サマリー（ページ下部） -->
+      <div class="card" id="data-summary" style="display:none;margin-top:24px;">
+        <h3 class="card-title">読込結果サマリー</h3>
+        <div id="data-summary-content" class="summary-grid">
+          <div class="summary-item">
+            <span class="summary-label">選手数</span>
+            <span class="summary-value" id="summary-player-count">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label" style="color:#1e40af;">男子</span>
+            <span class="summary-value" id="summary-male-count" style="color:#1e40af;">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label" style="color:#be185d;">女子</span>
+            <span class="summary-value" id="summary-female-count" style="color:#be185d;">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">ふりがな</span>
+            <span class="summary-value" id="summary-furigana-count">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">種目数</span>
+            <span class="summary-value" id="summary-event-count">0</span>
+          </div>
+        </div>
+        <div id="data-summary-detail" style="margin-top:12px;"></div>
+      </div>
     </section>
 
     <!-- 画面: ランキング閲覧 -->
     <section id="screen-ranking" class="screen">
       <h2 class="screen-title">選手一覧</h2>
 
-      <!-- カテゴリ切替（シングルス/ダブルス） -->
-      <div class="ranking-category-toggle" id="ranking-category-toggle">
-        <button class="category-btn active" data-category="singles">シングルス</button>
-        <button class="category-btn" data-category="doubles">ダブルス</button>
-      </div>
+      <!-- スティッキーフィルターエリア -->
+      <div class="ranking-sticky-filter">
+        <!-- カテゴリ切替（シングルス/ダブルス） -->
+        <div class="ranking-category-toggle" id="ranking-category-toggle">
+          <button class="category-btn active" data-category="singles">シングルス</button>
+          <button class="category-btn" data-category="doubles">ダブルス</button>
+        </div>
 
-      <!-- 検索＆フィルター -->
-      <div class="toolbar">
+        <!-- 検索＆フィルター -->
+        <div class="toolbar">
         <div class="toolbar-left" style="flex:1;gap:12px;display:flex;align-items:center;flex-wrap:wrap;">
           <div class="ranking-event-tabs" id="ranking-event-tabs"></div>
           <div style="position:relative;min-width:240px;flex:1;max-width:360px;">
@@ -340,6 +377,7 @@
           <span id="ranking-count" style="font-size:13px;color:#6b7280;"></span>
         </div>
       </div>
+      </div><!-- /.ranking-sticky-filter -->
 
       <!-- ランキングテーブル -->
       <div class="table-wrapper">
@@ -552,9 +590,6 @@
               <label for="bracket-scale-slider" style="font-size:13px;white-space:nowrap;">縦サイズ:</label>
               <input type="range" id="bracket-scale-slider" min="0.5" max="2.0" step="0.1" value="1.0" style="width:120px;">
               <span id="bracket-scale-value" style="font-size:12px;color:#666;">100%</span>
-              <label for="bracket-hscale-slider" style="font-size:13px;white-space:nowrap;margin-left:16px;">横サイズ:</label>
-              <input type="range" id="bracket-hscale-slider" min="0.5" max="2.0" step="0.1" value="1.0" style="width:120px;">
-              <span id="bracket-hscale-value" style="font-size:12px;color:#666;">100%</span>
             </div>
             <div class="bracket-svg-wrapper" id="live-bracket-svg-wrapper" style="overflow-x:auto;">
               <svg id="live-bracket-svg" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -620,6 +655,11 @@
       <!-- 種目一覧 -->
       <div class="card no-print" id="bracket-event-summary" style="margin-bottom:12px;display:none;">
         <div id="bracket-event-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+
+      <!-- 選択中の種目名 -->
+      <div id="bracket-current-event-name" style="display:none;margin-bottom:8px;padding:8px 16px;background:#f0f7ff;border:1px solid #d0e3f5;border-radius:8px;">
+        <span style="font-size:16px;font-weight:700;color:#1a5a8e;" id="bracket-current-event-label"></span>
       </div>
 
       <!-- トーナメント表SVG -->

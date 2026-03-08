@@ -21,7 +21,10 @@
   .ocr-controls,
   .camera-container,
   .entry-summary,
-  .empty-message {
+  .empty-message,
+  .hamburger-btn,
+  .drawer-overlay,
+  .drawer-nav {
     display: none !important;
   }
 

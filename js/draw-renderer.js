@@ -129,50 +129,10 @@ window.DrawRenderer = {
     const P = this.PARAMS;
     const eventName = drawData.eventName || '';
 
-    // 左側: 種目名バッジ（グラデーション背景 + 白文字）
-    let estChars = 0;
-    for (let ci = 0; ci < eventName.length; ci++) {
-      estChars += eventName.charCodeAt(ci) > 255 ? 1.0 : 0.55;
-    }
-    // 文字数に応じてフォントサイズを調整（長い種目名は小さく）
-    let eventFontSize = P.fontSize.title + 2;
-    const maxBadgeWidth = 260;
-    let badgeWidth = estChars * eventFontSize * 0.72 + 28;
-    if (badgeWidth > maxBadgeWidth) {
-      eventFontSize = Math.max(12, Math.floor((maxBadgeWidth - 28) / (estChars * 0.72)));
-      badgeWidth = estChars * eventFontSize * 0.72 + 28;
-    }
-    const badgeHeight = 32;
-    const badgeX = 6;
-    const badgeY = 4;
-
-    // グラデーション定義
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    grad.setAttribute('id', 'eventBadgeGrad');
-    grad.setAttribute('x1', '0%'); grad.setAttribute('y1', '0%');
-    grad.setAttribute('x2', '100%'); grad.setAttribute('y2', '100%');
-    const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    stop1.setAttribute('offset', '0%'); stop1.setAttribute('stop-color', '#1a5276');
-    const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    stop2.setAttribute('offset', '100%'); stop2.setAttribute('stop-color', '#2980b9');
-    grad.appendChild(stop1); grad.appendChild(stop2);
-    defs.appendChild(grad);
-    svg.appendChild(defs);
-
-    // 角丸背景
-    const badge = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    badge.setAttribute('x', badgeX); badge.setAttribute('y', badgeY);
-    badge.setAttribute('width', badgeWidth); badge.setAttribute('height', badgeHeight);
-    badge.setAttribute('rx', 5); badge.setAttribute('ry', 5);
-    badge.setAttribute('fill', 'url(#eventBadgeGrad)');
-    svg.appendChild(badge);
-
-    // 白文字
-    const eventText = this._text(svg, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2, eventName, {
-      fontSize: eventFontSize, fontWeight: 'bold', fill: '#fff', textAnchor: 'middle',
+    // 左側: 種目名（テキスト表示）
+    this._text(svg, 8, 20, eventName, {
+      fontSize: P.fontSize.title + 2, fontWeight: 'bold', fill: P.colors.text,
     });
-    eventText.setAttribute('dominant-baseline', 'central');
 
     // 右端揃え: 大会名、日付・場所、ゲーム形式
     const tournamentName = drawData.tournamentName || AppConfig.TOURNAMENT_NAME || '';

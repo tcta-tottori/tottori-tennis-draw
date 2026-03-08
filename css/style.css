@@ -104,11 +104,59 @@ body {
 
 /* --- ヘッダー --- */
 .app-header {
-  background: linear-gradient(135deg, #4a9ede 0%, #2b7ec6 40%, #1a5a8e 100%);
-  box-shadow: 0 2px 12px rgba(43, 126, 198, 0.3);
   position: sticky;
   top: 0;
   z-index: 100;
+  background: linear-gradient(180deg, #5eb8f5 0%, #87ceeb 35%, #b8dff0 55%, #e8d5a0 70%, #d4b66a 85%, #c4a24e 100%);
+  box-shadow: 0 2px 12px rgba(43, 126, 198, 0.3);
+  overflow: hidden;
+}
+
+.header-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 雲 */
+.header-scene::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 10%;
+  width: 80px;
+  height: 24px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 24px;
+  box-shadow:
+    -30px 8px 0 -4px rgba(255,255,255,0.3),
+    60px -2px 0 -2px rgba(255,255,255,0.25),
+    140px 6px 0 -6px rgba(255,255,255,0.35);
+}
+
+/* 砂丘の曲線 */
+.header-scene::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -5%;
+  width: 110%;
+  height: 40%;
+  background:
+    radial-gradient(ellipse 60% 80% at 25% 90%, #d4b06a 0%, transparent 70%),
+    radial-gradient(ellipse 50% 100% at 70% 100%, #c9a455 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, #dfc080 0%, transparent 50%);
+}
+
+/* ラクダSVG */
+.header-camels {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 50%;
+  max-width: 400px;
+  height: 100%;
 }
 
 .header-top {
@@ -116,6 +164,8 @@ body {
   align-items: center;
   gap: 14px;
   padding: 10px 20px 6px;
+  position: relative;
+  z-index: 1;
 }
 
 .header-logo {
@@ -158,81 +208,228 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  background: rgba(0,0,0,0.28);
+  padding: 4px 14px 4px 12px;
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .header-org {
   font-size: 10px;
-  color: rgba(255,255,255,0.8);
-  font-weight: 500;
+  color: rgba(255,255,255,0.95);
+  font-weight: 600;
   letter-spacing: 0.12em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 .app-title {
   font-size: var(--font-size-lg);
   font-weight: 700;
   color: #ffffff;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow:
+    0 1px 2px rgba(0,0,0,0.7),
+    0 0 8px rgba(0,0,0,0.3);
 }
 
-/* --- タブナビゲーション --- */
-.tab-nav {
+/* --- ハンバーガーメニューボタン --- */
+.hamburger-btn {
+  position: fixed;
+  top: 68px;
+  left: 12px;
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(180, 150, 100, 0.4);
+  background: rgba(235, 218, 185, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(160, 120, 50, 0.2);
+  cursor: pointer;
   display: flex;
-  gap: 0;
-  padding: 0 12px;
-  background: rgba(0,0,0,0.12);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition-fast);
 }
 
-.tab-nav::-webkit-scrollbar {
-  display: none;
+.hamburger-btn:hover {
+  background: rgba(220, 200, 160, 0.95);
 }
 
-.tab-btn {
+.hamburger-line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: #6b5030;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.hamburger-btn.open .hamburger-line:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+.hamburger-btn.open .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+.hamburger-btn.open .hamburger-line:nth-child(3) {
+  transform: rotate(-45deg) translate(5px, -5px);
+}
+
+/* --- サイドドロワー --- */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 299;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.drawer-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.drawer-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100vh;
+  /* 砂色ベース半透明 */
+  background: rgba(235, 218, 185, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 300;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  box-shadow: 4px 0 24px rgba(160, 120, 50, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.drawer-nav.open {
+  transform: translateX(0);
+}
+
+/* 風紋パターン（繰り返しストライプ） */
+.drawer-nav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      175deg,
+      transparent 0px,
+      transparent 8px,
+      rgba(190, 160, 100, 0.12) 8px,
+      rgba(190, 160, 100, 0.12) 10px,
+      transparent 10px,
+      transparent 18px
+    ),
+    repeating-linear-gradient(
+      185deg,
+      transparent 0px,
+      transparent 12px,
+      rgba(170, 140, 80, 0.08) 12px,
+      rgba(170, 140, 80, 0.08) 14px,
+      transparent 14px,
+      transparent 26px
+    );
+  z-index: 0;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(180, 150, 100, 0.3);
+  background: linear-gradient(135deg, rgba(180, 150, 90, 0.5) 0%, rgba(200, 170, 110, 0.4) 100%);
   position: relative;
-  padding: 10px 14px;
+  z-index: 1;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #5a4520;
+  letter-spacing: 0.06em;
+}
+
+.drawer-close {
+  border: none;
+  background: none;
+  font-size: 24px;
+  color: #8a6d3b;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.drawer-close:hover {
+  color: #5a4520;
+}
+
+.drawer-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.drawer-menu .tab-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 14px 24px;
   border: none;
   background: none;
   font-family: var(--font-family);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: 500;
-  color: rgba(255,255,255,0.7);
+  color: #5a4520;
   cursor: pointer;
   white-space: nowrap;
-  transition: color var(--transition-fast), background-color var(--transition-fast);
+  transition: background var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
+  text-align: left;
 }
 
-.tab-btn:hover {
-  color: #fff;
-  background-color: rgba(255,255,255,0.1);
+.drawer-menu .tab-btn:hover {
+  background: rgba(200, 170, 110, 0.3);
 }
 
-.tab-btn.active {
-  color: #fff;
-  font-weight: 600;
-  background-color: rgba(255,255,255,0.15);
+.drawer-menu .tab-btn.active {
+  color: #3e2c0a;
+  font-weight: 700;
+  background: rgba(200, 170, 110, 0.4);
+  border-left: 4px solid #a0783c;
+  padding-left: 20px;
 }
 
-.tab-btn.active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 8px;
-  right: 8px;
-  height: 3px;
-  background-color: #fff;
-  border-radius: 3px 3px 0 0;
+.drawer-menu .tab-btn.active::after {
+  display: none;
 }
 
 /* --- メインコンテンツ --- */
 .app-main {
   padding: var(--space-4) var(--space-4) var(--space-8);
+  padding-top: calc(var(--space-4) + 48px);
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -1017,6 +1214,20 @@ body {
 }
 
 /* --- 選手一覧画面 --- */
+.ranking-sticky-filter {
+  position: sticky;
+  top: 58px; /* ヘッダーの高さ分 */
+  z-index: 50;
+  background: var(--color-bg);
+  padding-bottom: 4px;
+  margin-left: -16px;
+  margin-right: -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  margin-top: -4px;
+  padding-top: 4px;
+}
+
 .ranking-category-toggle {
   display: flex;
   gap: 0;
@@ -1379,6 +1590,7 @@ tr.row-entered td strong {
   }
   .app-main {
     padding: var(--space-6);
+    padding-top: calc(var(--space-6) + 48px);
   }
   .screen-title {
     font-size: var(--font-size-2xl);
@@ -1423,6 +1635,10 @@ tr.row-entered td strong {
   .drop-zone {
     padding: var(--space-6);
   }
+
+  .ranking-sticky-filter {
+    top: 52px;
+  }
 }
 
 /* ============================================
@@ -1452,17 +1668,36 @@ tr.row-entered td strong {
     font-size: 14px;
   }
 
-  .tab-nav {
-    padding: 0 8px;
+  .hamburger-btn {
+    top: 58px;
+    left: 8px;
+    width: 36px;
+    height: 36px;
   }
 
-  .tab-btn {
-    padding: 8px 10px;
-    font-size: 12px;
+  .header-camels {
+    width: 40%;
+    opacity: 0.8;
+  }
+
+  .header-scene::before {
+    width: 50px;
+    height: 16px;
+    top: 4px;
+    right: 5%;
   }
 
   .app-main {
     padding: var(--space-3);
+    padding-top: calc(var(--space-3) + 44px);
+  }
+
+  .ranking-sticky-filter {
+    top: 48px;
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .screen-title {

@@ -90,7 +90,7 @@ window.TournamentStore = {
   },
 
   /**
-   * Excelシリアル日付値を「M月D日」形式に変換
+   * Excelシリアル日付値を「M/D」形式に変換
    */
   _excelDateToString(val) {
     if (val === null || val === undefined || val === '') return '';
@@ -101,10 +101,15 @@ window.TournamentStore = {
       const date = new Date(utcDays * 86400000);
       const m = date.getUTCMonth() + 1;
       const d = date.getUTCDate();
-      return m + '月' + d + '日';
+      return m + '/' + d;
     }
-    // 文字列の場合はそのまま返す
-    return String(val).trim();
+    // 文字列の場合もM/D形式に正規化
+    const s = String(val).trim();
+    let match = s.match(/(\d{1,2})月(\d{1,2})日/);
+    if (match) return match[1] + '/' + match[2];
+    match = s.match(/\d{4}[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (match) return match[1] + '/' + match[2];
+    return s;
   },
 
   /**
@@ -166,7 +171,12 @@ window.TournamentStore = {
 
       const events = String(row[2] || '').trim();
       const dateStr = this._excelDateToString(row[3]);
-      const dayOfWeek = String(row[4] || '').trim();
+      const rawDow = String(row[4] || '').trim();
+      // 曜日を(X)形式に正規化
+      let dayOfWeek = rawDow;
+      let dowMatch = rawDow.match(/[\(（]([日月火水木金土])[\)）]/);
+      if (dowMatch) { dayOfWeek = '(' + dowMatch[1] + ')'; }
+      else { dowMatch = rawDow.match(/([日月火水木金土])/); if (dowMatch) dayOfWeek = '(' + dowMatch[1] + ')'; }
       const reserveDate = this._excelDateToShort(row[5]);
       const venue = this._normalizeVenue(row[6]);
       const reserveVenue = String(row[7] || '').trim();

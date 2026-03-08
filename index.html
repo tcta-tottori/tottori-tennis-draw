@@ -25,7 +25,6 @@
     <nav class="tab-nav">
       <button class="tab-btn active" data-screen="screen-data">データ読込</button>
       <button class="tab-btn" data-screen="screen-ranking">選手一覧</button>
-      <button class="tab-btn" data-screen="screen-ocr">画像読込</button>
       <button class="tab-btn" data-screen="screen-entry">エントリー</button>
       <button class="tab-btn" data-screen="screen-draw">抽選</button>
       <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
@@ -149,12 +148,84 @@
             <span class="summary-value" id="summary-player-count">0</span>
           </div>
           <div class="summary-item">
+            <span class="summary-label">男子</span>
+            <span class="summary-value" id="summary-male-count">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">女子</span>
+            <span class="summary-value" id="summary-female-count">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">ふりがな</span>
+            <span class="summary-value" id="summary-furigana-count">0</span>
+          </div>
+          <div class="summary-item">
             <span class="summary-label">種目数</span>
             <span class="summary-value" id="summary-event-count">0</span>
           </div>
         </div>
         <div id="data-summary-detail" style="margin-top:12px;"></div>
       </div>
+
+      <!-- 画像読込（OCR）セクション -->
+      <details style="margin-top:24px;">
+        <summary style="cursor:pointer;font-size:15px;font-weight:600;margin-bottom:12px;">エントリー画像読込（OCR）</summary>
+        <div class="card">
+          <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">認識エンジン</label>
+              <select id="ocr-engine-select" class="form-select">
+                <option value="gemini">Gemini AI（推奨・手書き対応）</option>
+                <option value="tesseract">Tesseract.js（オフライン）</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:250px;" id="gemini-api-key-group">
+              <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
+              <input type="password" id="gemini-api-key" class="form-input" placeholder="AIzaSy...">
+            </div>
+          </div>
+          <p style="font-size:11px;color:#888;margin-bottom:12px;">
+            Gemini AI: 手書き日本語の認識精度が高い。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1a56db;">APIキー取得</a>（無料枠あり）
+          </p>
+          <div class="ocr-controls">
+            <button id="btn-camera" class="btn btn-primary">カメラ撮影</button>
+            <button id="btn-file-select" class="btn btn-secondary">ファイル選択</button>
+            <input type="file" id="file-ocr-input" accept="image/*" capture="environment" hidden>
+          </div>
+          <div id="camera-container" class="camera-container" style="display:none;">
+            <video id="camera-video" autoplay playsinline></video>
+            <div class="camera-controls">
+              <button id="btn-capture" class="btn btn-primary">撮影</button>
+              <button id="btn-camera-close" class="btn btn-secondary">閉じる</button>
+            </div>
+          </div>
+          <div id="ocr-preview-area" class="ocr-preview-area" style="display:none;">
+            <h3 class="card-title">画像プレビュー</h3>
+            <div class="image-preview-wrapper">
+              <canvas id="ocr-canvas"></canvas>
+              <img id="ocr-preview-img" alt="OCR対象画像">
+            </div>
+            <button id="btn-ocr-execute" class="btn btn-primary btn-lg">OCR実行</button>
+            <div id="ocr-progress" class="progress-bar-container" style="display:none;">
+              <div class="progress-bar"><div id="ocr-progress-bar" class="progress-bar-fill"></div></div>
+              <span id="ocr-progress-text" class="progress-text">認識中...</span>
+            </div>
+          </div>
+          <div id="ocr-result-area" class="card" style="display:none;">
+            <h3 class="card-title">認識結果</h3>
+            <div class="table-wrapper">
+              <table class="data-table" id="ocr-result-table">
+                <thead><tr><th><input type="checkbox" id="ocr-check-all"></th><th>認識テキスト</th><th>氏名候補</th><th>所属候補</th><th>種目</th><th>信頼度</th></tr></thead>
+                <tbody id="ocr-result-body"></tbody>
+              </table>
+            </div>
+            <div class="action-bar">
+              <span id="ocr-selected-count">0件選択中</span>
+              <button id="btn-ocr-register" class="btn btn-primary">確認して登録</button>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <!-- 大会一覧（統合） -->
       <div class="card" style="margin-top:24px;">
@@ -277,7 +348,6 @@
             <tr>
               <th style="width:50px;">順位</th>
               <th>氏名</th>
-              <th>ふりがな</th>
               <th>所属</th>
               <th style="width:70px;">ポイント</th>
               <th style="width:80px;">操作</th>
@@ -288,102 +358,6 @@
         </table>
       </div>
       <p class="empty-message" id="ranking-empty-msg">データが読み込まれていません。起動時に自動読込されます。</p>
-    </section>
-
-    <!-- 画面2: 画像読込 -->
-    <section id="screen-ocr" class="screen">
-      <h2 class="screen-title">画像読込</h2>
-
-      <!-- OCR方式選択 -->
-      <div class="card" style="margin-bottom:12px;">
-        <h3 class="card-title">OCR方式</h3>
-        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">認識エンジン</label>
-            <select id="ocr-engine-select" class="form-select">
-              <option value="gemini">Gemini AI（推奨・手書き対応）</option>
-              <option value="tesseract">Tesseract.js（オフライン）</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:0;flex:1;min-width:250px;" id="gemini-api-key-group">
-            <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
-            <input type="password" id="gemini-api-key" class="form-input" placeholder="AIzaSy...">
-          </div>
-        </div>
-        <p style="font-size:11px;color:#888;margin-top:6px;">
-          Gemini AI: 手書き日本語の認識精度が高い。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1a56db;">APIキー取得</a>（無料枠あり）
-        </p>
-      </div>
-
-      <div class="ocr-controls">
-        <button id="btn-camera" class="btn btn-primary">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-            <circle cx="12" cy="13" r="4"/>
-          </svg>
-          カメラ撮影
-        </button>
-        <button id="btn-file-select" class="btn btn-secondary">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-            <polyline points="14,2 14,8 20,8"/>
-          </svg>
-          ファイル選択
-        </button>
-        <input type="file" id="file-ocr-input" accept="image/*" capture="environment" hidden>
-      </div>
-
-      <!-- カメラプレビュー -->
-      <div id="camera-container" class="camera-container" style="display:none;">
-        <video id="camera-video" autoplay playsinline></video>
-        <div class="camera-controls">
-          <button id="btn-capture" class="btn btn-primary">撮影</button>
-          <button id="btn-camera-close" class="btn btn-secondary">閉じる</button>
-        </div>
-      </div>
-
-      <!-- 画像プレビュー -->
-      <div id="ocr-preview-area" class="ocr-preview-area" style="display:none;">
-        <h3 class="card-title">画像プレビュー</h3>
-        <div class="image-preview-wrapper">
-          <canvas id="ocr-canvas"></canvas>
-          <img id="ocr-preview-img" alt="OCR対象画像">
-        </div>
-        <button id="btn-ocr-execute" class="btn btn-primary btn-lg">
-          OCR実行
-        </button>
-        <div id="ocr-progress" class="progress-bar-container" style="display:none;">
-          <div class="progress-bar">
-            <div id="ocr-progress-bar" class="progress-bar-fill"></div>
-          </div>
-          <span id="ocr-progress-text" class="progress-text">認識中...</span>
-        </div>
-      </div>
-
-      <!-- OCR認識結果 -->
-      <div id="ocr-result-area" class="card" style="display:none;">
-        <h3 class="card-title">認識結果</h3>
-        <div class="table-wrapper">
-          <table class="data-table" id="ocr-result-table">
-            <thead>
-              <tr>
-                <th><input type="checkbox" id="ocr-check-all"></th>
-                <th>認識テキスト</th>
-                <th>氏名候補</th>
-                <th>所属候補</th>
-                <th>種目</th>
-                <th>信頼度</th>
-              </tr>
-            </thead>
-            <tbody id="ocr-result-body">
-            </tbody>
-          </table>
-        </div>
-        <div class="action-bar">
-          <span id="ocr-selected-count">0件選択中</span>
-          <button id="btn-ocr-register" class="btn btn-primary">確認して登録</button>
-        </div>
-      </div>
     </section>
 
     <!-- 画面3: エントリー -->
@@ -454,7 +428,6 @@
             <tr>
               <th>No.</th>
               <th>氏名</th>
-              <th>ふりがな</th>
               <th>所属</th>
               <th>種目</th>
               <th>ポイント</th>
@@ -644,6 +617,11 @@
         </div>
       </div>
 
+      <!-- 種目一覧 -->
+      <div class="card no-print" id="bracket-event-summary" style="margin-bottom:12px;display:none;">
+        <div id="bracket-event-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+
       <!-- トーナメント表SVG -->
       <div class="bracket-container" id="bracket-container">
         <div class="bracket-svg-wrapper">
@@ -750,7 +728,7 @@
                 <p>「エントリー」タブで選手を登録します。</p>
                 <ul>
                   <li><strong>手動追加</strong>：「手動追加」ボタンから氏名入力。ランキングデータから候補が自動表示されます。</li>
-                  <li><strong>画像読込</strong>：「画像読込」タブで申込用紙を撮影・認識して一括登録。</li>
+                  <li><strong>画像読込</strong>：「データ読込」タブの画像読込セクションで申込用紙を撮影・認識して一括登録。</li>
                 </ul>
               </div>
             </div>

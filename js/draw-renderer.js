@@ -130,12 +130,18 @@ window.DrawRenderer = {
     const eventName = drawData.eventName || '';
 
     // 左側: 種目名バッジ（グラデーション背景 + 白文字）
-    const eventFontSize = P.fontSize.title + 2;
     let estChars = 0;
     for (let ci = 0; ci < eventName.length; ci++) {
       estChars += eventName.charCodeAt(ci) > 255 ? 1.0 : 0.55;
     }
-    const badgeWidth = estChars * eventFontSize * 0.72 + 28;
+    // 文字数に応じてフォントサイズを調整（長い種目名は小さく）
+    let eventFontSize = P.fontSize.title + 2;
+    const maxBadgeWidth = 260;
+    let badgeWidth = estChars * eventFontSize * 0.72 + 28;
+    if (badgeWidth > maxBadgeWidth) {
+      eventFontSize = Math.max(12, Math.floor((maxBadgeWidth - 28) / (estChars * 0.72)));
+      badgeWidth = estChars * eventFontSize * 0.72 + 28;
+    }
     const badgeHeight = 32;
     const badgeX = 6;
     const badgeY = 4;

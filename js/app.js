@@ -425,16 +425,34 @@ window.App = {
       summaryEl.style.display = '';
       const playerCount = document.getElementById('summary-player-count');
       const eventCount = document.getElementById('summary-event-count');
+      const maleCount = document.getElementById('summary-male-count');
+      const femaleCount = document.getElementById('summary-female-count');
+      const furiganaCountEl = document.getElementById('summary-furigana-count');
       if (playerCount) playerCount.textContent = status.total;
+
+      // 男子/女子を種目コードから集計（m=男子, l=女子）
+      let maleTotal = 0, femaleTotal = 0;
       let evtCount = 0;
       const detailLines = [];
       for (const evt of AppConfig.EVENTS) {
         if (status[evt.code] && status[evt.code].count > 0) {
           evtCount++;
           detailLines.push(evt.shortName + ': ' + status[evt.code].count + '名');
+          if (evt.code.startsWith('m')) {
+            maleTotal += status[evt.code].count;
+          } else if (evt.code.startsWith('l')) {
+            femaleTotal += status[evt.code].count;
+          }
         }
       }
+      if (maleCount) maleCount.textContent = maleTotal;
+      if (femaleCount) femaleCount.textContent = femaleTotal;
       if (eventCount) eventCount.textContent = evtCount;
+
+      // ふりがなデータ件数
+      const furiganaTotal = Object.keys(RankingLoader.furiganaMap || {}).length;
+      if (furiganaCountEl) furiganaCountEl.textContent = furiganaTotal + '件';
+
       // 種目別の詳細表示
       const detailEl = document.getElementById('data-summary-detail');
       if (detailEl && detailLines.length > 0) {
@@ -487,16 +505,6 @@ window.App = {
     if (tabsEl) {
       tabsEl.innerHTML = '';
 
-      const allBtn = document.createElement('button');
-      allBtn.className = 'btn btn-sm ' + (!this._rankingFilter.showList && this._rankingFilter.eventCode === '' ? 'btn-primary' : 'btn-secondary');
-      allBtn.textContent = '全種目';
-      allBtn.addEventListener('click', () => {
-        this._rankingFilter.eventCode = '';
-        this._rankingFilter.showList = false;
-        this.refreshRankingTable();
-      });
-      tabsEl.appendChild(allBtn);
-
       for (const evt of categoryEvents) {
         const count = (RankingLoader.rankings[evt.code] || []).length;
         if (count === 0) continue;
@@ -528,6 +536,20 @@ window.App = {
         });
         tabsEl.appendChild(listBtn);
       }
+
+      // 全種目タブ（最後）
+      const sep2 = document.createElement('span');
+      sep2.style.cssText = 'width:1px;height:20px;background:#d1d5db;margin:0 4px;';
+      tabsEl.appendChild(sep2);
+      const allBtn = document.createElement('button');
+      allBtn.className = 'btn btn-sm ' + (!this._rankingFilter.showList && this._rankingFilter.eventCode === '' ? 'btn-primary' : 'btn-secondary');
+      allBtn.textContent = '全種目';
+      allBtn.addEventListener('click', () => {
+        this._rankingFilter.eventCode = '';
+        this._rankingFilter.showList = false;
+        this.refreshRankingTable();
+      });
+      tabsEl.appendChild(allBtn);
     }
 
     this._renderRankingRows();
@@ -605,10 +627,10 @@ window.App = {
       const isEntered = p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false;
       if (isEntered) tr.classList.add('row-entered');
 
+      const furiganaHtml = furigana ? '<span style="display:block;font-size:10px;color:#9ca3af;line-height:1;">' + this._esc(furigana) + '</span>' : '';
       tr.innerHTML =
         '<td class="text-center">' + (p.rank === '-' ? '<span style="color:#9ca3af;">-</span>' : p.rank) + '</td>' +
-        '<td><strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
-        '<td style="color:#6b7280;font-size:13px;white-space:nowrap;">' + this._esc(furigana) + '</td>' +
+        '<td>' + furiganaHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
         '<td style="white-space:nowrap;">' + this._esc(p.affiliation || '') + '</td>' +
         '<td class="text-center">' + (p.points || '-') + '</td>' +
         '<td class="action-cell"></td>';
@@ -1530,9 +1552,9 @@ window.App = {
     const thead = document.getElementById('entry-table-head');
     if (thead) {
       if (isDoubles) {
-        thead.innerHTML = '<tr><th>P</th><th>氏名</th><th>ふりがな</th><th>所属</th><th>種目</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
+        thead.innerHTML = '<tr><th>P</th><th>氏名</th><th>所属</th><th>種目</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
       } else {
-        thead.innerHTML = '<tr><th>No.</th><th>氏名</th><th>ふりがな</th><th>所属</th><th>種目</th><th>ポイント</th><th>操作</th></tr>';
+        thead.innerHTML = '<tr><th>No.</th><th>氏名</th><th>所属</th><th>種目</th><th>ポイント</th><th>操作</th></tr>';
       }
     }
 
@@ -1591,11 +1613,11 @@ window.App = {
         }
         const evtObj = AppConfig.EVENTS.find(e => e.code === entry.eventCode);
         const evtName = evtObj ? evtObj.shortName : entry.eventCode;
+        const entryFuriganaHtml = entry.furigana ? '<span style="display:block;font-size:10px;color:#9ca3af;line-height:1;">' + this._esc(entry.furigana) + '</span>' : '';
 
         tr.innerHTML =
           '<td>' + (idx + 1) + '</td>' +
-          '<td>' + this._esc(entry.name) + '</td>' +
-          '<td>' + this._esc(entry.furigana || '') + '</td>' +
+          '<td>' + entryFuriganaHtml + this._esc(entry.name) + '</td>' +
           '<td>' + this._esc(entry.affiliation || '') + '</td>' +
           '<td>' + this._esc(evtName) + '</td>' +
           '<td>' + (entry.points || 0) + '</td>' +
@@ -1670,9 +1692,10 @@ window.App = {
     this._swapSelectedEntryId = this._swapSelectedEntryId || null;
     this._swapEventCode = eventCode;
 
-    // ペアごとに2行でグループ表示（水色/白の2色交互）
+    // ペアごとに2行でグループ表示（水色/白の2色交互、不完全ペアは赤）
     pairs.forEach((pair, pairIdx) => {
-      const bgColor = pairIdx % 2 === 0 ? '#e3f2fd' : '#ffffff';
+      const isIncomplete = pair.incomplete;
+      const bgColor = isIncomplete ? '#ffebee' : (pairIdx % 2 === 0 ? '#e3f2fd' : '#ffffff');
       pair.entries.forEach((entry, entryIdx) => {
         const tr = document.createElement('tr');
         if (pairIdx < 15) {
@@ -1680,6 +1703,9 @@ window.App = {
           tr.style.animationDelay = (pairIdx * 30) + 'ms';
         }
         tr.style.backgroundColor = bgColor;
+        if (isIncomplete) {
+          tr.style.borderLeft = '3px solid #ef5350';
+        }
 
         // 選択中の行をハイライト
         if (this._swapSelectedEntryId === entry.id) {
@@ -1695,10 +1721,10 @@ window.App = {
           ? '<span style="font-weight:bold;color:#1a56db;">' + pair.points + '</span>'
           : '';
 
+        const dblFuriganaHtml = entry.furigana ? '<span style="display:block;font-size:10px;color:#9ca3af;line-height:1;">' + this._esc(entry.furigana) + '</span>' : '';
         tr.innerHTML =
           '<td class="text-center">' + pairLabel + '</td>' +
-          '<td class="doubles-swap-cell" style="cursor:pointer;">' + this._esc(entry.name) + '</td>' +
-          '<td>' + this._esc(entry.furigana || '') + '</td>' +
+          '<td class="doubles-swap-cell" style="cursor:pointer;">' + dblFuriganaHtml + this._esc(entry.name) + '</td>' +
           '<td>' + this._esc(entry.affiliation || '') + '</td>' +
           '<td>' + this._esc(AppConfig.EVENTS.find(e => e.code === entry.eventCode)?.shortName || entry.eventCode) + '</td>' +
           '<td>' + (entry.points || 0) + '</td>' +
@@ -1754,7 +1780,7 @@ window.App = {
       // ペア間の区切り線
       if (pairIdx < pairs.length - 1) {
         const separatorTr = document.createElement('tr');
-        separatorTr.innerHTML = '<td colspan="8" style="padding:0;height:2px;background:#cbd5e1;"></td>';
+        separatorTr.innerHTML = '<td colspan="7" style="padding:0;height:2px;background:#cbd5e1;"></td>';
         tbody.appendChild(separatorTr);
       }
     });
@@ -1766,6 +1792,13 @@ window.App = {
 
   initTournamentsScreen() {
     TournamentStore.init();
+
+    // デフォルト大会を初期登録（データがない場合のみ）
+    if (TournamentStore.getAll().length === 0 && AppConfig.DEFAULT_TOURNAMENTS) {
+      for (const t of AppConfig.DEFAULT_TOURNAMENTS) {
+        TournamentStore.add(t);
+      }
+    }
 
     const btnAdd = document.getElementById('btn-tournament-add');
     if (btnAdd) btnAdd.addEventListener('click', () => this._showTournamentModal());
@@ -1886,6 +1919,44 @@ window.App = {
     modal.style.display = '';
   },
 
+  /**
+   * 日付をM/D形式に正規化
+   * 入力例: "3月4日", "2025/3/4", "2025-03-04", "3/4", "令和7年3月4日" → "3/4"
+   */
+  _normalizeDate(str) {
+    if (!str) return '';
+    str = str.trim();
+    // "M月D日" 形式
+    let m = str.match(/(\d{1,2})月(\d{1,2})日/);
+    if (m) return m[1] + '/' + m[2];
+    // "YYYY/M/D" or "YYYY-M-D" 形式
+    m = str.match(/\d{4}[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (m) return m[1] + '/' + m[2];
+    // "M/D" 形式（すでに正規）
+    m = str.match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (m) return m[1] + '/' + m[2];
+    return str;
+  },
+
+  /**
+   * 曜日を(曜)形式に正規化
+   * 入力例: "日", "（日）", "(日)", "日曜日", "Sunday" → "(日)"
+   */
+  _normalizeDayOfWeek(str) {
+    if (!str) return '';
+    str = str.trim();
+    // すでに(X)形式
+    let m = str.match(/[\(（]([日月火水木金土])[\)）]/);
+    if (m) return '(' + m[1] + ')';
+    // 曜日だけ
+    m = str.match(/^([日月火水木金土])$/);
+    if (m) return '(' + m[1] + ')';
+    // X曜日
+    m = str.match(/([日月火水木金土])曜/);
+    if (m) return '(' + m[1] + ')';
+    return str;
+  },
+
   _saveTournament() {
     const name = document.getElementById('tournament-edit-name').value.trim();
     if (!name) { this.showMessage('大会名を入力してください', 'error'); return; }
@@ -1893,10 +1964,10 @@ window.App = {
     const data = {
       name,
       events: document.getElementById('tournament-edit-events').value.trim(),
-      date: document.getElementById('tournament-edit-date').value.trim(),
-      dayOfWeek: document.getElementById('tournament-edit-dow').value.trim(),
+      date: this._normalizeDate(document.getElementById('tournament-edit-date').value.trim()),
+      dayOfWeek: this._normalizeDayOfWeek(document.getElementById('tournament-edit-dow').value.trim()),
       venue: document.getElementById('tournament-edit-venue').value.trim(),
-      reserveDate: document.getElementById('tournament-edit-reserve-date').value.trim(),
+      reserveDate: this._normalizeDate(document.getElementById('tournament-edit-reserve-date').value.trim()),
       reserveVenue: document.getElementById('tournament-edit-reserve-venue').value.trim(),
     };
 
@@ -1968,6 +2039,10 @@ window.App = {
   _refreshDrawEventSelect() {
     const select = document.getElementById('draw-event-select');
     if (!select) return;
+
+    // 現在の選択値を保存
+    const prevValue = select.value;
+
     select.innerHTML = '';
     let firstCode = '';
     for (const evt of AppConfig.EVENTS) {
@@ -1998,22 +2073,42 @@ window.App = {
       if (lotterySection) lotterySection.style.display = 'none';
       return;
     }
-    // スケールスライダーのイベント
-    const scaleSlider = document.getElementById('bracket-scale-slider');
-    if (scaleSlider) {
-      scaleSlider.addEventListener('input', () => {
-        const val = document.getElementById('bracket-scale-value');
-        if (val) val.textContent = Math.round(parseFloat(scaleSlider.value) * 100) + '%';
-        this._renderLiveBracket();
-      });
+
+    // 抽選中の状態を維持: 前回の種目が選択肢に残っていて配置中なら復元
+    if (prevValue && this._currentDrawData && this._currentDrawData.eventCode === prevValue && this._manualDraw) {
+      // 選択肢に前回の種目があるか確認
+      const stillExists = Array.from(select.options).some(o => o.value === prevValue);
+      if (stillExists) {
+        select.value = prevValue;
+        // 既存のUIを再描画するだけ（リセットしない）
+        const lotterySection = document.getElementById('lottery-section');
+        if (lotterySection) lotterySection.style.display = '';
+        const placementArea = document.getElementById('draw-placement-area');
+        if (placementArea) placementArea.style.display = '';
+        this._renderManualPlacement();
+        return;
+      }
     }
-    const hScaleSlider = document.getElementById('bracket-hscale-slider');
-    if (hScaleSlider) {
-      hScaleSlider.addEventListener('input', () => {
-        const val = document.getElementById('bracket-hscale-value');
-        if (val) val.textContent = Math.round(parseFloat(hScaleSlider.value) * 100) + '%';
-        this._renderLiveBracket();
-      });
+
+    // スケールスライダーのイベント（初回のみ）
+    if (!this._drawSliderInit) {
+      this._drawSliderInit = true;
+      const scaleSlider = document.getElementById('bracket-scale-slider');
+      if (scaleSlider) {
+        scaleSlider.addEventListener('input', () => {
+          const val = document.getElementById('bracket-scale-value');
+          if (val) val.textContent = Math.round(parseFloat(scaleSlider.value) * 100) + '%';
+          this._renderLiveBracket();
+        });
+      }
+      const hScaleSlider = document.getElementById('bracket-hscale-slider');
+      if (hScaleSlider) {
+        hScaleSlider.addEventListener('input', () => {
+          const val = document.getElementById('bracket-hscale-value');
+          if (val) val.textContent = Math.round(parseFloat(hScaleSlider.value) * 100) + '%';
+          this._renderLiveBracket();
+        });
+      }
     }
 
     // 最初の種目を自動選択して抽選画面を表示
@@ -2036,7 +2131,14 @@ window.App = {
     // ダブルスの場合はペア単位で処理
     let drawEntries;
     if (isDoubles) {
-      const pairs = EntryStore.getDoublesPairs(eventCode).filter(p => !p.incomplete);
+      const allPairs = EntryStore.getDoublesPairs(eventCode);
+      const incompletePairs = allPairs.filter(p => p.incomplete);
+      if (incompletePairs.length > 0) {
+        if (lotterySection) lotterySection.style.display = 'none';
+        this.showMessage('ペアが未確定の選手がいます（' + incompletePairs.length + '名）。エントリー画面でペアを確定してください。', 'error');
+        return;
+      }
+      const pairs = allPairs.filter(p => !p.incomplete);
       if (pairs.length <= 1) {
         if (lotterySection) lotterySection.style.display = 'none';
         this.showMessage('完全なペアが2組以上必要です', 'error');
@@ -3055,14 +3157,40 @@ window.App = {
     select.innerHTML = '';
 
     let firstCode = '';
+    const codes = [];
     for (const code of Object.keys(this.drawResults)) {
       const result = this.drawResults[code];
       const opt = document.createElement('option');
       opt.value = code;
       opt.textContent = result.eventName;
       select.appendChild(opt);
+      codes.push(code);
       if (!firstCode) firstCode = code;
     }
+
+    // 種目チップ表示
+    const chipsEl = document.getElementById('bracket-event-chips');
+    const summaryEl = document.getElementById('bracket-event-summary');
+    if (chipsEl && summaryEl) {
+      if (codes.length > 0) {
+        summaryEl.style.display = '';
+        chipsEl.innerHTML = '';
+        for (const code of codes) {
+          const result = this.drawResults[code];
+          const chip = document.createElement('button');
+          chip.className = 'btn btn-sm btn-secondary';
+          chip.textContent = result.eventName + ' (' + (result.entryCount || 0) + '名)';
+          chip.addEventListener('click', () => {
+            select.value = code;
+            this._onBracketEventChange();
+          });
+          chipsEl.appendChild(chip);
+        }
+      } else {
+        summaryEl.style.display = 'none';
+      }
+    }
+
     if (!firstCode) {
       select.innerHTML = '<option value="">ドローが確定されていません</option>';
       return;

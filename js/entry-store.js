@@ -80,7 +80,7 @@ window.EntryStore = {
   _notifyUI() {
     if (typeof App !== 'undefined') {
       if (App.currentScreen === 'screen-entry') App.refreshEntryTable();
-      if (App.currentScreen === 'screen-events') App.refreshEventsScreen();
+      if (App.currentScreen === 'screen-data') App.refreshTournamentsTable();
       if (App.currentScreen === 'screen-ranking') App._renderRankingRows();
       App.showMessage('他の端末からデータが更新されました', 'info');
     }
@@ -136,7 +136,8 @@ window.EntryStore = {
     const entry = this.entries[index];
     const updatableFields = [
       'name', 'furigana', 'affiliation', 'eventCode',
-      'rank', 'points', 'fee', 'paid', 'confirmed', 'notes'
+      'rank', 'points', 'fee', 'paid', 'confirmed', 'notes',
+      'partner', 'partnerAffiliation', 'partnerPoints', 'pairId'
     ];
 
     for (const field of updatableFields) {
@@ -268,6 +269,84 @@ window.EntryStore = {
 
     this.save();
     return this.entries.length;
+  },
+
+  /**
+   * ダブルスの種目かどうか判定
+   */
+  isDoublesEvent(eventCode) {
+    const evt = AppConfig.EVENTS.find(e => e.code === eventCode);
+    return evt ? evt.category === 'doubles' : false;
+  },
+
+  /**
+   * ダブルスのペア一覧を取得（エントリー順で自動ペアリング）
+   * 奇数の場合は最後の1人はペア未定
+   * @param {string} eventCode - 種目コード
+   * @returns {Array} ペア配列 [{id, name1, name2, affiliation1, affiliation2, points, entries: [entry1, entry2]}, ...]
+   */
+  getDoublesPairs(eventCode) {
+    const entries = this.entries.filter(e => e.eventCode === eventCode);
+    const pairs = [];
+    for (let i = 0; i < entries.length; i += 2) {
+      const e1 = entries[i];
+      const e2 = entries[i + 1];
+      if (e2) {
+        pairs.push({
+          pairId: i / 2 + 1,
+          name: e1.name + ' / ' + e2.name,
+          name1: e1.name,
+          name2: e2.name,
+          affiliation: (e1.affiliation || '') + (e2.affiliation && e2.affiliation !== e1.affiliation ? ' / ' + e2.affiliation : ''),
+          affiliation1: e1.affiliation || '',
+          affiliation2: e2.affiliation || '',
+          points: (e1.points || 0) + (e2.points || 0),
+          furigana: (e1.furigana || '') + ' / ' + (e2.furigana || ''),
+          entries: [e1, e2],
+          entryIds: [e1.id, e2.id],
+        });
+      } else {
+        // 奇数の最後の1人（ペア未定）
+        pairs.push({
+          pairId: Math.floor(i / 2) + 1,
+          name: e1.name + ' / ???',
+          name1: e1.name,
+          name2: '',
+          affiliation: e1.affiliation || '',
+          affiliation1: e1.affiliation || '',
+          affiliation2: '',
+          points: e1.points || 0,
+          furigana: e1.furigana || '',
+          entries: [e1],
+          entryIds: [e1.id],
+          incomplete: true,
+        });
+      }
+    }
+    return pairs;
+  },
+
+  /**
+   * ダブルスのペア順序を入れ替える
+   * @param {string} eventCode - 種目コード
+   * @param {number} entryId - 移動するエントリーID
+   * @param {number} targetIndex - 移動先のインデックス（同イベント内）
+   */
+  swapDoublesOrder(eventCode, entryId, targetId) {
+    const indices = [];
+    let srcIdx = -1, dstIdx = -1;
+    this.entries.forEach((e, i) => {
+      if (e.eventCode === eventCode) {
+        if (e.id === entryId) srcIdx = i;
+        if (e.id === targetId) dstIdx = i;
+      }
+    });
+    if (srcIdx >= 0 && dstIdx >= 0 && srcIdx !== dstIdx) {
+      const temp = this.entries[srcIdx];
+      this.entries[srcIdx] = this.entries[dstIdx];
+      this.entries[dstIdx] = temp;
+      this.save();
+    }
   },
 
   /**

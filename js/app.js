@@ -8,6 +8,7 @@
 window.App = {
   currentScreen: 'screen-data',
   drawResults: {},      // 種目別ドロー結果 { eventCode: drawResult }
+  confirmedEvents: {}, // 確定済み種目 { eventCode: true }
   _editingEntryId: null, // 編集中エントリーID
 
   /**
@@ -28,15 +29,18 @@ window.App = {
       });
     });
 
+    // ドロー結果の復元
+    this._restoreDrawResults();
+
     // 各画面の初期化
     this.initDataScreen();
     this.initRankingScreen();
     this.initOCRScreen();
     this.initEntryScreen();
-    this.initEventsScreen();
     this.initDrawScreen();
     this.initBracketScreen();
     this.initManualScreen();
+    this.initBackupScreen();
 
     // モーダル閉じるボタンの共通処理
     document.querySelectorAll('[data-modal-close]').forEach(btn => {
@@ -104,12 +108,12 @@ window.App = {
       // ステータス表示を更新
       const gsRankingStatus = document.getElementById('gs-ranking-status');
       if (gsRankingStatus) {
-        gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">バックアップから復元: ' + status.total + '名</span>';
+        gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">バックアップから復元: ' + status.total + '名' + (dateStr ? ' (' + dateStr + ')' : '') + '</span>';
       }
       const gsFuriganaStatus = document.getElementById('gs-furigana-status');
       const furiganaCount = Object.keys(RankingLoader.furiganaMap).length;
       if (gsFuriganaStatus && furiganaCount > 0) {
-        gsFuriganaStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">バックアップから復元: ' + furiganaCount + '件</span>';
+        gsFuriganaStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">バックアップから復元: ' + furiganaCount + '件' + (dateStr ? ' (' + dateStr + ')' : '') + '</span>';
       }
 
       // バックグラウンドでスプレッドシートから最新データを取得
@@ -130,8 +134,9 @@ window.App = {
         const status = RankingLoader.getStatus();
         this._updateRankingStatus(status);
         const gsRankingStatus = document.getElementById('gs-ranking-status');
+        const now = new Date().toLocaleString('ja-JP');
         if (gsRankingStatus) {
-          gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">最新データ読込済: ' + status.total + '名</span>';
+          gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">最新データ読込済: ' + status.total + '名 (' + now + ')</span>';
         }
       }
       const furiInput = document.getElementById('gs-furigana-url');
@@ -139,8 +144,9 @@ window.App = {
         await RankingLoader.loadFuriganaFromSpreadsheet(furiInput.value.trim());
         const count = Object.keys(RankingLoader.furiganaMap).length;
         const gsFuriganaStatus = document.getElementById('gs-furigana-status');
+        const now2 = new Date().toLocaleString('ja-JP');
         if (gsFuriganaStatus) {
-          gsFuriganaStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">最新データ読込済: ' + count + '件</span>';
+          gsFuriganaStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">最新データ読込済: ' + count + '件 (' + now2 + ')</span>';
         }
       }
     } catch (e) {
@@ -170,9 +176,9 @@ window.App = {
     // 画面切り替え時のリフレッシュ
     if (screenId === 'screen-ranking') this.refreshRankingTable();
     if (screenId === 'screen-entry') this.refreshEntryTable();
-    if (screenId === 'screen-events') this.refreshEventsScreen();
     if (screenId === 'screen-draw') this._refreshDrawEventSelect();
     if (screenId === 'screen-bracket') this._refreshBracketEventSelect();
+    if (screenId === 'screen-backup') this.refreshBackupTable();
   },
 
   // ================================================================
@@ -224,41 +230,82 @@ window.App = {
       if (gsRankingUrl) gsRankingUrl.value = savedRankingUrl || AppConfig.DEFAULT_RANKING_SPREADSHEET || '';
       if (gsFuriganaUrl) gsFuriganaUrl.value = savedFuriganaUrl || AppConfig.DEFAULT_FURIGANA_SPREADSHEET || '';
     } catch (e) { /* ignore */ }
+
+    // リンクボタンの更新
+    this._updateGSLinkButtons();
+    if (gsRankingUrl) gsRankingUrl.addEventListener('input', () => this._updateGSLinkButtons());
+    if (gsFuriganaUrl) gsFuriganaUrl.addEventListener('input', () => this._updateGSLinkButtons());
+
+    // 大会一覧の初期化（データ読込画面に統合）
+    this.initTournamentsScreen();
+  },
+
+  _updateGSLinkButtons() {
+    const rankingUrl = (document.getElementById('gs-ranking-url') || {}).value || '';
+    const furiganaUrl = (document.getElementById('gs-furigana-url') || {}).value || '';
+    const rankingLink = document.getElementById('btn-gs-ranking-link');
+    const furiganaLink = document.getElementById('btn-gs-furigana-link');
+    if (rankingLink) {
+      if (rankingUrl.trim()) {
+        rankingLink.style.display = '';
+        rankingLink.href = rankingUrl.trim().startsWith('http') ? rankingUrl.trim() : 'https://docs.google.com/spreadsheets/d/' + rankingUrl.trim();
+      } else {
+        rankingLink.style.display = 'none';
+      }
+    }
+    if (furiganaLink) {
+      if (furiganaUrl.trim()) {
+        furiganaLink.style.display = '';
+        furiganaLink.href = furiganaUrl.trim().startsWith('http') ? furiganaUrl.trim() : 'https://docs.google.com/spreadsheets/d/' + furiganaUrl.trim();
+      } else {
+        furiganaLink.style.display = 'none';
+      }
+    }
   },
 
   async _loadRankingFromGS() {
     const urlInput = document.getElementById('gs-ranking-url');
     const statusEl = document.getElementById('gs-ranking-status');
     const btnEl = document.getElementById('btn-gs-ranking');
+    const progressEl = document.getElementById('gs-ranking-progress');
+    const progressBar = document.getElementById('gs-ranking-progress-bar');
+    const progressText = document.getElementById('gs-ranking-progress-text');
     if (!urlInput || !urlInput.value.trim()) {
       this.showMessage('スプレッドシートのURLまたはIDを入力してください', 'error');
       return;
     }
 
-    // URL保存
     try { localStorage.setItem('drawSystem_gsRankingUrl', urlInput.value.trim()); } catch (e) {}
+    this._updateGSLinkButtons();
 
-    // ローディング表示
-    if (statusEl) {
-      statusEl.innerHTML = '<span class="status-icon status-pending" style="animation:pulse 1s infinite;">&#9679;</span><span class="status-text">読込中...</span>';
-    }
+    // プログレスバー表示
+    if (progressEl) progressEl.style.display = '';
+    if (progressBar) progressBar.style.width = '20%';
+    if (progressText) progressText.textContent = 'ランキングデータ読込中...';
+    if (statusEl) statusEl.style.display = 'none';
     if (btnEl) btnEl.disabled = true;
 
     try {
+      if (progressBar) progressBar.style.width = '50%';
       const status = await RankingLoader.loadRankingFromSpreadsheet(urlInput.value.trim());
+      if (progressBar) progressBar.style.width = '100%';
       this._updateRankingStatus(status);
+      const now = new Date().toLocaleString('ja-JP');
       if (statusEl) {
-        statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + status.total + '名</span>';
+        statusEl.style.display = '';
+        statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + status.total + '名 (' + now + ')</span>';
       }
-      this.showMessage('スプレッドシートからランキングデータを読み込みました (' + status.total + '名)', 'success');
+      this.showMessage('ランキングデータを読み込みました (' + status.total + '名)', 'success');
     } catch (err) {
       console.error(err);
       if (statusEl) {
+        statusEl.style.display = '';
         statusEl.innerHTML = '<span class="status-icon status-error">&#9679;</span><span class="status-text">エラー: ' + err.message + '</span>';
       }
       this.showMessage('読み込み失敗: ' + err.message, 'error');
     } finally {
       if (btnEl) btnEl.disabled = false;
+      setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 500);
     }
   },
 
@@ -266,33 +313,44 @@ window.App = {
     const urlInput = document.getElementById('gs-furigana-url');
     const statusEl = document.getElementById('gs-furigana-status');
     const btnEl = document.getElementById('btn-gs-furigana');
+    const progressEl = document.getElementById('gs-furigana-progress');
+    const progressBar = document.getElementById('gs-furigana-progress-bar');
+    const progressText = document.getElementById('gs-furigana-progress-text');
     if (!urlInput || !urlInput.value.trim()) {
       this.showMessage('スプレッドシートのURLまたはIDを入力してください', 'error');
       return;
     }
 
     try { localStorage.setItem('drawSystem_gsFuriganaUrl', urlInput.value.trim()); } catch (e) {}
+    this._updateGSLinkButtons();
 
-    if (statusEl) {
-      statusEl.innerHTML = '<span class="status-icon status-pending" style="animation:pulse 1s infinite;">&#9679;</span><span class="status-text">読込中...</span>';
-    }
+    if (progressEl) progressEl.style.display = '';
+    if (progressBar) progressBar.style.width = '20%';
+    if (progressText) progressText.textContent = 'ふりがなデータ読込中...';
+    if (statusEl) statusEl.style.display = 'none';
     if (btnEl) btnEl.disabled = true;
 
     try {
+      if (progressBar) progressBar.style.width = '50%';
       await RankingLoader.loadFuriganaFromSpreadsheet(urlInput.value.trim());
+      if (progressBar) progressBar.style.width = '100%';
       const count = Object.keys(RankingLoader.furiganaMap).length;
+      const now = new Date().toLocaleString('ja-JP');
       if (statusEl) {
-        statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + count + '件</span>';
+        statusEl.style.display = '';
+        statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + count + '件 (' + now + ')</span>';
       }
-      this.showMessage('スプレッドシートからふりがなデータを読み込みました (' + count + '件)', 'success');
+      this.showMessage('ふりがなデータを読み込みました (' + count + '件)', 'success');
     } catch (err) {
       console.error(err);
       if (statusEl) {
+        statusEl.style.display = '';
         statusEl.innerHTML = '<span class="status-icon status-error">&#9679;</span><span class="status-text">エラー: ' + err.message + '</span>';
       }
       this.showMessage('読み込み失敗: ' + err.message, 'error');
     } finally {
       if (btnEl) btnEl.disabled = false;
+      setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 500);
     }
   },
 
@@ -549,16 +607,16 @@ window.App = {
 
       tr.innerHTML =
         '<td class="text-center">' + (p.rank === '-' ? '<span style="color:#9ca3af;">-</span>' : p.rank) + '</td>' +
-        '<td><strong>' + this._esc(p.name) + '</strong></td>' +
-        '<td style="color:#6b7280;font-size:13px;">' + this._esc(furigana) + '</td>' +
-        '<td>' + this._esc(p.affiliation || '') + '</td>' +
+        '<td><strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
+        '<td style="color:#6b7280;font-size:13px;white-space:nowrap;">' + this._esc(furigana) + '</td>' +
+        '<td style="white-space:nowrap;">' + this._esc(p.affiliation || '') + '</td>' +
         '<td class="text-center">' + (p.points || '-') + '</td>' +
-        '<td>' + (evtObj ? '<span class="event-badge event-badge-' + p.eventCode + '">' + evtObj.shortName + '</span>' : '<span style="color:#9ca3af;font-size:12px;">未登録</span>') + '</td>' +
         '<td class="action-cell"></td>';
 
       const actionCell = tr.querySelector('.action-cell');
 
       if (isEntered) {
+        tr.classList.add('row-entered');
         const badge = document.createElement('span');
         badge.className = 'entered-badge';
         badge.textContent = '登録済';
@@ -567,7 +625,9 @@ window.App = {
         const btn = document.createElement('button');
         btn.className = 'btn btn-sm btn-entry-quick';
         btn.textContent = 'エントリー';
-        btn.addEventListener('click', () => this._quickEntry(p));
+        btn.addEventListener('click', () => {
+          this._quickEntryInline(p, tr, btn);
+        });
         actionCell.appendChild(btn);
       }
 
@@ -576,10 +636,9 @@ window.App = {
   },
 
   /**
-   * ランキング画面からのクイックエントリー
+   * ランキング画面からのクイックエントリー（インライン・画面更新なし）
    */
-  _quickEntry(player) {
-    // 種目が決まっている場合は確認のみで登録
+  _quickEntryInline(player, tr, btn) {
     if (player.eventCode) {
       const furigana = player.furigana || RankingLoader.furiganaMap[player.name] || '';
       EntryStore.add({
@@ -589,12 +648,43 @@ window.App = {
         eventCode: player.eventCode,
         points: player.points || 0,
       });
-      // リストにない人は自動追加
       RankingLoader.addToFuriganaMap(player.name, furigana);
-      this.showMessage(player.name + ' を ' + (AppConfig.EVENTS.find(e => e.code === player.eventCode)?.shortName || player.eventCode) + ' にエントリーしました', 'success');
+
+      // ボタンを「登録済」バッジに変更
+      btn.remove();
+      const badge = document.createElement('span');
+      badge.className = 'entered-badge';
+      badge.textContent = '登録済';
+      tr.querySelector('.action-cell').appendChild(badge);
+
+      // 行を目立つ色にフラッシュしてからグレーに
+      tr.style.transition = 'background-color 0.3s';
+      tr.style.backgroundColor = '#ffeb3b';
+      setTimeout(() => {
+        tr.style.backgroundColor = '#e0e0e0';
+        tr.classList.add('row-entered');
+      }, 800);
+    } else {
+      this._showQuickEntryModal(player);
+    }
+  },
+
+  /**
+   * ランキング画面からのクイックエントリー（モーダル経由）
+   */
+  _quickEntry(player) {
+    if (player.eventCode) {
+      const furigana = player.furigana || RankingLoader.furiganaMap[player.name] || '';
+      EntryStore.add({
+        name: player.name,
+        furigana: furigana,
+        affiliation: player.affiliation || '',
+        eventCode: player.eventCode,
+        points: player.points || 0,
+      });
+      RankingLoader.addToFuriganaMap(player.name, furigana);
       this._renderRankingRows();
     } else {
-      // 種目未定（リスト登録者）→ モーダルで種目選択
       this._showQuickEntryModal(player);
     }
   },
@@ -685,6 +775,26 @@ window.App = {
     if (btnOCRRegister) {
       btnOCRRegister.addEventListener('click', () => this._registerOCRResults());
     }
+
+    // Gemini APIキーの復元
+    const geminiKeyInput = document.getElementById('gemini-api-key');
+    if (geminiKeyInput) {
+      try {
+        const savedKey = localStorage.getItem('drawSystem_geminiApiKey');
+        if (savedKey) geminiKeyInput.value = savedKey;
+      } catch (e) {}
+    }
+
+    // エンジン切替でAPIキー欄の表示/非表示
+    const engineSelect = document.getElementById('ocr-engine-select');
+    const apiKeyGroup = document.getElementById('gemini-api-key-group');
+    if (engineSelect && apiKeyGroup) {
+      const toggleApiKey = () => {
+        apiKeyGroup.style.display = engineSelect.value === 'gemini' ? '' : 'none';
+      };
+      engineSelect.addEventListener('change', toggleApiKey);
+      toggleApiKey();
+    }
   },
 
   _handleOCRImage(file) {
@@ -740,32 +850,123 @@ window.App = {
     const progressText = document.getElementById('ocr-progress-text');
     if (progressEl) progressEl.style.display = '';
 
+    const engineSelect = document.getElementById('ocr-engine-select');
+    const useGemini = engineSelect && engineSelect.value === 'gemini';
+
     try {
-      // Tesseract.js が読み込まれているか確認
-      if (typeof Tesseract === 'undefined') {
-        this.showMessage('OCRライブラリ(Tesseract.js)が読み込まれていません', 'error');
-        return;
+      if (useGemini) {
+        await this._executeGeminiOCR(progressBar, progressText);
+      } else {
+        await this._executeTesseractOCR(progressBar, progressText);
       }
-
-      const result = await Tesseract.recognize(this._ocrImageFile, 'jpn', {
-        logger: (m) => {
-          if (m.status === 'recognizing text' && progressBar) {
-            const pct = Math.round(m.progress * 100);
-            progressBar.style.width = pct + '%';
-            if (progressText) progressText.textContent = '認識中... ' + pct + '%';
-          }
-        },
-      });
-
-      const text = result.data.text;
-      this._displayOCRResults(text);
-      this.showMessage('OCR認識が完了しました', 'success');
     } catch (err) {
       console.error(err);
       this.showMessage('OCR認識に失敗しました: ' + err.message, 'error');
     } finally {
       if (progressEl) progressEl.style.display = 'none';
     }
+  },
+
+  async _executeTesseractOCR(progressBar, progressText) {
+    if (typeof Tesseract === 'undefined') {
+      this.showMessage('OCRライブラリ(Tesseract.js)が読み込まれていません', 'error');
+      return;
+    }
+
+    const result = await Tesseract.recognize(this._ocrImageFile, 'jpn', {
+      logger: (m) => {
+        if (m.status === 'recognizing text' && progressBar) {
+          const pct = Math.round(m.progress * 100);
+          progressBar.style.width = pct + '%';
+          if (progressText) progressText.textContent = '認識中... ' + pct + '%';
+        }
+      },
+    });
+
+    const text = result.data.text;
+    this._displayOCRResults(text);
+    this.showMessage('OCR認識が完了しました', 'success');
+  },
+
+  async _executeGeminiOCR(progressBar, progressText) {
+    const apiKeyInput = document.getElementById('gemini-api-key');
+    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+    if (!apiKey) {
+      this.showMessage('Gemini APIキーを入力してください', 'error');
+      return;
+    }
+
+    // APIキーをlocalStorageに保存
+    try { localStorage.setItem('drawSystem_geminiApiKey', apiKey); } catch (e) {}
+
+    if (progressBar) progressBar.style.width = '30%';
+    if (progressText) progressText.textContent = 'Gemini AIで認識中...';
+
+    // 画像をBase64に変換
+    const base64 = await this._fileToBase64(this._ocrImageFile);
+    const mimeType = this._ocrImageFile.type || 'image/jpeg';
+
+    if (progressBar) progressBar.style.width = '50%';
+
+    const requestBody = {
+      contents: [{
+        parts: [
+          {
+            text: 'この画像はテニス大会のエントリー申込用紙です。手書きの氏名を読み取ってください。\n' +
+              '以下のフォーマットで全ての氏名を1行ずつ出力してください。所属が読み取れる場合はカンマ区切りで追加してください。\n' +
+              'フォーマット: 氏名,所属\n' +
+              '例:\n山田 太郎,鳥取TC\n鈴木 花子,米子クラブ\n\n' +
+              '注意:\n- 姓と名の間にスペースを入れてください\n- 読み取れない文字は?で表記してください\n- ヘッダーや説明文は不要です。氏名のみ出力してください'
+          },
+          {
+            inline_data: {
+              mime_type: mimeType,
+              data: base64,
+            }
+          }
+        ]
+      }]
+    };
+
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error('Gemini API エラー: ' + (errorData.error?.message || response.statusText));
+    }
+
+    const data = await response.json();
+    if (progressBar) progressBar.style.width = '90%';
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text.trim()) {
+      this.showMessage('テキストが認識できませんでした', 'error');
+      return;
+    }
+
+    this._displayOCRResults(text);
+    this.showMessage('Gemini AIで認識が完了しました', 'success');
+  },
+
+  _fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        // data:image/jpeg;base64,XXXX の XXXX 部分を取得
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   },
 
   _displayOCRResults(text) {
@@ -940,10 +1141,110 @@ window.App = {
   },
 
   // ================================================================
+  // 大会設定
+  // ================================================================
+
+  _initTournamentSettings() {
+    const tournamentSelect = document.getElementById('tournament-select');
+    const dateInput = document.getElementById('tournament-date-input');
+    const venueSelect = document.getElementById('tournament-venue-input');
+    const formatSelect = document.getElementById('tournament-format-select');
+    const formatCustom = document.getElementById('tournament-format-custom');
+
+    // 大会プルダウンを構築
+    this._refreshTournamentSelect();
+
+    // 大会選択時に情報を自動セット
+    if (tournamentSelect) {
+      tournamentSelect.addEventListener('change', () => {
+        const id = parseInt(tournamentSelect.value);
+        if (!id) return;
+        const t = TournamentStore.getById(id);
+        if (!t) return;
+        AppConfig.TOURNAMENT_NAME = t.name;
+        if (dateInput) dateInput.value = t.date + (t.dayOfWeek ? ' ' + t.dayOfWeek : '');
+        if (venueSelect) {
+          // 会場を選択肢から探してセット、なければ最初の選択肢
+          const venueMatch = (AppConfig.VENUE_OPTIONS || []).find(v => t.venue && v.includes(t.venue));
+          if (venueMatch) venueSelect.value = venueMatch;
+        }
+        updateConfig();
+      });
+    }
+
+    // 会場選択肢を構築
+    if (venueSelect) {
+      venueSelect.innerHTML = '';
+      (AppConfig.VENUE_OPTIONS || []).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        venueSelect.appendChild(opt);
+      });
+      venueSelect.value = AppConfig.TOURNAMENT_VENUE || '';
+    }
+
+    // ゲームルール選択肢を構築
+    if (formatSelect) {
+      formatSelect.innerHTML = '<option value="">-- 選択 --</option>';
+      (AppConfig.MATCH_FORMAT_OPTIONS || []).forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = f;
+        formatSelect.appendChild(opt);
+      });
+      const defaultFormat = AppConfig.MATCH_FORMAT || '';
+      if ((AppConfig.MATCH_FORMAT_OPTIONS || []).includes(defaultFormat)) {
+        formatSelect.value = defaultFormat;
+      }
+    }
+
+    // 初期値セット
+    if (dateInput) dateInput.value = AppConfig.TOURNAMENT_DATE || '';
+
+    // 変更時にAppConfigに反映
+    const updateConfig = () => {
+      if (dateInput) AppConfig.TOURNAMENT_DATE = dateInput.value.trim();
+      if (venueSelect) AppConfig.TOURNAMENT_VENUE = venueSelect.value;
+      if (formatCustom && formatCustom.value.trim()) {
+        AppConfig.MATCH_FORMAT = formatCustom.value.trim();
+      } else if (formatSelect && formatSelect.value) {
+        AppConfig.MATCH_FORMAT = formatSelect.value;
+      }
+    };
+
+    if (dateInput) dateInput.addEventListener('change', updateConfig);
+    if (venueSelect) venueSelect.addEventListener('change', updateConfig);
+    if (formatSelect) formatSelect.addEventListener('change', () => {
+      if (formatCustom && formatSelect.value) formatCustom.value = '';
+      updateConfig();
+    });
+    if (formatCustom) formatCustom.addEventListener('input', updateConfig);
+  },
+
+  _refreshTournamentSelect() {
+    const select = document.getElementById('tournament-select');
+    if (!select) return;
+    const prevValue = select.value;
+    select.innerHTML = '<option value="">-- 大会を選択 --</option>';
+    const tournaments = TournamentStore.getAll();
+    tournaments.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name;
+      select.appendChild(opt);
+    });
+    if (prevValue) select.value = prevValue;
+  },
+
+  // ================================================================
   // エントリー一覧画面
   // ================================================================
 
   initEntryScreen() {
+    // 大会設定の初期化
+    this._initTournamentSettings();
+
     // 種目フィルタードロップダウン（refreshEntryTable内で動的に更新）
     const filterSelect = document.getElementById('entry-event-filter');
     if (filterSelect) {
@@ -1037,7 +1338,8 @@ window.App = {
         document.getElementById('entry-name').value = entry.name || '';
         document.getElementById('entry-furigana').value = entry.furigana || '';
         document.getElementById('entry-club').value = entry.affiliation || '';
-        document.getElementById('entry-event').value = entry.eventCode || '';
+        const evtEl = document.getElementById('entry-event');
+        if (evtEl) { evtEl.disabled = false; evtEl.value = entry.eventCode || ''; }
         document.getElementById('entry-point').value = entry.points || 0;
       }
     } else {
@@ -1046,12 +1348,20 @@ window.App = {
       document.getElementById('entry-furigana').value = '';
       document.getElementById('entry-club').value = '';
       document.getElementById('entry-point').value = 0;
-      // エントリーが1種目のみの場合はその種目を自動選択
-      const allEntries = EntryStore.getAll();
-      const entryEventCodes = [...new Set(allEntries.map(e => e.eventCode))];
+      // 現在フィルターで選択中の種目に固定
+      const filterSelect = document.getElementById('entry-event-filter');
+      const currentFilter = filterSelect ? filterSelect.value : '';
       const evtSelect = document.getElementById('entry-event');
       if (evtSelect) {
-        evtSelect.value = entryEventCodes.length === 1 ? entryEventCodes[0] : '';
+        if (currentFilter) {
+          evtSelect.value = currentFilter;
+          evtSelect.disabled = true;
+        } else {
+          const allEntries = EntryStore.getAll();
+          const entryEventCodes = [...new Set(allEntries.map(e => e.eventCode))];
+          evtSelect.disabled = false;
+          evtSelect.value = entryEventCodes.length === 1 ? entryEventCodes[0] : '';
+        }
       }
     }
 
@@ -1101,7 +1411,13 @@ window.App = {
     this._clearSuggestions();
     if (!query || query.length < 1) return;
 
-    const results = RankingLoader.searchPlayers(query);
+    // 現在選択中の種目でフィルター
+    const evtSelect = document.getElementById('entry-event');
+    const currentEventCode = evtSelect ? evtSelect.value : '';
+    let results = RankingLoader.searchPlayers(query);
+    if (currentEventCode) {
+      results = results.filter(p => p.eventCode === currentEventCode);
+    }
     if (results.length === 0) return;
 
     const nameInput = document.getElementById('entry-name');
@@ -1122,7 +1438,10 @@ window.App = {
         document.getElementById('entry-name').value = p.name;
         document.getElementById('entry-furigana').value = p.furigana || RankingLoader.furiganaMap[p.name] || '';
         document.getElementById('entry-club').value = p.affiliation || '';
-        document.getElementById('entry-event').value = p.eventCode || '';
+        const evtEl = document.getElementById('entry-event');
+        if (evtEl && !evtEl.disabled) {
+          evtEl.value = p.eventCode || '';
+        }
         document.getElementById('entry-point').value = p.points || 0;
         this._clearSuggestions();
       });
@@ -1147,6 +1466,9 @@ window.App = {
     const totalCount = document.getElementById('entry-total-count');
     if (!tbody) return;
 
+    // 大会プルダウンを更新
+    this._refreshTournamentSelect();
+
     // エントリー済み種目を取得
     const allEntries = EntryStore.getAll();
     const entryEventCodes = [...new Set(allEntries.map(e => e.eventCode))];
@@ -1155,13 +1477,14 @@ window.App = {
     const filterSelect = document.getElementById('entry-event-filter');
     if (filterSelect) {
       const prevValue = filterSelect.value;
-      filterSelect.innerHTML = '<option value="">全種目</option>';
+      filterSelect.innerHTML = '';
       for (const code of entryEventCodes) {
         const evt = AppConfig.EVENTS.find(e => e.code === code);
         const count = allEntries.filter(e => e.eventCode === code).length;
+        const isConfirmed = this.confirmedEvents && this.confirmedEvents[code];
         const opt = document.createElement('option');
         opt.value = code;
-        opt.textContent = (evt ? evt.name : code) + ' (' + count + ')';
+        opt.textContent = (evt ? evt.name : code) + ' (' + count + ')' + (isConfirmed ? ' [確定済]' : '');
         filterSelect.appendChild(opt);
       }
       // エントリーが1種目だけならその種目を自動選択
@@ -1195,34 +1518,147 @@ window.App = {
       entries = entries.filter(e => e.eventCode === filter);
     }
 
-    // ランキング順（ポイント降順）でソート
-    entries.sort((a, b) => (b.points || 0) - (a.points || 0));
+    const targetCode = filter || (entryEventCodes.length === 1 ? entryEventCodes[0] : '');
+    let isDoubles = false;
+    try {
+      isDoubles = !!(targetCode && EntryStore.isDoublesEvent(targetCode));
+    } catch (e) {
+      console.warn('isDoublesEvent error:', e);
+    }
 
+    // テーブルヘッダーを切り替え
+    const thead = document.getElementById('entry-table-head');
+    if (thead) {
+      if (isDoubles) {
+        thead.innerHTML = '<tr><th>P</th><th>氏名</th><th>ふりがな</th><th>所属</th><th>種目</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
+      } else {
+        thead.innerHTML = '<tr><th>No.</th><th>氏名</th><th>ふりがな</th><th>所属</th><th>種目</th><th>ポイント</th><th>操作</th></tr>';
+      }
+    }
+
+    // ダブルスの場合はペア単位で表示
+    if (isDoubles && targetCode) {
+      try {
+        this._renderDoublesEntryTable(tbody, targetCode, totalCount);
+      } catch (e) {
+        console.error('ダブルスエントリー表示エラー:', e);
+        isDoubles = false; // フォールバック: シングルスとして表示
+      }
+    }
+    if (!isDoubles) {
+      // シングルス: ランキング順（ポイント降順）でソート
+      entries.sort((a, b) => (b.points || 0) - (a.points || 0));
+      tbody.innerHTML = '';
+      if (totalCount) totalCount.textContent = entries.length;
+
+      // シード・ドロー情報の表示（フィルター下部）
+      try {
+        const seedInfoEl = document.getElementById('entry-seed-info');
+        if (seedInfoEl) {
+          seedInfoEl.innerHTML = '';
+          if (targetCode && entries.length > 3) {
+            const drawSize = DrawEngine.getDrawSize(entries.length);
+            const seedRule = AppConfig.SEED_RULES[drawSize];
+            const seedCount = seedRule ? seedRule.seeds : 0;
+            const sorted = [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
+            const seedPlayers = sorted.slice(0, seedCount);
+
+            let html = '<div class="draw-info-grid">' +
+              '<div class="draw-info-item"><span class="draw-info-label">エントリー</span><span class="draw-info-value">' + entries.length + '名</span></div>' +
+              '<div class="draw-info-item"><span class="draw-info-label">ドローサイズ</span><span class="draw-info-value">' + drawSize + '</span></div>' +
+              '<div class="draw-info-item"><span class="draw-info-label">BYE</span><span class="draw-info-value">' + (drawSize - entries.length) + '</span></div>' +
+              '<div class="draw-info-item"><span class="draw-info-label">シード</span><span class="draw-info-value">' + seedCount + '名</span></div>' +
+              '</div>';
+            if (seedPlayers.length > 0) {
+              html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">';
+              seedPlayers.forEach((p, i) => {
+                html += '<span class="seed-chip">[' + (i + 1) + '] ' + this._esc(p.name) + ' <small>(' + (p.points || 0) + 'pt)</small></span>';
+              });
+              html += '</div>';
+            }
+            seedInfoEl.innerHTML = html;
+          }
+        }
+      } catch (e) {
+        console.warn('シード情報の表示エラー:', e);
+      }
+
+      entries.forEach((entry, idx) => {
+        const tr = document.createElement('tr');
+        if (idx < 30) {
+          tr.classList.add('row-enter');
+          tr.style.animationDelay = (idx * 20) + 'ms';
+        }
+        const evtObj = AppConfig.EVENTS.find(e => e.code === entry.eventCode);
+        const evtName = evtObj ? evtObj.shortName : entry.eventCode;
+
+        tr.innerHTML =
+          '<td>' + (idx + 1) + '</td>' +
+          '<td>' + this._esc(entry.name) + '</td>' +
+          '<td>' + this._esc(entry.furigana || '') + '</td>' +
+          '<td>' + this._esc(entry.affiliation || '') + '</td>' +
+          '<td>' + this._esc(evtName) + '</td>' +
+          '<td>' + (entry.points || 0) + '</td>' +
+          '<td class="action-cell"></td>';
+
+        const actionCell = tr.querySelector('.action-cell');
+
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'btn btn-sm btn-secondary';
+        btnEdit.textContent = '編集';
+        btnEdit.addEventListener('click', () => this._showEntryModal(entry.id));
+        actionCell.appendChild(btnEdit);
+
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn btn-sm btn-danger';
+        btnDel.textContent = '削除';
+        btnDel.style.marginLeft = '4px';
+        btnDel.addEventListener('click', () => {
+          if (confirm(entry.name + ' を削除しますか？')) {
+            EntryStore.remove(entry.id);
+            this.refreshEntryTable();
+            this.showMessage('エントリーを削除しました', 'info');
+          }
+        });
+        actionCell.appendChild(btnDel);
+
+        tbody.appendChild(tr);
+      });
+    }
+  },
+
+  /**
+   * ダブルスのエントリーテーブル表示（ペア単位・合計ランキング順）
+   */
+  _renderDoublesEntryTable(tbody, eventCode, totalCountEl) {
+    const pairs = EntryStore.getDoublesPairs(eventCode);
+    // 合計ポイント降順でソート
+    pairs.sort((a, b) => (b.points || 0) - (a.points || 0));
+    const allEntries = EntryStore.entries.filter(e => e.eventCode === eventCode);
     tbody.innerHTML = '';
-    if (totalCount) totalCount.textContent = entries.length;
+    if (totalCountEl) totalCountEl.textContent = allEntries.length + '名 (' + pairs.length + 'ペア)';
 
-    // シード・ドロー情報の表示（フィルター下部）
+    // シード・ドロー情報
     const seedInfoEl = document.getElementById('entry-seed-info');
     if (seedInfoEl) {
       seedInfoEl.innerHTML = '';
-      const targetCode = filter || (entryEventCodes.length === 1 ? entryEventCodes[0] : '');
-      if (targetCode && entries.length > 3) {
-        const drawSize = DrawEngine.getDrawSize(entries.length);
+      const completePairs = pairs.filter(p => !p.incomplete);
+      if (completePairs.length > 3) {
+        const drawSize = DrawEngine.getDrawSize(completePairs.length);
         const seedRule = AppConfig.SEED_RULES[drawSize];
         const seedCount = seedRule ? seedRule.seeds : 0;
-        const sorted = [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
-        const seedPlayers = sorted.slice(0, seedCount);
+        const seedPairs = completePairs.slice(0, seedCount);
 
         let html = '<div class="draw-info-grid">' +
-          '<div class="draw-info-item"><span class="draw-info-label">エントリー</span><span class="draw-info-value">' + entries.length + '名</span></div>' +
+          '<div class="draw-info-item"><span class="draw-info-label">ペア数</span><span class="draw-info-value">' + completePairs.length + '</span></div>' +
           '<div class="draw-info-item"><span class="draw-info-label">ドローサイズ</span><span class="draw-info-value">' + drawSize + '</span></div>' +
-          '<div class="draw-info-item"><span class="draw-info-label">BYE</span><span class="draw-info-value">' + (drawSize - entries.length) + '</span></div>' +
-          '<div class="draw-info-item"><span class="draw-info-label">シード</span><span class="draw-info-value">' + seedCount + '名</span></div>' +
+          '<div class="draw-info-item"><span class="draw-info-label">BYE</span><span class="draw-info-value">' + (drawSize - completePairs.length) + '</span></div>' +
+          '<div class="draw-info-item"><span class="draw-info-label">シード</span><span class="draw-info-value">' + seedCount + '</span></div>' +
           '</div>';
-        if (seedPlayers.length > 0) {
+        if (seedPairs.length > 0) {
           html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">';
-          seedPlayers.forEach((p, i) => {
-            html += '<span class="seed-chip">[' + (i + 1) + '] ' + this._esc(p.name) + ' <small>(' + (p.points || 0) + 'pt)</small></span>';
+          seedPairs.forEach((p, i) => {
+            html += '<span class="seed-chip">[' + (i + 1) + '] ' + this._esc(p.name) + ' <small>(' + p.points + 'pt)</small></span>';
           });
           html += '</div>';
         }
@@ -1230,124 +1666,271 @@ window.App = {
       }
     }
 
-    entries.forEach((entry, idx) => {
+    // 入れ替え選択中の状態
+    this._swapSelectedEntryId = this._swapSelectedEntryId || null;
+    this._swapEventCode = eventCode;
+
+    // ペアごとに2行でグループ表示（水色/白の2色交互）
+    pairs.forEach((pair, pairIdx) => {
+      const bgColor = pairIdx % 2 === 0 ? '#e3f2fd' : '#ffffff';
+      pair.entries.forEach((entry, entryIdx) => {
+        const tr = document.createElement('tr');
+        if (pairIdx < 15) {
+          tr.classList.add('row-enter');
+          tr.style.animationDelay = (pairIdx * 30) + 'ms';
+        }
+        tr.style.backgroundColor = bgColor;
+
+        // 選択中の行をハイライト
+        if (this._swapSelectedEntryId === entry.id) {
+          tr.style.backgroundColor = '#bbdefb';
+          tr.style.outline = '2px solid #1976d2';
+        }
+
+        // ペア番号・合計ptは最初の行にのみ表示
+        const pairLabel = entryIdx === 0
+          ? '<span style="font-weight:bold;color:#1a56db;">P' + (pairIdx + 1) + '</span>'
+          : '';
+        const combinedPtsLabel = entryIdx === 0
+          ? '<span style="font-weight:bold;color:#1a56db;">' + pair.points + '</span>'
+          : '';
+
+        tr.innerHTML =
+          '<td class="text-center">' + pairLabel + '</td>' +
+          '<td class="doubles-swap-cell" style="cursor:pointer;">' + this._esc(entry.name) + '</td>' +
+          '<td>' + this._esc(entry.furigana || '') + '</td>' +
+          '<td>' + this._esc(entry.affiliation || '') + '</td>' +
+          '<td>' + this._esc(AppConfig.EVENTS.find(e => e.code === entry.eventCode)?.shortName || entry.eventCode) + '</td>' +
+          '<td>' + (entry.points || 0) + '</td>' +
+          '<td class="text-center">' + combinedPtsLabel + '</td>' +
+          '<td class="action-cell"></td>';
+
+        // 名前セルクリックで入れ替え
+        const nameCell = tr.querySelector('.doubles-swap-cell');
+        nameCell.addEventListener('click', () => {
+          if (this._swapSelectedEntryId === null) {
+            // 1人目を選択
+            this._swapSelectedEntryId = entry.id;
+            this.showMessage(entry.name + ' を選択中 — 入れ替え先をクリックしてください', 'info');
+            this.refreshEntryTable();
+          } else if (this._swapSelectedEntryId === entry.id) {
+            // 同じ人を再クリック → キャンセル
+            this._swapSelectedEntryId = null;
+            this.refreshEntryTable();
+          } else {
+            // 2人目をクリック → 入れ替え実行
+            EntryStore.swapDoublesOrder(eventCode, this._swapSelectedEntryId, entry.id);
+            this._swapSelectedEntryId = null;
+            this.refreshEntryTable();
+            this.showMessage('ペアを入れ替えました', 'success');
+          }
+        });
+
+        const actionCell = tr.querySelector('.action-cell');
+
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'btn btn-sm btn-secondary';
+        btnEdit.textContent = '編集';
+        btnEdit.addEventListener('click', () => this._showEntryModal(entry.id));
+        actionCell.appendChild(btnEdit);
+
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn btn-sm btn-danger';
+        btnDel.textContent = '削除';
+        btnDel.style.marginLeft = '4px';
+        btnDel.addEventListener('click', () => {
+          if (confirm(entry.name + ' を削除しますか？')) {
+            EntryStore.remove(entry.id);
+            this._swapSelectedEntryId = null;
+            this.refreshEntryTable();
+            this.showMessage('エントリーを削除しました', 'info');
+          }
+        });
+        actionCell.appendChild(btnDel);
+
+        tbody.appendChild(tr);
+      });
+
+      // ペア間の区切り線
+      if (pairIdx < pairs.length - 1) {
+        const separatorTr = document.createElement('tr');
+        separatorTr.innerHTML = '<td colspan="8" style="padding:0;height:2px;background:#cbd5e1;"></td>';
+        tbody.appendChild(separatorTr);
+      }
+    });
+  },
+
+  // ================================================================
+  // 大会一覧画面
+  // ================================================================
+
+  initTournamentsScreen() {
+    TournamentStore.init();
+
+    const btnAdd = document.getElementById('btn-tournament-add');
+    if (btnAdd) btnAdd.addEventListener('click', () => this._showTournamentModal());
+
+    const btnClear = document.getElementById('btn-tournament-clear');
+    if (btnClear) btnClear.addEventListener('click', () => {
+      if (confirm('全大会データを削除しますか？')) {
+        TournamentStore.clear();
+        this.refreshTournamentsTable();
+        this.showMessage('全大会データを削除しました', 'info');
+      }
+    });
+
+    const fileInput = document.getElementById('file-tournament-import');
+    if (fileInput) fileInput.addEventListener('change', (e) => this._importTournamentExcel(e));
+
+    const btnSave = document.getElementById('btn-tournament-save');
+    if (btnSave) btnSave.addEventListener('click', () => this._saveTournament());
+  },
+
+  refreshTournamentsTable() {
+    const tbody = document.getElementById('tournament-table-body');
+    const countEl = document.getElementById('tournament-count');
+    if (!tbody) return;
+
+    const tournaments = TournamentStore.getAll();
+    if (countEl) countEl.textContent = tournaments.length;
+    tbody.innerHTML = '';
+
+    tournaments.forEach((t, idx) => {
       const tr = document.createElement('tr');
       if (idx < 30) {
         tr.classList.add('row-enter');
         tr.style.animationDelay = (idx * 20) + 'ms';
       }
-      const evtObj = AppConfig.EVENTS.find(e => e.code === entry.eventCode);
-      const evtName = evtObj ? evtObj.shortName : entry.eventCode;
-
       tr.innerHTML =
         '<td>' + (idx + 1) + '</td>' +
-        '<td>' + this._esc(entry.name) + '</td>' +
-        '<td>' + this._esc(entry.furigana || '') + '</td>' +
-        '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-        '<td>' + this._esc(evtName) + '</td>' +
-        '<td>' + (entry.points || 0) + '</td>' +
+        '<td>' + this._esc(t.name) + '</td>' +
+        '<td>' + this._esc(t.events || '') + '</td>' +
+        '<td>' + this._esc(t.date + (t.dayOfWeek ? ' ' + t.dayOfWeek : '')) + '</td>' +
+        '<td>' + this._esc(t.venue || '') + '</td>' +
+        '<td>' + this._esc(t.reserveDate || '') + '</td>' +
+        '<td>' + this._esc(t.reserveVenue || '') + '</td>' +
         '<td class="action-cell"></td>';
 
       const actionCell = tr.querySelector('.action-cell');
-
-      // 編集ボタン
       const btnEdit = document.createElement('button');
       btnEdit.className = 'btn btn-sm btn-secondary';
       btnEdit.textContent = '編集';
-      btnEdit.addEventListener('click', () => this._showEntryModal(entry.id));
+      btnEdit.addEventListener('click', () => this._showTournamentModal(t.id));
       actionCell.appendChild(btnEdit);
 
-      // 削除ボタン
       const btnDel = document.createElement('button');
       btnDel.className = 'btn btn-sm btn-danger';
       btnDel.textContent = '削除';
       btnDel.style.marginLeft = '4px';
       btnDel.addEventListener('click', () => {
-        if (confirm(entry.name + ' を削除しますか？')) {
-          EntryStore.remove(entry.id);
-          this.refreshEntryTable();
-          this.showMessage('エントリーを削除しました', 'info');
+        if (confirm(t.name + ' を削除しますか？')) {
+          TournamentStore.remove(t.id);
+          this.refreshTournamentsTable();
+          this.showMessage('大会を削除しました', 'info');
         }
       });
       actionCell.appendChild(btnDel);
-
       tbody.appendChild(tr);
     });
   },
 
-  // ================================================================
-  // 種目別確認画面
-  // ================================================================
+  _showTournamentModal(id) {
+    const modal = document.getElementById('modal-tournament-edit');
+    const title = document.getElementById('modal-tournament-title');
+    const btnDup = document.getElementById('btn-tournament-duplicate');
+    if (!modal) return;
 
-  initEventsScreen() {
-    // 初期状態はリフレッシュ時に構築
-  },
+    this._editingTournamentId = id || null;
 
-  refreshEventsScreen() {
-    const tabsContainer = document.getElementById('event-tabs');
-    const detailEl = document.getElementById('event-detail');
-    if (!tabsContainer) return;
-
-    tabsContainer.innerHTML = '';
-
-    let hasEntries = false;
-    for (const evt of AppConfig.EVENTS) {
-      const entries = EntryStore.getByEvent(evt.code);
-      if (entries.length === 0) continue;
-      hasEntries = true;
-
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-secondary event-tab-btn';
-      btn.textContent = evt.shortName + ' (' + entries.length + ')';
-      btn.addEventListener('click', () => {
-        // タブのアクティブ状態
-        tabsContainer.querySelectorAll('.event-tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this._showEventDetail(evt.code);
-      });
-      tabsContainer.appendChild(btn);
-    }
-
-    if (!hasEntries) {
-      tabsContainer.innerHTML = '<p class="empty-message">エントリーデータがありません。</p>';
-      if (detailEl) detailEl.style.display = 'none';
+    if (id) {
+      if (title) title.textContent = '大会編集';
+      const t = TournamentStore.getById(id);
+      if (t) {
+        document.getElementById('tournament-edit-name').value = t.name || '';
+        document.getElementById('tournament-edit-events').value = t.events || '';
+        document.getElementById('tournament-edit-date').value = t.date || '';
+        document.getElementById('tournament-edit-dow').value = t.dayOfWeek || '';
+        document.getElementById('tournament-edit-venue').value = t.venue || '';
+        document.getElementById('tournament-edit-reserve-date').value = t.reserveDate || '';
+        document.getElementById('tournament-edit-reserve-venue').value = t.reserveVenue || '';
+      }
+      if (btnDup) {
+        btnDup.style.display = '';
+        btnDup.onclick = () => {
+          TournamentStore.add({
+            name: (t.name || '') + '（コピー）',
+            events: t.events,
+            date: t.date,
+            dayOfWeek: t.dayOfWeek,
+            reserveDate: t.reserveDate,
+            venue: t.venue,
+            reserveVenue: t.reserveVenue,
+            deadline: t.deadline,
+          });
+          modal.style.display = 'none';
+          this.refreshTournamentsTable();
+          this.showMessage('大会を複製しました', 'success');
+        };
+      }
     } else {
-      // 最初の種目を自動選択
-      const firstBtn = tabsContainer.querySelector('.event-tab-btn');
-      if (firstBtn) firstBtn.click();
+      if (title) title.textContent = '大会追加';
+      document.getElementById('tournament-edit-name').value = '';
+      document.getElementById('tournament-edit-events').value = '';
+      document.getElementById('tournament-edit-date').value = '';
+      document.getElementById('tournament-edit-dow').value = '';
+      document.getElementById('tournament-edit-venue').value = '';
+      document.getElementById('tournament-edit-reserve-date').value = '';
+      document.getElementById('tournament-edit-reserve-venue').value = '';
+      if (btnDup) btnDup.style.display = 'none';
     }
+    modal.style.display = '';
   },
 
-  _showEventDetail(eventCode) {
-    const detailEl = document.getElementById('event-detail');
-    if (!detailEl) return;
-    detailEl.style.display = '';
+  _saveTournament() {
+    const name = document.getElementById('tournament-edit-name').value.trim();
+    if (!name) { this.showMessage('大会名を入力してください', 'error'); return; }
 
-    const evt = AppConfig.EVENTS.find(e => e.code === eventCode);
-    const entries = EntryStore.getByEvent(eventCode);
-    const sorted = [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
-    const drawSize = entries.length > 3 ? DrawEngine.getDrawSize(entries.length) : '-';
-    const seedCount = entries.length > 3 && drawSize !== '-' && AppConfig.SEED_RULES[drawSize]
-      ? AppConfig.SEED_RULES[drawSize].seeds : '-';
+    const data = {
+      name,
+      events: document.getElementById('tournament-edit-events').value.trim(),
+      date: document.getElementById('tournament-edit-date').value.trim(),
+      dayOfWeek: document.getElementById('tournament-edit-dow').value.trim(),
+      venue: document.getElementById('tournament-edit-venue').value.trim(),
+      reserveDate: document.getElementById('tournament-edit-reserve-date').value.trim(),
+      reserveVenue: document.getElementById('tournament-edit-reserve-venue').value.trim(),
+    };
 
-    document.getElementById('event-detail-name').textContent = evt ? evt.name : eventCode;
-    document.getElementById('event-entry-count').textContent = entries.length;
-    document.getElementById('event-draw-size').textContent = drawSize;
-    document.getElementById('event-seed-count').textContent = seedCount;
+    if (this._editingTournamentId) {
+      TournamentStore.update(this._editingTournamentId, data);
+      this.showMessage('大会情報を更新しました', 'success');
+    } else {
+      TournamentStore.add(data);
+      this.showMessage('大会を追加しました', 'success');
+    }
 
-    const tbody = document.getElementById('event-entry-body');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+    this._editingTournamentId = null;
+    const modal = document.getElementById('modal-tournament-edit');
+    if (modal) modal.style.display = 'none';
+    this.refreshTournamentsTable();
+  },
 
-    sorted.forEach((entry, idx) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td>' + (idx + 1) + '</td>' +
-        '<td>' + this._esc(entry.name) + '</td>' +
-        '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-        '<td>' + (entry.points || 0) + '</td>';
-      tbody.appendChild(tr);
-    });
+  _importTournamentExcel(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        const count = TournamentStore.importFromExcel(wb);
+        this.refreshTournamentsTable();
+        this.showMessage(count + '件の大会を読み込みました', 'success');
+      } catch (err) {
+        this.showMessage('Excelの読み込みに失敗しました: ' + err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
   },
 
   // ================================================================
@@ -1370,10 +1953,10 @@ window.App = {
       btnDrawReset.addEventListener('click', () => this._resetDraw());
     }
 
-    // 全種目一括（自動）
-    const btnAllDraw = document.getElementById('btn-all-draw');
-    if (btnAllDraw) {
-      btnAllDraw.addEventListener('click', () => this._executeAllDraws());
+    // 全自動配置（未配置選手をランダムに空き位置に配置）
+    const btnAutoPlace = document.getElementById('btn-draw-auto-place');
+    if (btnAutoPlace) {
+      btnAutoPlace.addEventListener('click', () => this._autoPlaceAll());
     }
   },
 
@@ -1388,11 +1971,23 @@ window.App = {
     select.innerHTML = '';
     let firstCode = '';
     for (const evt of AppConfig.EVENTS) {
-      const entries = EntryStore.getByEvent(evt.code);
-      if (entries.length > 3) {
+      const isDoubles = evt.category === 'doubles';
+      let count, label;
+      if (isDoubles) {
+        const pairs = EntryStore.getDoublesPairs(evt.code).filter(p => !p.incomplete);
+        count = pairs.length;
+        label = evt.name + ' (' + count + 'ペア)';
+      } else {
+        const entries = EntryStore.getByEvent(evt.code);
+        count = entries.length;
+        label = evt.name + ' (' + count + '名)';
+      }
+      // 確定済み種目はスキップ
+      if (this.confirmedEvents && this.confirmedEvents[evt.code]) continue;
+      if (count > 3) {
         const opt = document.createElement('option');
         opt.value = evt.code;
-        opt.textContent = evt.name + ' (' + entries.length + '名)';
+        opt.textContent = label;
         select.appendChild(opt);
         if (!firstCode) firstCode = evt.code;
       }
@@ -1403,6 +1998,24 @@ window.App = {
       if (lotterySection) lotterySection.style.display = 'none';
       return;
     }
+    // スケールスライダーのイベント
+    const scaleSlider = document.getElementById('bracket-scale-slider');
+    if (scaleSlider) {
+      scaleSlider.addEventListener('input', () => {
+        const val = document.getElementById('bracket-scale-value');
+        if (val) val.textContent = Math.round(parseFloat(scaleSlider.value) * 100) + '%';
+        this._renderLiveBracket();
+      });
+    }
+    const hScaleSlider = document.getElementById('bracket-hscale-slider');
+    if (hScaleSlider) {
+      hScaleSlider.addEventListener('input', () => {
+        const val = document.getElementById('bracket-hscale-value');
+        if (val) val.textContent = Math.round(parseFloat(hScaleSlider.value) * 100) + '%';
+        this._renderLiveBracket();
+      });
+    }
+
     // 最初の種目を自動選択して抽選画面を表示
     select.value = firstCode;
     this._onDrawEventChange();
@@ -1418,29 +2031,52 @@ window.App = {
     }
 
     const eventCode = select.value;
-    const entries = EntryStore.getByEvent(eventCode);
-    if (entries.length <= 3) {
+    const isDoubles = EntryStore.isDoublesEvent(eventCode);
+
+    // ダブルスの場合はペア単位で処理
+    let drawEntries;
+    if (isDoubles) {
+      const pairs = EntryStore.getDoublesPairs(eventCode).filter(p => !p.incomplete);
+      if (pairs.length <= 1) {
+        if (lotterySection) lotterySection.style.display = 'none';
+        this.showMessage('完全なペアが2組以上必要です', 'error');
+        return;
+      }
+      drawEntries = pairs.map(p => ({
+        name: p.name,
+        furigana: p.furigana,
+        affiliation: p.affiliation,
+        points: p.points,
+        seed: 0,
+      }));
+    } else {
+      drawEntries = EntryStore.getByEvent(eventCode);
+    }
+
+    if (drawEntries.length <= 3) {
       if (lotterySection) lotterySection.style.display = 'none';
-      this.showMessage('エントリーが4名以上必要です', 'error');
+      this.showMessage(isDoubles ? '完全なペアが4組以上必要です' : 'エントリーが4名以上必要です', 'error');
       return;
     }
 
     if (lotterySection) lotterySection.style.display = '';
 
     // シード自動計算
-    const drawSize = DrawEngine.getDrawSize(entries.length);
-    const sorted = [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
+    const drawSize = DrawEngine.getDrawSize(drawEntries.length);
+    const sorted = [...drawEntries].sort((a, b) => (b.points || 0) - (a.points || 0));
     const withSeeds = DrawEngine.assignSeeds(sorted, drawSize);
     const seeds = withSeeds.filter(p => p.seed > 0);
 
     // シード情報バーを更新
     const seedInfoBar = document.getElementById('draw-seed-info');
     if (seedInfoBar) {
+      const entryLabel = isDoubles ? 'ペア数' : 'エントリー';
+      const entryUnit = isDoubles ? '' : '名';
       let html = '<div class="draw-info-grid">' +
-        '<div class="draw-info-item"><span class="draw-info-label">エントリー</span><span class="draw-info-value">' + entries.length + '名</span></div>' +
+        '<div class="draw-info-item"><span class="draw-info-label">' + entryLabel + '</span><span class="draw-info-value">' + drawEntries.length + entryUnit + '</span></div>' +
         '<div class="draw-info-item"><span class="draw-info-label">ドローサイズ</span><span class="draw-info-value">' + drawSize + '</span></div>' +
-        '<div class="draw-info-item"><span class="draw-info-label">BYE</span><span class="draw-info-value">' + (drawSize - entries.length) + '</span></div>' +
-        '<div class="draw-info-item"><span class="draw-info-label">シード</span><span class="draw-info-value">' + seeds.length + '名</span></div>' +
+        '<div class="draw-info-item"><span class="draw-info-label">BYE</span><span class="draw-info-value">' + (drawSize - drawEntries.length) + '</span></div>' +
+        '<div class="draw-info-item"><span class="draw-info-label">シード</span><span class="draw-info-value">' + seeds.length + '</span></div>' +
         '</div>';
       if (seeds.length > 0) {
         html += '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">';
@@ -1454,45 +2090,287 @@ window.App = {
 
     this._currentDrawData = { eventCode, entries: withSeeds, drawSize, seeds };
 
-    // 手動配置の初期化
-    this._initManualPlacement(withSeeds, drawSize, seeds);
+    // シード位置選択UIを構築
+    this._buildSeedPositionUI(withSeeds, drawSize, seeds);
+  },
+
+  /**
+   * シード位置選択UIを構築
+   */
+  _buildSeedPositionUI(players, drawSize, seeds) {
+    const container = document.getElementById('seed-position-selection');
+    const sel34 = document.getElementById('seed34-selection');
+    const sel58 = document.getElementById('seed58-selection');
+    const ctrl34 = document.getElementById('seed34-controls');
+    const ctrl58 = document.getElementById('seed58-controls');
+    const btnApply = document.getElementById('btn-apply-seed-positions');
+    const placementArea = document.getElementById('draw-placement-area');
+
+    // 配置エリアを一旦非表示
+    if (placementArea) placementArea.style.display = 'none';
+
+    const seeded = players.filter(p => p.seed > 0).sort((a, b) => a.seed - b.seed);
+
+    // シード3,4もシード5-8もない場合はそのまま配置
+    if (seeded.length <= 2) {
+      if (container) container.style.display = 'none';
+      this._initManualPlacement(players, drawSize, seeds, {});
+      return;
+    }
+
+    if (container) container.style.display = '';
+
+    // シード3,4の位置選択
+    if (seeded.length >= 3 && sel34 && ctrl34) {
+      sel34.style.display = '';
+      ctrl34.innerHTML = '';
+      const pos34 = DrawEngine.getSeed34Positions(drawSize);
+
+      // シード3（ランク3位の選手）
+      const seed3player = seeded.find(s => s.seed === 3);
+      const seed4player = seeded.find(s => s.seed === 4);
+
+      if (seed3player) {
+        const label3 = document.createElement('span');
+        label3.style.cssText = 'font-size:13px;min-width:120px;';
+        label3.textContent = '[3] ' + seed3player.name + ' →';
+        ctrl34.appendChild(label3);
+        const select3 = document.createElement('select');
+        select3.id = 'seed3-position';
+        select3.className = 'form-select';
+        select3.style.cssText = 'width:auto;min-width:100px;';
+        pos34.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = 'No.' + p;
+          select3.appendChild(opt);
+        });
+        ctrl34.appendChild(select3);
+      }
+
+      if (seed4player) {
+        const label4 = document.createElement('span');
+        label4.style.cssText = 'font-size:13px;min-width:120px;margin-left:16px;';
+        label4.textContent = '[4] ' + seed4player.name + ' →';
+        ctrl34.appendChild(label4);
+        const select4 = document.createElement('select');
+        select4.id = 'seed4-position';
+        select4.className = 'form-select';
+        select4.style.cssText = 'width:auto;min-width:100px;';
+        pos34.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = 'No.' + p;
+          select4.appendChild(opt);
+        });
+        // デフォルトでシード4は2番目の位置
+        select4.value = pos34[1];
+        ctrl34.appendChild(select4);
+
+        // 連動: 片方を選ぶともう片方は自動で残りに
+        const syncSelects = () => {
+          const s3 = document.getElementById('seed3-position');
+          const s4 = document.getElementById('seed4-position');
+          if (s3 && s4) {
+            const other = pos34.find(p => String(p) !== s3.value);
+            if (other !== undefined) s4.value = String(other);
+          }
+        };
+        const s3el = document.getElementById('seed3-position');
+        if (s3el) s3el.addEventListener('change', syncSelects);
+        select4.addEventListener('change', () => {
+          const s3 = document.getElementById('seed3-position');
+          if (s3) {
+            const other = pos34.find(p => String(p) !== select4.value);
+            if (other !== undefined) s3.value = String(other);
+          }
+        });
+      }
+    } else if (sel34) {
+      sel34.style.display = 'none';
+    }
+
+    // シード5-8の位置選択
+    if (seeded.length >= 5 && sel58 && ctrl58) {
+      sel58.style.display = '';
+      ctrl58.innerHTML = '';
+      const pos58 = DrawEngine.getSeed58Positions(drawSize);
+      const seeds58 = seeded.filter(s => s.seed >= 5 && s.seed <= 8);
+
+      seeds58.forEach((sp, idx) => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size:13px;min-width:120px;';
+        label.textContent = '[' + sp.seed + '] ' + sp.name + ' →';
+        wrap.appendChild(label);
+        const sel = document.createElement('select');
+        sel.id = 'seed' + sp.seed + '-position';
+        sel.className = 'form-select';
+        sel.style.cssText = 'width:auto;min-width:100px;';
+        pos58.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = 'No.' + p;
+          sel.appendChild(opt);
+        });
+        // デフォルト: 順番に異なる位置を割り当て
+        if (idx < pos58.length) sel.value = pos58[idx];
+        wrap.appendChild(sel);
+        ctrl58.appendChild(wrap);
+      });
+
+      // 連動: 選択済みの位置を他のセレクトから使えないようにし、重複を自動解消
+      const syncSeed58 = (changedSeed) => {
+        const selects = seeds58.map(sp => document.getElementById('seed' + sp.seed + '-position')).filter(Boolean);
+        const usedValues = new Map();
+        // 変更されたセレクトを優先
+        selects.forEach((sel, i) => {
+          if (seeds58[i].seed === changedSeed) {
+            usedValues.set(sel.value, i);
+          }
+        });
+        // 重複があれば別の位置に振り替え
+        selects.forEach((sel, i) => {
+          if (seeds58[i].seed !== changedSeed && usedValues.has(sel.value)) {
+            const available = pos58.map(String).find(p => !usedValues.has(p));
+            if (available) sel.value = available;
+          }
+          usedValues.set(sel.value, i);
+        });
+        // disabled更新
+        const allUsed = selects.map(s => s.value);
+        selects.forEach((sel) => {
+          const currentVal = sel.value;
+          Array.from(sel.options).forEach(opt => {
+            opt.disabled = allUsed.includes(opt.value) && opt.value !== currentVal;
+          });
+        });
+      };
+      seeds58.forEach(sp => {
+        const sel = document.getElementById('seed' + sp.seed + '-position');
+        if (sel) sel.addEventListener('change', () => syncSeed58(sp.seed));
+      });
+      syncSeed58(null);
+    } else if (sel58) {
+      sel58.style.display = 'none';
+    }
+
+    // ルーレットボタン
+    const btnRoulette = document.getElementById('btn-roulette-seed-positions');
+    if (btnRoulette) {
+      const newRouletteBtn = btnRoulette.cloneNode(true);
+      btnRoulette.parentNode.replaceChild(newRouletteBtn, btnRoulette);
+      newRouletteBtn.addEventListener('click', () => this._rouletteSeedPositions());
+    }
+
+    // 確定ボタン
+    if (btnApply) {
+      // 既存のリスナーを削除するためクローン
+      const newBtn = btnApply.cloneNode(true);
+      btnApply.parentNode.replaceChild(newBtn, btnApply);
+      newBtn.addEventListener('click', () => {
+        const seedPositionMap = {};
+
+        // シード3,4の位置を取得
+        const s3el = document.getElementById('seed3-position');
+        const s4el = document.getElementById('seed4-position');
+        if (s3el) seedPositionMap[3] = parseInt(s3el.value);
+        if (s4el) seedPositionMap[4] = parseInt(s4el.value);
+
+        // シード5-8の位置を取得
+        const seeds58 = seeded.filter(s => s.seed >= 5 && s.seed <= 8);
+        const usedPos58 = new Set();
+        let hasDuplicate = false;
+        seeds58.forEach(sp => {
+          const el = document.getElementById('seed' + sp.seed + '-position');
+          if (el) {
+            const pos = parseInt(el.value);
+            if (usedPos58.has(pos)) hasDuplicate = true;
+            usedPos58.add(pos);
+            seedPositionMap[sp.seed] = pos;
+          }
+        });
+
+        // シード3と4が同じ位置の場合
+        if (s3el && s4el && s3el.value === s4el.value) {
+          this.showMessage('シード3と4を同じ位置にすることはできません', 'error');
+          return;
+        }
+        if (hasDuplicate) {
+          this.showMessage('シード5〜8に同じ位置が選択されています', 'error');
+          return;
+        }
+
+        // 配置実行
+        this._initManualPlacement(players, drawSize, seeds, seedPositionMap);
+      });
+    }
   },
 
   /**
    * 手動配置の初期化
    * シード選手とBYEは自動配置、非シード選手は未配置リストへ
+   * @param {object} seedPositionMap シード番号→位置(1-indexed)のマップ
    */
-  _initManualPlacement(players, drawSize, seeds) {
+  _initManualPlacement(players, drawSize, seeds, seedPositionMap) {
+    seedPositionMap = seedPositionMap || {};
+
     // ドロー配列を初期化（全ポジション空）
     const draw = [];
     for (let i = 0; i < drawSize; i++) {
       draw.push({ position: i + 1, name: '', furigana: '', affiliation: '', points: 0, seed: 0, isBye: false, isEmpty: true });
     }
 
-    // シード配置（DrawEngineと同じロジック）
+    // シード配置
     const seeded = players.filter(p => p.seed > 0).sort((a, b) => a.seed - b.seed);
+    // シード1 → 最上段
     if (seeded.length >= 1) {
       this._placeInDraw(draw, 0, seeded[0]);
     }
+    // シード2 → 最下段
     if (seeded.length >= 2) {
       this._placeInDraw(draw, drawSize - 1, seeded[1]);
     }
+    // シード3,4 → ユーザー選択またはランダム
     if (seeded.length >= 3) {
-      const pos34 = DrawEngine.getSeed34Positions(drawSize);
-      const shuffled34 = DrawEngine.shuffleArray([...pos34]);
-      this._placeInDraw(draw, shuffled34[0] - 1, seeded[2]);
-      if (seeded.length >= 4) {
-        this._placeInDraw(draw, shuffled34[1] - 1, seeded[3]);
+      const seed3 = seeded.find(s => s.seed === 3);
+      const seed4 = seeded.find(s => s.seed === 4);
+      if (seed3 && seedPositionMap[3]) {
+        this._placeInDraw(draw, seedPositionMap[3] - 1, seed3);
+      } else if (seed3) {
+        const pos34 = DrawEngine.getSeed34Positions(drawSize);
+        this._placeInDraw(draw, pos34[0] - 1, seed3);
+      }
+      if (seed4 && seedPositionMap[4]) {
+        this._placeInDraw(draw, seedPositionMap[4] - 1, seed4);
+      } else if (seed4) {
+        const pos34 = DrawEngine.getSeed34Positions(drawSize);
+        this._placeInDraw(draw, pos34[1] - 1, seed4);
       }
     }
+    // シード5-8 → ユーザー選択またはランダム
     if (seeded.length >= 5) {
       const pos58 = DrawEngine.getSeed58Positions(drawSize);
-      const shuffled58 = DrawEngine.shuffleArray([...pos58]);
-      for (let i = 0; i < Math.min(4, seeded.length - 4); i++) {
-        if (i < shuffled58.length) {
-          this._placeInDraw(draw, shuffled58[i] - 1, seeded[4 + i]);
+      const seeds58 = seeded.filter(s => s.seed >= 5 && s.seed <= 8);
+      seeds58.forEach((sp, idx) => {
+        if (seedPositionMap[sp.seed]) {
+          this._placeInDraw(draw, seedPositionMap[sp.seed] - 1, sp);
+        } else if (idx < pos58.length) {
+          this._placeInDraw(draw, pos58[idx] - 1, sp);
         }
-      }
+      });
+    }
+    // シード9-16 → 自動配置
+    if (seeded.length >= 9) {
+      const pos916 = DrawEngine.getSeed916Positions(drawSize);
+      const shuffled916 = DrawEngine.shuffleArray([...pos916]);
+      const seeds916 = seeded.filter(s => s.seed >= 9 && s.seed <= 16);
+      seeds916.forEach((sp, idx) => {
+        if (idx < shuffled916.length) {
+          this._placeInDraw(draw, shuffled916[idx] - 1, sp);
+        }
+      });
     }
 
     // BYE配置
@@ -1506,6 +2384,7 @@ window.App = {
     this._unplacedPlayers = players.filter(p => !p.seed || p.seed <= 0).map(p => ({ ...p }));
     this._manualDraw = draw;
     this._selectedPlayer = null;
+    this._unplacedByes = 0;
 
     // UIを表示
     const placementArea = document.getElementById('draw-placement-area');
@@ -1539,9 +2418,18 @@ window.App = {
     const unplacedList = document.getElementById('unplaced-list');
     if (unplacedList) {
       unplacedList.innerHTML = '';
-      if (this._unplacedPlayers.length === 0) {
+      if (this._unplacedByes > 0) {
+        const byeChip = document.createElement('span');
+        byeChip.className = 'unplaced-chip';
+        byeChip.style.background = '#FFF3E0';
+        byeChip.style.color = '#E65100';
+        byeChip.style.border = '1px solid #FFB74D';
+        byeChip.textContent = 'BYE x ' + this._unplacedByes + ' (空き位置に配置してください)';
+        unplacedList.appendChild(byeChip);
+      }
+      if (this._unplacedPlayers.length === 0 && !this._unplacedByes) {
         unplacedList.innerHTML = '<span style="color:#2E7D32;font-size:13px;">全選手が配置済みです</span>';
-      } else {
+      } else if (this._unplacedPlayers.length > 0) {
         this._unplacedPlayers.forEach((p, idx) => {
           const chip = document.createElement('button');
           chip.className = 'unplaced-chip' + (this._selectedPlayer === idx ? ' selected' : '');
@@ -1578,6 +2466,13 @@ window.App = {
           '<td class="text-center">' + entry.position + '</td>' +
           '<td colspan="2" style="color:#999;font-style:italic;">BYE</td>' +
           '<td></td>';
+        // BYEは移動可能（取り消してから別の位置に配置可能）
+        const byeActionCell = tr.querySelector('td:last-child');
+        const btnRemoveBye = document.createElement('button');
+        btnRemoveBye.className = 'btn btn-sm btn-warning';
+        btnRemoveBye.textContent = '移動';
+        btnRemoveBye.addEventListener('click', () => this._removeBye(i));
+        byeActionCell.appendChild(btnRemoveBye);
       } else if (!entry.isEmpty) {
         // 配置済み
         const seedMark = entry.seed > 0 ? '<span class="seed-mark">[' + entry.seed + ']</span> ' : '';
@@ -1602,13 +2497,21 @@ window.App = {
           '<td class="text-center">' + entry.position + '</td>' +
           '<td colspan="2" style="color:#ccc;">---</td>' +
           '<td></td>';
+        const actionCell = tr.querySelector('td:last-child');
         if (this._selectedPlayer !== null) {
-          const actionCell = tr.querySelector('td:last-child');
           const btnPlace = document.createElement('button');
           btnPlace.className = 'btn btn-sm btn-primary';
           btnPlace.textContent = '配置';
           btnPlace.addEventListener('click', () => this._placePlayerAt(i));
           actionCell.appendChild(btnPlace);
+        }
+        if (this._unplacedByes > 0) {
+          const btnBye = document.createElement('button');
+          btnBye.className = 'btn btn-sm btn-warning';
+          btnBye.textContent = 'BYE';
+          btnBye.style.marginLeft = '4px';
+          btnBye.addEventListener('click', () => this._placeBye(i));
+          actionCell.appendChild(btnBye);
         }
       }
 
@@ -1624,24 +2527,29 @@ window.App = {
     if (!wrapper || !this._manualDraw || !this._currentDrawData) return;
 
     const evt = AppConfig.EVENTS.find(e => e.code === this._currentDrawData.eventCode);
+    const isDoubles = evt ? evt.category === 'doubles' : false;
     const drawData = {
       draw: this._manualDraw,
       drawSize: this._currentDrawData.drawSize,
       eventName: evt ? evt.name : this._currentDrawData.eventCode,
       tournamentName: AppConfig.TOURNAMENT_NAME || '',
-      date: '',
-      venue: '',
+      date: AppConfig.TOURNAMENT_DATE || '',
+      venue: AppConfig.TOURNAMENT_VENUE || '',
+      matchFormat: AppConfig.MATCH_FORMAT || '',
       entryCount: this._currentDrawData.entries.filter(e => !e.isBye).length,
       seeds: this._currentDrawData.seeds || [],
+      isDoubles: isDoubles,
     };
 
-    DrawRenderer.render(wrapper, drawData);
+    const scaleSlider = document.getElementById('bracket-scale-slider');
+    const hScaleSlider = document.getElementById('bracket-hscale-slider');
+    const scale = scaleSlider ? parseFloat(scaleSlider.value) || 1.0 : 1.0;
+    const hScale = hScaleSlider ? parseFloat(hScaleSlider.value) || 1.0 : 1.0;
+    DrawRenderer.render(wrapper, drawData, { scale: scale, hScale: hScale });
 
-    // 空きスロットをクリック可能にする（SVG内のテキスト "---" をクリックで配置）
     const svg = wrapper.querySelector('svg');
-    if (!svg || this._selectedPlayer === null) return;
+    if (!svg) return;
 
-    // 空きスロット位置にクリック領域を追加
     const draw = this._manualDraw;
     const P = DrawRenderer.PARAMS;
     const halfSize = draw.length / 2;
@@ -1650,44 +2558,76 @@ window.App = {
     const bodyTop = P.headerHeight;
     const halfWidth = P.drawNumWidth + P.nameAreaWidth + halfRounds * P.roundWidth;
 
-    for (let i = 0; i < draw.length; i++) {
-      if (!draw[i].isEmpty) continue;
+    const getSlotRect = (i) => {
       const isLeft = i < halfSize;
       const localIdx = isLeft ? i : i - halfSize;
       const cy = bodyTop + (localIdx * 2) * P.slotHeight + P.slotHeight / 2;
       const offsetX = isLeft ? 0 : halfWidth + P.centerGap;
-
-      let rx, ry, rw, rh;
       if (isLeft) {
-        rx = offsetX + P.drawNumWidth;
-        ry = cy - P.slotHeight / 2;
-        rw = P.nameAreaWidth;
-        rh = P.slotHeight;
+        return { x: offsetX + P.drawNumWidth, y: cy - P.slotHeight / 2, w: P.nameAreaWidth, h: P.slotHeight };
       } else {
-        // 右山: 番号+名前エリアをカバー
-        rx = offsetX + halfRounds * P.roundWidth;
-        ry = cy - P.slotHeight / 2;
-        rw = P.drawNumWidth + P.nameAreaWidth;
-        rh = P.slotHeight;
+        return { x: offsetX + halfRounds * P.roundWidth, y: cy - P.slotHeight / 2, w: P.drawNumWidth + P.nameAreaWidth, h: P.slotHeight };
       }
+    };
 
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', rx);
-      rect.setAttribute('y', ry);
-      rect.setAttribute('width', rw);
-      rect.setAttribute('height', rh);
-      rect.setAttribute('fill', 'rgba(25, 118, 210, 0.08)');
-      rect.setAttribute('stroke', '#1976D2');
-      rect.setAttribute('stroke-width', '1');
-      rect.setAttribute('stroke-dasharray', '4,2');
-      rect.setAttribute('rx', '3');
-      rect.style.cursor = 'pointer';
-      rect.addEventListener('click', ((idx) => () => {
-        this._placePlayerAt(idx);
-      })(i));
-      rect.addEventListener('mouseenter', () => { rect.setAttribute('fill', 'rgba(25, 118, 210, 0.2)'); });
-      rect.addEventListener('mouseleave', () => { rect.setAttribute('fill', 'rgba(25, 118, 210, 0.08)'); });
-      svg.appendChild(rect);
+    for (let i = 0; i < draw.length; i++) {
+      const entry = draw[i];
+      const r = getSlotRect(i);
+
+      if (entry.isEmpty) {
+        // 空きスロット: 選手配置 or BYE配置クリック領域
+        if (this._selectedPlayer !== null || this._unplacedByes > 0) {
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', r.x); rect.setAttribute('y', r.y);
+          rect.setAttribute('width', r.w); rect.setAttribute('height', r.h);
+          rect.setAttribute('fill', this._selectedPlayer !== null ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 152, 0, 0.08)');
+          rect.setAttribute('stroke', this._selectedPlayer !== null ? '#1976D2' : '#FF9800');
+          rect.setAttribute('stroke-width', '1'); rect.setAttribute('stroke-dasharray', '4,2'); rect.setAttribute('rx', '3');
+          rect.style.cursor = 'pointer';
+          // ツールチップ
+          const titleEl = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+          titleEl.textContent = this._selectedPlayer !== null ? 'クリックして選手を配置' : 'クリックしてBYEを配置';
+          rect.appendChild(titleEl);
+          rect.addEventListener('click', ((idx) => () => {
+            if (this._selectedPlayer !== null) {
+              this._placePlayerAt(idx);
+            } else if (this._unplacedByes > 0) {
+              this._placeBye(idx);
+            }
+          })(i));
+          rect.addEventListener('mouseenter', () => { rect.setAttribute('fill', this._selectedPlayer !== null ? 'rgba(25, 118, 210, 0.2)' : 'rgba(255, 152, 0, 0.2)'); });
+          rect.addEventListener('mouseleave', () => { rect.setAttribute('fill', this._selectedPlayer !== null ? 'rgba(25, 118, 210, 0.08)' : 'rgba(255, 152, 0, 0.08)'); });
+          svg.appendChild(rect);
+        }
+      } else if (entry.isBye) {
+        // BYE: クリックで移動可能
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', r.x); rect.setAttribute('y', r.y);
+        rect.setAttribute('width', r.w); rect.setAttribute('height', r.h);
+        rect.setAttribute('fill', 'transparent'); rect.setAttribute('rx', '3');
+        rect.style.cursor = 'pointer';
+        const titleBye = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        titleBye.textContent = 'クリックしてBYEを取り消し';
+        rect.appendChild(titleBye);
+        rect.addEventListener('click', ((idx) => () => { this._removeBye(idx); })(i));
+        rect.addEventListener('mouseenter', () => { rect.setAttribute('fill', 'rgba(255, 152, 0, 0.15)'); });
+        rect.addEventListener('mouseleave', () => { rect.setAttribute('fill', 'transparent'); });
+        svg.appendChild(rect);
+      } else if (entry.seed === 0 && !entry.isEmpty) {
+        // 非シード配置済み: クリックで取消
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', r.x); rect.setAttribute('y', r.y);
+        rect.setAttribute('width', r.w); rect.setAttribute('height', r.h);
+        rect.setAttribute('fill', 'transparent'); rect.setAttribute('rx', '3');
+        rect.style.cursor = 'pointer';
+        const titleRm = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        titleRm.textContent = 'クリックして配置を取り消し';
+        rect.appendChild(titleRm);
+        rect.addEventListener('click', ((idx) => () => { this._removeFromDraw(idx); })(i));
+        rect.addEventListener('mouseenter', () => { rect.setAttribute('fill', 'rgba(220, 38, 38, 0.1)'); });
+        rect.addEventListener('mouseleave', () => { rect.setAttribute('fill', 'transparent'); });
+        svg.appendChild(rect);
+      }
     }
   },
 
@@ -1723,6 +2663,34 @@ window.App = {
     this._renderManualPlacement();
   },
 
+  _removeBye(drawIndex) {
+    if (!this._manualDraw) return;
+    const entry = this._manualDraw[drawIndex];
+    if (!entry || !entry.isBye) return;
+
+    // BYEを未配置BYEリストに移す
+    if (!this._unplacedByes) this._unplacedByes = 0;
+    this._unplacedByes++;
+
+    this._manualDraw[drawIndex] = {
+      position: drawIndex + 1, name: '', furigana: '', affiliation: '', points: 0, seed: 0, isBye: false, isEmpty: true,
+    };
+    this._selectedPlayer = null;
+    this._renderManualPlacement();
+  },
+
+  _placeBye(drawIndex) {
+    if (!this._manualDraw || !this._unplacedByes) return;
+    const entry = this._manualDraw[drawIndex];
+    if (!entry || !entry.isEmpty) return;
+
+    this._manualDraw[drawIndex] = {
+      position: drawIndex + 1, name: '', furigana: '', affiliation: '', points: 0, seed: 0, isBye: true, isEmpty: false,
+    };
+    this._unplacedByes--;
+    this._renderManualPlacement();
+  },
+
   _confirmDraw() {
     if (!this._manualDraw || !this._currentDrawData) return;
 
@@ -1730,11 +2698,16 @@ window.App = {
       this.showMessage('未配置の選手が ' + this._unplacedPlayers.length + '名 います。全員を配置してください。', 'error');
       return;
     }
+    if (this._unplacedByes > 0) {
+      this.showMessage('未配置のBYEが ' + this._unplacedByes + '個 あります。配置してください。', 'error');
+      return;
+    }
 
     const eventCode = this._currentDrawData.eventCode;
     const evt = AppConfig.EVENTS.find(e => e.code === eventCode);
     const draw = this._manualDraw.map(e => ({ ...e, isEmpty: undefined }));
 
+    const entryCount = this._currentDrawData.entries.filter(e => !e.isBye && e.seed >= 0).length;
     this.drawResults[eventCode] = {
       draw: draw,
       drawSize: this._currentDrawData.drawSize,
@@ -1742,10 +2715,40 @@ window.App = {
       seeds: this._currentDrawData.seeds,
       eventName: evt ? evt.name : eventCode,
       eventCode: eventCode,
-      entryCount: this._currentDrawData.entries.filter(e => !e.isBye).length,
+      entryCount: entryCount,
+      confirmed: true,
     };
 
+    // 確定済み種目を記録
+    if (!this.confirmedEvents) this.confirmedEvents = {};
+    this.confirmedEvents[eventCode] = true;
+
+    this._saveDrawResults();
     this.showMessage(evt.name + ' のドローを確定しました', 'success');
+  },
+
+  _saveDrawResults() {
+    try {
+      localStorage.setItem('drawSystem_drawResults', JSON.stringify({
+        drawResults: this.drawResults,
+        confirmedEvents: this.confirmedEvents,
+        savedAt: new Date().toISOString(),
+      }));
+    } catch (e) {
+      console.warn('drawResults保存に失敗:', e);
+    }
+  },
+
+  _restoreDrawResults() {
+    try {
+      const saved = localStorage.getItem('drawSystem_drawResults');
+      if (!saved) return;
+      const data = JSON.parse(saved);
+      if (data.drawResults) this.drawResults = data.drawResults;
+      if (data.confirmedEvents) this.confirmedEvents = data.confirmedEvents;
+    } catch (e) {
+      console.warn('drawResults復元に失敗:', e);
+    }
   },
 
   _resetDraw() {
@@ -1755,18 +2758,191 @@ window.App = {
     this.showMessage('配置をリセットしました', 'info');
   },
 
-  _executeAllDraws() {
-    const results = DrawEngine.generateAllDraws();
-    let count = 0;
-    for (const code of Object.keys(results)) {
-      this.drawResults[code] = results[code];
-      count++;
+  /**
+   * 全自動配置: 未配置選手をランダムに空き位置に配置
+   * 所属重複回避オプションを考慮
+   */
+  _autoPlaceAll() {
+    if (!this._manualDraw || this._unplacedPlayers.length === 0) return;
+
+    const avoidCollision = document.querySelector('input[name="affiliation-collision"]:checked');
+    const shouldAvoid = !avoidCollision || avoidCollision.value === 'avoid';
+
+    // 空きスロットを取得
+    const emptySlots = [];
+    for (let i = 0; i < this._manualDraw.length; i++) {
+      if (this._manualDraw[i].isEmpty) emptySlots.push(i);
     }
-    if (count > 0) {
-      this.showMessage(count + '種目のドローを自動生成しました', 'success');
+
+    // 未配置選手をシャッフル
+    const shuffled = [...this._unplacedPlayers];
+    DrawEngine.shuffleArray(shuffled);
+
+    if (shouldAvoid) {
+      // 所属重複を避けて配置
+      this._placeWithAffiliationAvoidance(shuffled, emptySlots);
     } else {
-      this.showMessage('4名以上のエントリーがある種目がありません', 'error');
+      // そのまま順に配置
+      for (let i = 0; i < shuffled.length && i < emptySlots.length; i++) {
+        this._placeInDraw(this._manualDraw, emptySlots[i], shuffled[i]);
+      }
     }
+
+    this._unplacedPlayers = [];
+    this._selectedPlayer = null;
+    this._renderManualPlacement();
+    this.showMessage('全選手を自動配置しました', 'success');
+  },
+
+  /**
+   * 所属重複を避けた配置アルゴリズム
+   * 1回戦で同所属同士が当たらないように配置を試みる
+   */
+  _placeWithAffiliationAvoidance(players, slots) {
+    // 1回戦ペア: (0,1),(2,3),(4,5),... のインデックス
+    // 各ペアの対戦相手と所属が被らないように配置
+
+    // まず通常通り配置して、衝突があったら交換する
+    const placed = [...players];
+    const slotsCopy = [...slots];
+
+    // 初期配置
+    for (let i = 0; i < placed.length && i < slotsCopy.length; i++) {
+      this._placeInDraw(this._manualDraw, slotsCopy[i], placed[i]);
+    }
+
+    // 衝突検出 & スワップ（最大100回試行）
+    for (let attempt = 0; attempt < 100; attempt++) {
+      let hasCollision = false;
+      for (let i = 0; i < this._manualDraw.length; i += 2) {
+        const a = this._manualDraw[i];
+        const b = this._manualDraw[i + 1];
+        if (!a || !b || a.isBye || b.isBye || a.isEmpty || b.isEmpty) continue;
+        if (a.seed > 0 || b.seed > 0) continue;
+        if (a.affiliation && b.affiliation && a.affiliation === b.affiliation) {
+          hasCollision = true;
+          // ランダムな別の位置とスワップ
+          const swapCandidates = slotsCopy.filter(s => {
+            const entry = this._manualDraw[s];
+            return entry && !entry.isBye && !entry.isEmpty && entry.seed === 0 && s !== i && s !== i + 1;
+          });
+          if (swapCandidates.length > 0) {
+            const swapIdx = swapCandidates[Math.floor(Math.random() * swapCandidates.length)];
+            // aとswapIdxの選手を交換
+            const temp = { ...this._manualDraw[i] };
+            this._manualDraw[i] = { ...this._manualDraw[swapIdx], position: i + 1 };
+            this._manualDraw[swapIdx] = { ...temp, position: swapIdx + 1 };
+          }
+        }
+      }
+      if (!hasCollision) break;
+    }
+  },
+
+  /**
+   * ルーレット抽選: 数字が素早くランダムに動き、Enterで確定
+   */
+  _rouletteSeedPositions() {
+    if (!this._currentDrawData) return;
+
+    const seeded = this._currentDrawData.seeds || [];
+    if (seeded.length <= 2) return;
+
+    const drawSize = this._currentDrawData.drawSize;
+    const pos34 = DrawEngine.getSeed34Positions(drawSize);
+    const pos58 = DrawEngine.getSeed58Positions(drawSize);
+
+    // ルーレット用の表示要素を作成
+    const container = document.getElementById('seed-position-selection');
+    if (!container) return;
+
+    // ルーレット表示エリア
+    let rouletteDiv = document.getElementById('roulette-display');
+    if (!rouletteDiv) {
+      rouletteDiv = document.createElement('div');
+      rouletteDiv.id = 'roulette-display';
+      rouletteDiv.style.cssText = 'padding:16px;text-align:center;background:#fff;border-radius:8px;margin-top:12px;border:2px solid #1976D2;';
+      container.appendChild(rouletteDiv);
+    }
+
+    // シード3,4のルーレット
+    const allPositions = [];
+    if (seeded.length >= 3) {
+      allPositions.push({ label: 'シード3・4', positions: pos34, seeds: [3, 4] });
+    }
+    if (seeded.length >= 5 && pos58.length > 0) {
+      allPositions.push({ label: 'シード5〜8', positions: pos58, seeds: seeded.filter(s => s.seed >= 5 && s.seed <= 8).map(s => s.seed) });
+    }
+
+    if (allPositions.length === 0) return;
+
+    let currentGroup = 0;
+    let rouletteTimer = null;
+    let currentIdx = 0;
+
+    const showGroup = (groupIdx) => {
+      const group = allPositions[groupIdx];
+      const shuffledPositions = DrawEngine.shuffleArray([...group.positions]);
+
+      rouletteDiv.innerHTML = '<h4 style="margin-bottom:12px;color:#1976D2;">' + group.label + ' の位置抽選</h4>' +
+        '<div id="roulette-number" style="font-size:48px;font-weight:bold;color:#333;font-family:monospace;min-height:60px;"></div>' +
+        '<p style="font-size:14px;color:#666;margin-top:8px;">Enterキーまたはクリックで確定</p>';
+
+      const numDisplay = document.getElementById('roulette-number');
+      currentIdx = 0;
+
+      // ルーレット開始
+      rouletteTimer = setInterval(() => {
+        currentIdx = (currentIdx + 1) % group.positions.length;
+        if (numDisplay) numDisplay.textContent = 'No.' + group.positions[currentIdx];
+      }, 80);
+
+      // 確定ハンドラ
+      const stopRoulette = () => {
+        if (rouletteTimer) {
+          clearInterval(rouletteTimer);
+          rouletteTimer = null;
+        }
+        document.removeEventListener('keydown', onKeyDown);
+        rouletteDiv.removeEventListener('click', stopRoulette);
+
+        // 結果をランダムに割り当て
+        const result = DrawEngine.shuffleArray([...group.positions]);
+
+        // セレクトに反映
+        group.seeds.forEach((seedNum, i) => {
+          const sel = document.getElementById('seed' + seedNum + '-position');
+          if (sel && i < result.length) sel.value = result[i];
+        });
+
+        if (numDisplay) {
+          numDisplay.textContent = result.map((p, i) => '[' + group.seeds[i] + '] → No.' + p).join('  ');
+          numDisplay.style.color = '#2E7D32';
+        }
+
+        // 次のグループへ
+        currentGroup++;
+        if (currentGroup < allPositions.length) {
+          setTimeout(() => showGroup(currentGroup), 1500);
+        } else {
+          setTimeout(() => {
+            rouletteDiv.innerHTML = '<p style="color:#2E7D32;font-weight:bold;">抽選完了！「シード位置を確定して配置」を押してください。</p>';
+          }, 1500);
+        }
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          stopRoulette();
+        }
+      };
+      document.addEventListener('keydown', onKeyDown);
+      rouletteDiv.addEventListener('click', stopRoulette);
+      rouletteDiv.style.cursor = 'pointer';
+    };
+
+    showGroup(0);
   },
 
   // ================================================================
@@ -1778,6 +2954,14 @@ window.App = {
     if (select) {
       select.addEventListener('change', () => this._onBracketEventChange());
     }
+
+    // ウィンドウリサイズ時にドロー表を再描画（自動フィット）
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (this.currentScreen !== 'screen-bracket') return;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => this._onBracketEventChange(), 200);
+    });
 
     const btnPrint = document.getElementById('btn-print');
     if (btnPrint) {
@@ -1792,6 +2976,45 @@ window.App = {
     if (btnExportCSV) {
       btnExportCSV.addEventListener('click', () => this._exportDrawCSV());
     }
+
+    const btnClear = document.getElementById('btn-bracket-clear');
+    if (btnClear) {
+      btnClear.addEventListener('click', () => {
+        const eventCode = select ? select.value : '';
+        if (!eventCode || !this.drawResults[eventCode]) return;
+        if (!confirm('この種目のドロー結果をクリアしますか？')) return;
+        delete this.drawResults[eventCode];
+        if (this.confirmedEvents) delete this.confirmedEvents[eventCode];
+        this._saveDrawResults();
+        this._refreshBracketEventSelect();
+        // SVGクリア・メッセージ表示
+        const svg = document.getElementById('bracket-svg');
+        if (svg) svg.innerHTML = '';
+        const emptyMsg = document.getElementById('bracket-empty-msg');
+        if (emptyMsg) emptyMsg.style.display = '';
+        const entryList = document.getElementById('bracket-entry-list');
+        if (entryList) entryList.style.display = 'none';
+        btnClear.style.display = 'none';
+        const btnRedoEl = document.getElementById('btn-bracket-redo');
+        if (btnRedoEl) btnRedoEl.style.display = 'none';
+        this.showMessage('ドロー結果をクリアしました。', 'info');
+      });
+    }
+
+    const btnRedo = document.getElementById('btn-bracket-redo');
+    if (btnRedo) {
+      btnRedo.addEventListener('click', () => {
+        const eventCode = select ? select.value : '';
+        if (!eventCode || !this.drawResults[eventCode]) return;
+        if (!confirm('このドローを取り消して抽選画面でやり直しますか？')) return;
+        // 確定を解除
+        delete this.drawResults[eventCode];
+        if (this.confirmedEvents) delete this.confirmedEvents[eventCode];
+        this._saveDrawResults();
+        this.showMessage('ドローを取り消しました。抽選画面でやり直してください。', 'info');
+        this.switchScreen('screen-draw');
+      });
+    }
   },
 
   _exportDrawExcel() {
@@ -1799,11 +3022,14 @@ window.App = {
     if (!select || !select.value) { this.showMessage('種目を選択してください', 'error'); return; }
     const result = this.drawResults[select.value];
     if (!result) { this.showMessage('ドローが生成されていません', 'error'); return; }
+    const evtDef = AppConfig.EVENTS.find(e => e.code === select.value);
     DrawRenderer.exportToExcel({
       ...result,
       tournamentName: AppConfig.TOURNAMENT_NAME || '',
       date: AppConfig.TOURNAMENT_DATE || '',
       venue: AppConfig.TOURNAMENT_VENUE || '',
+      matchFormat: AppConfig.MATCH_FORMAT || '',
+      isDoubles: evtDef ? evtDef.category === 'doubles' : false,
     });
     this.showMessage('Excelファイルをダウンロードしました', 'success');
   },
@@ -1818,6 +3044,7 @@ window.App = {
       tournamentName: AppConfig.TOURNAMENT_NAME || '',
       date: AppConfig.TOURNAMENT_DATE || '',
       venue: AppConfig.TOURNAMENT_VENUE || '',
+      matchFormat: AppConfig.MATCH_FORMAT || '',
     });
     this.showMessage('CSVファイルをダウンロードしました', 'success');
   },
@@ -1852,6 +3079,10 @@ window.App = {
     if (!select || !select.value) {
       if (emptyMsg) emptyMsg.style.display = '';
       if (entryList) entryList.style.display = 'none';
+      const btnClearEl = document.getElementById('btn-bracket-clear');
+      if (btnClearEl) btnClearEl.style.display = 'none';
+      const btnRedoEl = document.getElementById('btn-bracket-redo');
+      if (btnRedoEl) btnRedoEl.style.display = 'none';
       return;
     }
 
@@ -1864,20 +3095,31 @@ window.App = {
     // SVG 描画
     const container = document.getElementById('bracket-container');
     if (container) {
+      const evtInfo = AppConfig.EVENTS.find(e => e.code === eventCode);
       DrawRenderer.render(container, {
         draw: result.draw,
         drawSize: result.drawSize,
         eventName: result.eventName,
-        tournamentName: AppConfig.TOURNAMENT_NAME || '鳥取県テニス選手権大会',
+        tournamentName: AppConfig.TOURNAMENT_NAME || '',
         date: AppConfig.TOURNAMENT_DATE || '',
         venue: AppConfig.TOURNAMENT_VENUE || '',
+        matchFormat: AppConfig.MATCH_FORMAT || '',
         entries: result.entries,
         seeds: result.seeds,
         entryCount: result.entryCount,
+        isDoubles: evtInfo ? evtInfo.category === 'doubles' : false,
       });
     }
 
+    // クリア・やり直しボタン表示
+    const btnClear = document.getElementById('btn-bracket-clear');
+    if (btnClear) btnClear.style.display = '';
+    const btnRedo = document.getElementById('btn-bracket-redo');
+    if (btnRedo) btnRedo.style.display = result.confirmed ? '' : 'none';
+
     // エントリーリスト表示
+    const evtDef = AppConfig.EVENTS.find(e => e.code === eventCode);
+    const isDoubles = evtDef ? evtDef.category === 'doubles' : false;
     if (entryList) {
       entryList.style.display = '';
       const tbody = document.getElementById('bracket-entry-body');
@@ -1885,12 +3127,31 @@ window.App = {
         tbody.innerHTML = '';
         for (const entry of result.draw) {
           if (entry.isBye) continue;
-          const tr = document.createElement('tr');
-          tr.innerHTML =
-            '<td>' + entry.position + '</td>' +
-            '<td>' + this._esc(entry.name) + '</td>' +
-            '<td>' + this._esc(entry.affiliation || '') + '</td>';
-          tbody.appendChild(tr);
+          if (isDoubles && entry.name && entry.name.includes(' / ')) {
+            // ダブルス: ペアを表示
+            const names = entry.name.split(' / ');
+            const affils = (entry.affiliation || '').split(' / ');
+            const tr1 = document.createElement('tr');
+            tr1.innerHTML =
+              '<td rowspan="2">' + entry.position + '</td>' +
+              '<td>' + this._esc(names[0] || '') + '</td>' +
+              '<td>' + this._esc(affils[0] || '') + '</td>' +
+              '<td rowspan="2">' + (entry.points || 0) + '</td>';
+            tbody.appendChild(tr1);
+            const tr2 = document.createElement('tr');
+            tr2.innerHTML =
+              '<td>' + this._esc(names[1] || '') + '</td>' +
+              '<td>' + this._esc(affils[1] || affils[0] || '') + '</td>';
+            tbody.appendChild(tr2);
+          } else {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+              '<td>' + entry.position + '</td>' +
+              '<td>' + this._esc(entry.name) + '</td>' +
+              '<td>' + this._esc(entry.affiliation || '') + '</td>' +
+              '<td>' + (entry.points || 0) + '</td>';
+            tbody.appendChild(tr);
+          }
         }
       }
     }
@@ -1899,6 +3160,246 @@ window.App = {
   // ================================================================
   // マニュアル画面
   // ================================================================
+
+  // ================================================================
+  // バックアップ画面
+  // ================================================================
+
+  initBackupScreen() {
+    const btnExportAll = document.getElementById('btn-backup-export-all');
+    if (btnExportAll) btnExportAll.addEventListener('click', () => this._exportAllBackup());
+
+    const fileImportAll = document.getElementById('file-backup-import-all');
+    if (fileImportAll) fileImportAll.addEventListener('change', (e) => this._importAllBackup(e));
+
+    const btnClearAll = document.getElementById('btn-backup-clear-all');
+    if (btnClearAll) btnClearAll.addEventListener('click', () => {
+      if (confirm('全てのデータを削除しますか？この操作は取り消せません。')) {
+        localStorage.removeItem('drawSystem_entries');
+        localStorage.removeItem('drawSystem_tournaments');
+        localStorage.removeItem('drawSystem_rankingBackup');
+        localStorage.removeItem('drawSystem_tournamentBackup');
+        localStorage.removeItem('drawSystem_drawResults');
+        EntryStore.entries = [];
+        EntryStore.nextId = 1;
+        TournamentStore.tournaments = [];
+        TournamentStore.nextId = 1;
+        RankingLoader.rankings = {};
+        RankingLoader.allPlayers = [];
+        RankingLoader.furiganaMap = {};
+        RankingLoader.listMembers = [];
+        this.drawResults = {};
+        this.confirmedEvents = {};
+        this.refreshBackupTable();
+        this.showMessage('全データをクリアしました', 'info');
+      }
+    });
+  },
+
+  refreshBackupTable() {
+    const tbody = document.getElementById('backup-data-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const items = [
+      {
+        name: 'ランキングデータ',
+        key: 'drawSystem_rankingBackup',
+        getCount: () => {
+          const d = RankingLoader.getBackupDate();
+          if (!d) return '0件';
+          try {
+            const b = JSON.parse(localStorage.getItem('drawSystem_rankingBackup') || '{}');
+            return (b.allPlayers ? b.allPlayers.length : 0) + '名';
+          } catch (e) { return '0件'; }
+        },
+        getDate: () => RankingLoader.getBackupDate(),
+        onClear: () => {
+          localStorage.removeItem('drawSystem_rankingBackup');
+          RankingLoader.rankings = {};
+          RankingLoader.allPlayers = [];
+          RankingLoader.furiganaMap = {};
+          RankingLoader.listMembers = [];
+        },
+        onExport: () => {
+          const data = localStorage.getItem('drawSystem_rankingBackup');
+          if (!data) { this.showMessage('データがありません', 'error'); return; }
+          this._downloadJSON(data, 'ranking_backup.json');
+        },
+      },
+      {
+        name: '大会一覧',
+        key: 'drawSystem_tournamentBackup',
+        getCount: () => {
+          const all = TournamentStore.getAll();
+          return all.length + '件';
+        },
+        getDate: () => TournamentStore.getBackupDate(),
+        onClear: () => {
+          TournamentStore.clear();
+          localStorage.removeItem('drawSystem_tournamentBackup');
+        },
+        onExport: () => {
+          const data = localStorage.getItem('drawSystem_tournaments');
+          if (!data) { this.showMessage('データがありません', 'error'); return; }
+          this._downloadJSON(data, 'tournament_backup.json');
+        },
+      },
+      {
+        name: 'エントリーデータ',
+        key: 'drawSystem_entries',
+        getCount: () => {
+          return EntryStore.getAll().length + '件';
+        },
+        getDate: () => {
+          try {
+            const entries = EntryStore.getAll();
+            if (entries.length === 0) return null;
+            const latest = entries.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
+            return latest.updatedAt || null;
+          } catch (e) { return null; }
+        },
+        onClear: () => { EntryStore.clear(); },
+        onExport: () => {
+          const json = EntryStore.exportJSON();
+          this._downloadJSON(json, 'entry_backup.json');
+        },
+      },
+      {
+        name: 'ドロー結果',
+        key: 'drawSystem_drawResults',
+        getCount: () => {
+          const keys = Object.keys(this.drawResults);
+          return keys.length + '種目';
+        },
+        getDate: () => {
+          try {
+            const saved = localStorage.getItem('drawSystem_drawResults');
+            if (!saved) return null;
+            const data = JSON.parse(saved);
+            return data.savedAt || null;
+          } catch (e) { return null; }
+        },
+        onClear: () => {
+          this.drawResults = {};
+          this.confirmedEvents = {};
+          localStorage.removeItem('drawSystem_drawResults');
+        },
+        onExport: () => {
+          const data = localStorage.getItem('drawSystem_drawResults');
+          if (!data && Object.keys(this.drawResults).length === 0) {
+            this.showMessage('データがありません', 'error'); return;
+          }
+          const exportData = JSON.stringify({ drawResults: this.drawResults, confirmedEvents: this.confirmedEvents, savedAt: new Date().toISOString() }, null, 2);
+          this._downloadJSON(exportData, 'draw_results_backup.json');
+        },
+      },
+    ];
+
+    items.forEach(item => {
+      const tr = document.createElement('tr');
+      const sizeBytes = (localStorage.getItem(item.key) || '').length * 2;
+      const sizeStr = sizeBytes < 1024 ? sizeBytes + ' B'
+        : sizeBytes < 1048576 ? (sizeBytes / 1024).toFixed(1) + ' KB'
+        : (sizeBytes / 1048576).toFixed(1) + ' MB';
+      const dateVal = item.getDate();
+      const dateStr = dateVal ? new Date(dateVal).toLocaleString('ja-JP') : '-';
+
+      tr.innerHTML =
+        '<td>' + item.name + '</td>' +
+        '<td>' + item.getCount() + '</td>' +
+        '<td>' + dateStr + '</td>' +
+        '<td>' + sizeStr + '</td>' +
+        '<td class="action-cell"></td>';
+
+      const actionCell = tr.querySelector('.action-cell');
+
+      const btnExport = document.createElement('button');
+      btnExport.className = 'btn btn-sm btn-secondary';
+      btnExport.textContent = 'エクスポート';
+      btnExport.addEventListener('click', () => { item.onExport(); });
+      actionCell.appendChild(btnExport);
+
+      const btnClear = document.createElement('button');
+      btnClear.className = 'btn btn-sm btn-danger';
+      btnClear.textContent = '削除';
+      btnClear.style.marginLeft = '4px';
+      btnClear.addEventListener('click', () => {
+        if (confirm(item.name + ' を削除しますか？')) {
+          item.onClear();
+          this.refreshBackupTable();
+          this.showMessage(item.name + ' を削除しました', 'info');
+        }
+      });
+      actionCell.appendChild(btnClear);
+
+      tbody.appendChild(tr);
+    });
+  },
+
+  _downloadJSON(jsonStr, filename) {
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  _exportAllBackup() {
+    const allData = {};
+    const keys = ['drawSystem_rankingBackup', 'drawSystem_tournaments', 'drawSystem_tournamentBackup', 'drawSystem_entries'];
+    keys.forEach(k => {
+      const val = localStorage.getItem(k);
+      if (val) allData[k] = JSON.parse(val);
+    });
+    allData['drawSystem_drawResults'] = { drawResults: this.drawResults, confirmedEvents: this.confirmedEvents };
+    allData.exportedAt = new Date().toISOString();
+    this._downloadJSON(JSON.stringify(allData, null, 2), 'draw_system_full_backup.json');
+    this.showMessage('全データをエクスポートしました', 'success');
+  },
+
+  _importAllBackup(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data['drawSystem_rankingBackup']) {
+          localStorage.setItem('drawSystem_rankingBackup', JSON.stringify(data['drawSystem_rankingBackup']));
+          RankingLoader.restoreFromBackup();
+        }
+        if (data['drawSystem_entries']) {
+          const entryData = data['drawSystem_entries'];
+          localStorage.setItem('drawSystem_entries', JSON.stringify(entryData));
+          EntryStore.init();
+        }
+        if (data['drawSystem_tournaments']) {
+          localStorage.setItem('drawSystem_tournaments', JSON.stringify(data['drawSystem_tournaments']));
+          TournamentStore.init();
+        }
+        if (data['drawSystem_tournamentBackup']) {
+          localStorage.setItem('drawSystem_tournamentBackup', JSON.stringify(data['drawSystem_tournamentBackup']));
+        }
+        if (data['drawSystem_drawResults']) {
+          const dr = data['drawSystem_drawResults'];
+          if (dr.drawResults) this.drawResults = dr.drawResults;
+          if (dr.confirmedEvents) this.confirmedEvents = dr.confirmedEvents;
+          localStorage.setItem('drawSystem_drawResults', JSON.stringify(dr));
+        }
+        this.refreshBackupTable();
+        this.showMessage('全データをインポートしました', 'success');
+      } catch (err) {
+        this.showMessage('インポートに失敗: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  },
 
   initManualScreen() {
     document.querySelectorAll('.manual-tab-btn').forEach(btn => {

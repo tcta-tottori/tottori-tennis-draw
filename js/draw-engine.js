@@ -112,6 +112,14 @@ window.DrawEngine = {
     return [];
   },
 
+  getSeed916Positions(drawSize) {
+    const positions = AppConfig.SEED_POSITIONS[drawSize];
+    if (positions && positions.seed9_16) {
+      return positions.seed9_16;
+    }
+    return [];
+  },
+
   /**
    * シード選手を指定位置に配置するヘルパー
    * @param {Array} draw ドロー配列
@@ -255,6 +263,17 @@ window.DrawEngine = {
       }
     }
 
+    if (seedCount >= 9) {
+      // シード9-16 の位置を決定
+      const positions916 = this.getSeed916Positions(drawSize);
+      const shuffled916 = this.shuffleArray([...positions916]);
+      for (let i = 0; i < Math.min(8, seedCount - 8); i++) {
+        if (i < shuffled916.length && (8 + i) < seeded.length) {
+          this._placeSeedAtPosition(draw, shuffled916[i] - 1, seeded[8 + i]);
+        }
+      }
+    }
+
     // --- BYE 配置 ---
     const byeCount = drawSize - players.length;
     const byePositions = this._determineBYEPositions(draw, drawSize, byeCount);
@@ -308,10 +327,46 @@ window.DrawEngine = {
     const seedRule = AppConfig.SEED_RULES[drawSize];
     const seedCount = seedRule ? seedRule.seeds : 0;
 
-    const result = players.map((p, idx) => ({
-      ...p,
-      seed: idx < seedCount ? idx + 1 : 0,
-    }));
+    const result = players.map(p => ({ ...p, seed: 0 }));
+
+    if (seedCount >= 1 && result.length >= 1) result[0].seed = 1;
+    if (seedCount >= 2 && result.length >= 2) result[1].seed = 2;
+
+    // シード3,4は抽選（3位と4位をランダムに割り当て）
+    if (seedCount >= 4 && result.length >= 4) {
+      const seeds34 = [3, 4];
+      this.shuffleArray(seeds34);
+      result[2].seed = seeds34[0];
+      result[3].seed = seeds34[1];
+    } else if (seedCount >= 3 && result.length >= 3) {
+      result[2].seed = 3;
+    }
+
+    // シード5-8は抽選（5位〜8位をランダムに割り当て）
+    if (seedCount >= 5) {
+      const count58 = Math.min(4, seedCount - 4, result.length - 4);
+      if (count58 > 0) {
+        const seeds58 = [];
+        for (let i = 5; i <= 4 + count58; i++) seeds58.push(i);
+        this.shuffleArray(seeds58);
+        for (let i = 0; i < count58; i++) {
+          result[4 + i].seed = seeds58[i];
+        }
+      }
+    }
+
+    // シード9-16は抽選（9位〜16位をランダムに割り当て）
+    if (seedCount >= 9) {
+      const count916 = Math.min(8, seedCount - 8, result.length - 8);
+      if (count916 > 0) {
+        const seeds916 = [];
+        for (let i = 9; i <= 8 + count916; i++) seeds916.push(i);
+        this.shuffleArray(seeds916);
+        for (let i = 0; i < count916; i++) {
+          result[8 + i].seed = seeds916[i];
+        }
+      }
+    }
 
     return result;
   },
@@ -330,23 +385,28 @@ window.DrawEngine = {
     const results = {};
 
     for (const evt of AppConfig.EVENTS) {
-      const entries = EntryStore.getByEvent(evt.code);
-      if (!entries || entries.length <= 3) {
-        continue; // トーナメント不要
+      const isDoubles = evt.category === 'doubles';
+      let drawEntries;
+
+      if (isDoubles) {
+        const pairs = EntryStore.getDoublesPairs(evt.code).filter(p => !p.incomplete);
+        if (pairs.length <= 3) continue;
+        drawEntries = pairs.map(p => ({
+          name: p.name,
+          furigana: p.furigana,
+          affiliation: p.affiliation,
+          points: p.points,
+          seed: 0,
+        }));
+      } else {
+        drawEntries = EntryStore.getByEvent(evt.code);
+        if (!drawEntries || drawEntries.length <= 3) continue;
       }
 
-      const drawSize = this.getDrawSize(entries.length);
-
-      // ポイント降順ソート
-      const sorted = [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
-
-      // シード割り当て
+      const drawSize = this.getDrawSize(drawEntries.length);
+      const sorted = [...drawEntries].sort((a, b) => (b.points || 0) - (a.points || 0));
       const withSeeds = this.assignSeeds(sorted, drawSize);
-
-      // ドロー配列生成
       const draw = this.createDrawArray(withSeeds, drawSize);
-
-      // シード一覧
       const seeds = withSeeds.filter(p => p.seed > 0).sort((a, b) => a.seed - b.seed);
 
       results[evt.code] = {
@@ -356,7 +416,7 @@ window.DrawEngine = {
         seeds: seeds,
         eventName: evt.name,
         eventCode: evt.code,
-        entryCount: entries.length,
+        entryCount: drawEntries.length,
       };
     }
 

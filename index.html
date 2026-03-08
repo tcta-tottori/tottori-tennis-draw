@@ -25,11 +25,11 @@
     <nav class="tab-nav">
       <button class="tab-btn active" data-screen="screen-data">データ読込</button>
       <button class="tab-btn" data-screen="screen-ranking">選手一覧</button>
-      <button class="tab-btn" data-screen="screen-ocr">OCR入力</button>
+      <button class="tab-btn" data-screen="screen-ocr">画像読込</button>
       <button class="tab-btn" data-screen="screen-entry">エントリー</button>
-      <button class="tab-btn" data-screen="screen-events">種目別確認</button>
       <button class="tab-btn" data-screen="screen-draw">抽選</button>
       <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
+      <button class="tab-btn" data-screen="screen-backup">バックアップ</button>
       <button class="tab-btn" data-screen="screen-manual">マニュアル</button>
     </nav>
   </header>
@@ -52,8 +52,13 @@
           <div>
             <label class="form-label">ランキングデータ（rank）</label>
             <div style="display:flex;gap:8px;">
-              <input type="text" id="gs-ranking-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="flex:1;">
               <button id="btn-gs-ranking" class="btn btn-primary">読込</button>
+              <a id="btn-gs-ranking-link" class="btn btn-secondary" href="#" target="_blank" style="display:none;" title="スプレッドシートを開く">開く</a>
+            </div>
+            <input type="text" id="gs-ranking-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="margin-top:4px;font-size:11px;color:#999;padding:4px 8px;">
+            <div id="gs-ranking-progress" class="progress-bar-container" style="display:none;margin-top:8px;">
+              <div class="progress-bar"><div id="gs-ranking-progress-bar" class="progress-bar-fill" style="width:0%;"></div></div>
+              <span id="gs-ranking-progress-text" class="progress-text">読込中...</span>
             </div>
             <div id="gs-ranking-status" class="load-status" style="margin-top:8px;">
               <span class="status-icon status-pending">&#9679;</span>
@@ -63,8 +68,13 @@
           <div>
             <label class="form-label">ふりがなデータ</label>
             <div style="display:flex;gap:8px;">
-              <input type="text" id="gs-furigana-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="flex:1;">
               <button id="btn-gs-furigana" class="btn btn-primary">読込</button>
+              <a id="btn-gs-furigana-link" class="btn btn-secondary" href="#" target="_blank" style="display:none;" title="スプレッドシートを開く">開く</a>
+            </div>
+            <input type="text" id="gs-furigana-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="margin-top:4px;font-size:11px;color:#999;padding:4px 8px;">
+            <div id="gs-furigana-progress" class="progress-bar-container" style="display:none;margin-top:8px;">
+              <div class="progress-bar"><div id="gs-furigana-progress-bar" class="progress-bar-fill" style="width:0%;"></div></div>
+              <span id="gs-furigana-progress-text" class="progress-text">読込中...</span>
             </div>
             <div id="gs-furigana-status" class="load-status" style="margin-top:8px;">
               <span class="status-icon status-pending">&#9679;</span>
@@ -145,6 +155,93 @@
         </div>
         <div id="data-summary-detail" style="margin-top:12px;"></div>
       </div>
+
+      <!-- 大会一覧（統合） -->
+      <div class="card" style="margin-top:24px;">
+        <h3 class="card-title">大会一覧</h3>
+        <div class="toolbar" style="margin-bottom:12px;">
+          <div class="toolbar-left">
+            <span style="font-size:13px;color:#6b7280;">
+              登録大会数: <strong id="tournament-count">0</strong>件
+            </span>
+          </div>
+          <div class="toolbar-right">
+            <label class="btn btn-secondary" style="cursor:pointer;">
+              Excelから読込
+              <input type="file" id="file-tournament-import" accept=".xlsx,.xls" hidden>
+            </label>
+            <button id="btn-tournament-add" class="btn btn-primary">大会追加</button>
+            <button id="btn-tournament-clear" class="btn btn-danger">全クリア</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="tournament-table">
+            <thead>
+              <tr>
+                <th style="width:30px;">No.</th>
+                <th>大会名</th>
+                <th>試合種目</th>
+                <th>日程</th>
+                <th>会場</th>
+                <th>予備日</th>
+                <th>予備日会場</th>
+                <th style="width:120px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tournament-table-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 大会編集モーダル -->
+      <div id="modal-tournament-edit" class="modal-overlay" style="display:none;">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title" id="modal-tournament-title">大会編集</h3>
+            <button class="modal-close" data-modal-close>&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">大会名 <span class="required">*</span></label>
+              <input type="text" id="tournament-edit-name" class="form-input" placeholder="大会名">
+            </div>
+            <div class="form-group">
+              <label class="form-label">試合種目</label>
+              <input type="text" id="tournament-edit-events" class="form-input" placeholder="例: 男女シングルス">
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <div class="form-group" style="flex:1;min-width:120px;">
+                <label class="form-label">日程</label>
+                <input type="text" id="tournament-edit-date" class="form-input" placeholder="例: 3月22日">
+              </div>
+              <div class="form-group" style="flex:1;min-width:120px;">
+                <label class="form-label">曜日</label>
+                <input type="text" id="tournament-edit-dow" class="form-input" placeholder="例: （日）">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">会場</label>
+              <input type="text" id="tournament-edit-venue" class="form-input" placeholder="例: ヤマタスポーツパーク">
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <div class="form-group" style="flex:1;min-width:120px;">
+                <label class="form-label">予備日</label>
+                <input type="text" id="tournament-edit-reserve-date" class="form-input" placeholder="例: 3/28">
+              </div>
+              <div class="form-group" style="flex:1;min-width:120px;">
+                <label class="form-label">予備日会場</label>
+                <input type="text" id="tournament-edit-reserve-venue" class="form-input" placeholder="例: 千代">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="btn-tournament-duplicate" style="display:none;margin-right:auto;">複製</button>
+            <button class="btn btn-secondary" data-modal-close>キャンセル</button>
+            <button class="btn btn-primary" id="btn-tournament-save">保存</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- 画面: ランキング閲覧 -->
@@ -178,12 +275,11 @@
         <table class="data-table" id="ranking-table">
           <thead>
             <tr>
-              <th style="width:60px;">順位</th>
+              <th style="width:50px;">順位</th>
               <th>氏名</th>
               <th>ふりがな</th>
               <th>所属</th>
-              <th style="width:90px;">ポイント</th>
-              <th style="width:100px;">種目</th>
+              <th style="width:70px;">ポイント</th>
               <th style="width:80px;">操作</th>
             </tr>
           </thead>
@@ -194,9 +290,30 @@
       <p class="empty-message" id="ranking-empty-msg">データが読み込まれていません。起動時に自動読込されます。</p>
     </section>
 
-    <!-- 画面2: OCR入力 -->
+    <!-- 画面2: 画像読込 -->
     <section id="screen-ocr" class="screen">
-      <h2 class="screen-title">OCR入力</h2>
+      <h2 class="screen-title">画像読込</h2>
+
+      <!-- OCR方式選択 -->
+      <div class="card" style="margin-bottom:12px;">
+        <h3 class="card-title">OCR方式</h3>
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">認識エンジン</label>
+            <select id="ocr-engine-select" class="form-select">
+              <option value="gemini">Gemini AI（推奨・手書き対応）</option>
+              <option value="tesseract">Tesseract.js（オフライン）</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;flex:1;min-width:250px;" id="gemini-api-key-group">
+            <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
+            <input type="password" id="gemini-api-key" class="form-input" placeholder="AIzaSy...">
+          </div>
+        </div>
+        <p style="font-size:11px;color:#888;margin-top:6px;">
+          Gemini AI: 手書き日本語の認識精度が高い。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1a56db;">APIキー取得</a>（無料枠あり）
+        </p>
+      </div>
 
       <div class="ocr-controls">
         <button id="btn-camera" class="btn btn-primary">
@@ -273,12 +390,41 @@
     <section id="screen-entry" class="screen">
       <h2 class="screen-title">エントリー</h2>
 
+      <!-- 大会設定 -->
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title">大会設定</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;">
+          <div class="form-group" style="margin-bottom:0;flex:2;min-width:250px;">
+            <label for="tournament-select" class="form-label">大会選択</label>
+            <select id="tournament-select" class="form-select">
+              <option value="">-- 大会を選択 --</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;min-width:140px;">
+            <label for="tournament-date-input" class="form-label">開催日</label>
+            <input type="text" id="tournament-date-input" class="form-input" placeholder="例: 令和7年11月9日（日）">
+          </div>
+          <div class="form-group" style="margin-bottom:0;min-width:200px;">
+            <label for="tournament-venue-input" class="form-label">会場</label>
+            <select id="tournament-venue-input" class="form-select">
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;width:100%;">
+            <label for="tournament-format-input" class="form-label">ゲームルール</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <select id="tournament-format-select" class="form-select" style="flex:1;min-width:200px;">
+              </select>
+              <input type="text" id="tournament-format-custom" class="form-input" placeholder="またはルールを直接入力" style="flex:1;min-width:200px;">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- フィルター＆操作 -->
       <div class="toolbar">
         <div class="toolbar-left">
           <label for="entry-event-filter" class="toolbar-label">種目フィルター:</label>
           <select id="entry-event-filter" class="form-select">
-            <option value="">全種目</option>
           </select>
           <span style="font-size:13px;color:#6b7280;margin-left:8px;">
             全エントリー: <strong id="entry-total-count">0</strong>件
@@ -304,7 +450,7 @@
       <!-- エントリーテーブル -->
       <div class="table-wrapper">
         <table class="data-table" id="entry-table">
-          <thead>
+          <thead id="entry-table-head">
             <tr>
               <th>No.</th>
               <th>氏名</th>
@@ -365,41 +511,6 @@
       </div>
     </section>
 
-    <!-- 画面4: 種目別確認 -->
-    <section id="screen-events" class="screen">
-      <h2 class="screen-title">種目別確認</h2>
-
-      <!-- 種目タブ -->
-      <div class="event-tabs" id="event-tabs">
-        <p class="empty-message">種目データがありません。データ読込からデータを読み込んでください。</p>
-      </div>
-
-      <!-- 種目詳細 -->
-      <div id="event-detail" class="card" style="display:none;">
-        <div class="event-detail-header">
-          <h3 class="card-title" id="event-detail-name"></h3>
-          <div class="event-meta">
-            <span class="meta-item">エントリー数: <strong id="event-entry-count">0</strong></span>
-            <span class="meta-item">ドローサイズ: <strong id="event-draw-size">-</strong></span>
-            <span class="meta-item">シード数: <strong id="event-seed-count">-</strong></span>
-          </div>
-        </div>
-        <div class="table-wrapper">
-          <table class="data-table" id="event-entry-table">
-            <thead>
-              <tr>
-                <th>順位</th>
-                <th>氏名</th>
-                <th>所属</th>
-                <th>ポイント</th>
-              </tr>
-            </thead>
-            <tbody id="event-entry-body">
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
 
     <!-- 画面5: 抽選 -->
     <section id="screen-draw" class="screen">
@@ -414,7 +525,6 @@
           </select>
         </div>
         <div class="toolbar-right">
-          <button id="btn-all-draw" class="btn btn-primary">全種目一括抽選</button>
         </div>
       </div>
 
@@ -423,8 +533,36 @@
         <!-- シード情報バー -->
         <div id="draw-seed-info" class="draw-seed-info-bar"></div>
 
+        <!-- 所属重複設定 -->
+        <div style="margin-bottom:12px;padding:8px 12px;background:#f0f4ff;border-radius:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <label style="font-size:13px;font-weight:600;">所属重複:</label>
+          <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+            <input type="radio" name="affiliation-collision" value="avoid" checked> 同所属を避ける
+          </label>
+          <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+            <input type="radio" name="affiliation-collision" value="allow"> 同所属OK
+          </label>
+        </div>
+
+        <!-- シード位置選択（3,4 / 5-8 の抽選） -->
+        <div id="seed-position-selection" style="display:none;margin-bottom:12px;padding:12px;background:#F5F5F5;border-radius:8px;">
+          <h4 style="font-size:14px;margin-bottom:10px;">シード位置の抽選</h4>
+          <div id="seed34-selection" style="display:none;margin-bottom:10px;">
+            <p style="font-size:13px;font-weight:bold;margin-bottom:6px;">シード3・4の位置:</p>
+            <div id="seed34-controls" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;"></div>
+          </div>
+          <div id="seed58-selection" style="display:none;margin-bottom:10px;">
+            <p style="font-size:13px;font-weight:bold;margin-bottom:6px;">シード5〜8の位置:</p>
+            <div id="seed58-controls" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <button id="btn-apply-seed-positions" class="btn btn-primary">シード位置を確定して配置</button>
+            <button id="btn-roulette-seed-positions" class="btn btn-secondary">抽選（ルーレット）</button>
+          </div>
+        </div>
+
         <p style="font-size:13px;color:#666;margin-bottom:12px;">
-          シード選手は自動配置されます。未配置の選手を選択し、空きポジションをクリックして配置してください。
+          シード1・2は自動配置されます。シード3・4、5〜8の位置を選択してから、未配置の選手を配置してください。
         </p>
 
         <!-- 未配置選手リスト -->
@@ -437,33 +575,47 @@
         <div id="draw-placement-area" style="display:none;">
           <!-- ライブトーナメント表プレビュー -->
           <div id="live-bracket-preview" class="live-bracket-preview">
+            <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <label for="bracket-scale-slider" style="font-size:13px;white-space:nowrap;">縦サイズ:</label>
+              <input type="range" id="bracket-scale-slider" min="0.5" max="2.0" step="0.1" value="1.0" style="width:120px;">
+              <span id="bracket-scale-value" style="font-size:12px;color:#666;">100%</span>
+              <label for="bracket-hscale-slider" style="font-size:13px;white-space:nowrap;margin-left:16px;">横サイズ:</label>
+              <input type="range" id="bracket-hscale-slider" min="0.5" max="2.0" step="0.1" value="1.0" style="width:120px;">
+              <span id="bracket-hscale-value" style="font-size:12px;color:#666;">100%</span>
+            </div>
             <div class="bracket-svg-wrapper" id="live-bracket-svg-wrapper" style="overflow-x:auto;">
               <svg id="live-bracket-svg" xmlns="http://www.w3.org/2000/svg"></svg>
             </div>
           </div>
 
-          <!-- 配置テーブル（左右の山） -->
-          <div class="draw-halves">
-            <div class="draw-half">
-              <h4 style="font-size:13px;margin-bottom:8px;">上の山（トップハーフ）</h4>
-              <div class="table-wrapper">
-                <table class="data-table" id="draw-top-half-table">
-                  <thead><tr><th style="width:50px;">No</th><th>氏名</th><th>所属</th><th style="width:60px;">操作</th></tr></thead>
-                  <tbody id="draw-top-half-body"></tbody>
-                </table>
+          <!-- 配置操作テーブル（コンパクト表示） -->
+          <div id="draw-placement-table" style="margin-top:12px;">
+            <details>
+              <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#1a56db;">配置一覧テーブル（詳細表示）</summary>
+              <div class="draw-halves" style="margin-top:8px;">
+                <div class="draw-half">
+                  <h4 style="font-size:13px;margin-bottom:8px;">上の山（トップハーフ）</h4>
+                  <div class="table-wrapper">
+                    <table class="data-table" id="draw-top-half-table">
+                      <thead><tr><th style="width:50px;">No</th><th>氏名</th><th>所属</th><th style="width:60px;">操作</th></tr></thead>
+                      <tbody id="draw-top-half-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="draw-half">
+                  <h4 style="font-size:13px;margin-bottom:8px;">下の山（ボトムハーフ）</h4>
+                  <div class="table-wrapper">
+                    <table class="data-table" id="draw-bottom-half-table">
+                      <thead><tr><th style="width:50px;">No</th><th>氏名</th><th>所属</th><th style="width:60px;">操作</th></tr></thead>
+                      <tbody id="draw-bottom-half-body"></tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div class="draw-half">
-              <h4 style="font-size:13px;margin-bottom:8px;">下の山（ボトムハーフ）</h4>
-              <div class="table-wrapper">
-                <table class="data-table" id="draw-bottom-half-table">
-                  <thead><tr><th style="width:50px;">No</th><th>氏名</th><th>所属</th><th style="width:60px;">操作</th></tr></thead>
-                  <tbody id="draw-bottom-half-body"></tbody>
-                </table>
-              </div>
-            </div>
+            </details>
           </div>
           <div class="action-bar" style="margin-top:12px;">
+            <button id="btn-draw-auto-place" class="btn btn-secondary">全自動配置</button>
             <button id="btn-draw-confirm" class="btn btn-primary">ドロー確定</button>
             <button id="btn-draw-reset" class="btn btn-secondary">リセット</button>
           </div>
@@ -484,6 +636,8 @@
           </select>
         </div>
         <div class="toolbar-right" style="gap:8px;display:flex;flex-wrap:wrap;">
+          <button id="btn-bracket-clear" class="btn btn-danger" style="display:none;">クリア</button>
+          <button id="btn-bracket-redo" class="btn btn-secondary" style="display:none;">やり直し</button>
           <button id="btn-export-excel" class="btn btn-secondary">Excel出力</button>
           <button id="btn-export-csv" class="btn btn-secondary">CSV出力</button>
           <button id="btn-print" class="btn btn-primary">印刷</button>
@@ -508,11 +662,54 @@
                 <th>ドロー番号</th>
                 <th>氏名</th>
                 <th>所属</th>
+                <th>ポイント</th>
               </tr>
             </thead>
             <tbody id="bracket-entry-body">
             </tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 画面: バックアップ -->
+    <section id="screen-backup" class="screen">
+      <h2 class="screen-title">バックアップデータ管理</h2>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title">保存データ一覧</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          ブラウザのlocalStorageに保存されているデータの状態を表示します。
+        </p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>データ種別</th>
+                <th>件数</th>
+                <th>保存日時</th>
+                <th>サイズ</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="backup-data-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title">一括エクスポート・インポート</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          全データをまとめてJSON形式でエクスポート・インポートできます。
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btn-backup-export-all" class="btn btn-primary">全データエクスポート</button>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            全データインポート
+            <input type="file" id="file-backup-import-all" accept=".json" style="display:none;">
+          </label>
+          <button id="btn-backup-clear-all" class="btn btn-danger">全データクリア</button>
         </div>
       </div>
     </section>
@@ -553,15 +750,15 @@
                 <p>「エントリー」タブで選手を登録します。</p>
                 <ul>
                   <li><strong>手動追加</strong>：「手動追加」ボタンから氏名入力。ランキングデータから候補が自動表示されます。</li>
-                  <li><strong>OCR入力</strong>：「OCR入力」タブで申込用紙を撮影・認識して一括登録。</li>
+                  <li><strong>画像読込</strong>：「画像読込」タブで申込用紙を撮影・認識して一括登録。</li>
                 </ul>
               </div>
             </div>
             <div class="flow-step">
               <div class="flow-step-number">4</div>
               <div class="flow-step-body">
-                <h4>種目別確認</h4>
-                <p>「種目別確認」タブで各種目のエントリー状況を確認します。<br>ポイント順にソートされ、ドローサイズ・シード数が自動計算されます。</p>
+                <h4>大会一覧</h4>
+                <p>「データ読込」タブの大会一覧で大会日程を管理します。<br>Excelファイルから読み込むか、手動で追加・編集できます。エントリー画面で大会をプルダウンから選択できます。</p>
               </div>
             </div>
             <div class="flow-step">
@@ -570,7 +767,7 @@
                 <h4>シード決定・抽選</h4>
                 <p>「シード・抽選」タブでJTAルールに基づくシード配置と抽選を実行します。</p>
                 <ul>
-                  <li>種目ごとに個別実行、または「全種目一括」ボタンで一括実行。</li>
+                  <li>種目ごとに個別実行。</li>
                   <li>シード順位はポイント上位者に自動付与。</li>
                   <li>BYEはシード選手の対戦相手位置に優先配置。</li>
                 </ul>
@@ -609,8 +806,9 @@
               <tbody>
                 <tr><td>5〜8人</td><td>8ドロー</td><td>2シード</td></tr>
                 <tr><td>9〜16人</td><td>16ドロー</td><td>4シード</td></tr>
-                <tr><td>17〜32人</td><td>32ドロー</td><td>4シード</td></tr>
-                <tr><td>33人以上</td><td>64ドロー以上</td><td>8シード</td></tr>
+                <tr><td>17〜32人</td><td>32ドロー</td><td>8シード</td></tr>
+                <tr><td>33〜64人</td><td>64ドロー</td><td>16シード</td></tr>
+                <tr><td>65人以上</td><td>128ドロー</td><td>16シード</td></tr>
               </tbody>
             </table>
           </div>
@@ -635,10 +833,10 @@
                 <tr><th>ドローサイズ</th><th>候補位置A</th><th>候補位置B</th></tr>
               </thead>
               <tbody>
-                <tr><td>8ドロー</td><td>ライン3</td><td>ライン6</td></tr>
                 <tr><td>16ドロー</td><td>ライン5</td><td>ライン12</td></tr>
                 <tr><td>32ドロー</td><td>ライン9</td><td>ライン24</td></tr>
                 <tr><td>64ドロー</td><td>ライン17</td><td>ライン48</td></tr>
+                <tr><td>128ドロー</td><td>ライン33</td><td>ライン96</td></tr>
               </tbody>
             </table>
           </div>
@@ -651,9 +849,9 @@
                 <tr><th>ドローサイズ</th><th>位置候補</th></tr>
               </thead>
               <tbody>
-                <tr><td>16ドロー</td><td>4, 8, 9, 13</td></tr>
                 <tr><td>32ドロー</td><td>8, 16, 17, 25</td></tr>
-                <tr><td>64ドロー</td><td>8, 24, 41, 56</td></tr>
+                <tr><td>64ドロー</td><td>16, 32, 33, 49</td></tr>
+                <tr><td>128ドロー</td><td>32, 64, 65, 97</td></tr>
               </tbody>
             </table>
           </div>
@@ -742,6 +940,7 @@
   <script src="js/ranking-loader.js"></script>
   <script src="js/fuzzy-match.js"></script>
   <script src="js/entry-store.js"></script>
+  <script src="js/tournament-store.js"></script>
   <script src="js/ocr-engine.js"></script>
   <script src="js/seed-rules.js"></script>
   <script src="js/draw-engine.js"></script>

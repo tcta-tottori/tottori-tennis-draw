@@ -16,16 +16,17 @@ window.AppConfig = {
   ],
 
   EVENTS: [
-    // シングルス
+    // シングルス（男子→女子、種類ごと）
     { code: 'ms',    name: '一般男子シングルス',         shortName: '男子S',      category: 'singles' },
     { code: 'ls',    name: '一般女子シングルス',         shortName: '女子S',      category: 'singles' },
     { code: 'm35s',  name: '男子35歳以上シングルス',     shortName: '男子35S',    category: 'singles' },
     { code: 'm45s',  name: '男子45歳以上シングルス',     shortName: '男子45S',    category: 'singles' },
     { code: 'm55s',  name: '男子55歳以上シングルス',     shortName: '男子55S',    category: 'singles' },
     { code: 'm65s',  name: '男子65歳以上シングルス',     shortName: '男子65S',    category: 'singles' },
+    { code: 'l45s',  name: '女子45歳以上シングルス',     shortName: '女子45S',    category: 'singles' },
     { code: 'mbs',   name: '男子B級シングルス',          shortName: '男子BS',     category: 'singles' },
     { code: 'lbs',   name: '女子B級シングルス',          shortName: '女子BS',     category: 'singles' },
-    // ダブルス
+    // ダブルス（男子→女子、種類ごと）
     { code: 'md',    name: '一般男子ダブルス',           shortName: '男子D',      category: 'doubles' },
     { code: 'ld',    name: '一般女子ダブルス',           shortName: '女子D',      category: 'doubles' },
     { code: 'm45d',  name: '男子45歳以上ダブルス',       shortName: '男子45D',    category: 'doubles' },
@@ -40,16 +41,28 @@ window.AppConfig = {
   SEED_RULES: {
     8:  { seeds: 2 },
     16: { seeds: 4 },
-    32: { seeds: 4 },
-    64: { seeds: 8 },
+    32: { seeds: 8 },
+    64: { seeds: 16 },
     128:{ seeds: 16 },
   },
   SEED_POSITIONS: {
-    8: { seed3_4: [3, 6] },
-    16: { seed3_4: [5, 12], seed5_8: [4, 8, 9, 13] },
+    16: { seed3_4: [5, 12] },
     32: { seed3_4: [9, 24], seed5_8: [8, 16, 17, 25] },
-    64: { seed3_4: [17, 48], seed5_8: [8, 24, 41, 56] },
+    64: { seed3_4: [17, 48], seed5_8: [16, 32, 33, 49], seed9_16: [8, 24, 25, 41, 40, 56, 57, 9] },
+    128:{ seed3_4: [33, 96], seed5_8: [32, 64, 65, 97], seed9_16: [16, 48, 49, 81, 80, 112, 113, 17] },
   },
+
+  VENUE_OPTIONS: [
+    'ヤマタスポーツパーク・テニスコート',
+    '千代テニス場',
+  ],
+
+  MATCH_FORMAT_OPTIONS: [
+    '6ゲームマッチ（6-6タイブレーク）',
+    '6ゲームマッチ（6-6タイブレーク）ノーアドバンテージ',
+    '8ゲームマッチ（8-8タイブレーク）',
+    '8ゲームマッチ（8-8タイブレーク）ノーアドバンテージ',
+  ],
 
   // ランキングシート設定（gidベースで全シートを定義）
   RANK_SHEETS_BY_GID: {
@@ -80,6 +93,7 @@ window.AppConfig = {
     'm45s': { headerRow: 3 },
     'm55s': { headerRow: 3 },
     'm65s': { headerRow: 3 },
+    'l45s': { headerRow: 3 },
     'mbs':  { headerRow: 3 },
     'lbs':  { headerRow: 3 },
     'md':   { headerRow: 3 },

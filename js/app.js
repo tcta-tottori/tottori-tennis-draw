@@ -22,16 +22,12 @@ window.App = {
       window.EntryStore = this._createEntryStoreStub();
     }
 
-    // タブ切り替えイベント
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    // タブバー切り替えイベント
+    document.querySelectorAll('.tab-bar .tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.switchScreen(btn.dataset.screen);
-        this._closeDrawer();
       });
     });
-
-    // ハンバーガーメニュー
-    this._initHamburgerMenu();
 
     // ドロー結果の復元
     this._restoreDrawResults();
@@ -59,46 +55,6 @@ window.App = {
 
     // デフォルトURLをセットして自動読み込み
     this._autoLoadSpreadsheets();
-  },
-
-  _initHamburgerMenu() {
-    const btn = document.getElementById('hamburger-btn');
-    const overlay = document.getElementById('drawer-overlay');
-    const closeBtn = document.getElementById('drawer-close');
-
-    if (btn) {
-      btn.addEventListener('click', () => this._toggleDrawer());
-    }
-    if (overlay) {
-      overlay.addEventListener('click', () => this._closeDrawer());
-    }
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => this._closeDrawer());
-    }
-  },
-
-  _toggleDrawer() {
-    const nav = document.getElementById('drawer-nav');
-    const overlay = document.getElementById('drawer-overlay');
-    const btn = document.getElementById('hamburger-btn');
-    if (!nav) return;
-    const isOpen = nav.classList.contains('open');
-    if (isOpen) {
-      this._closeDrawer();
-    } else {
-      nav.classList.add('open');
-      if (overlay) overlay.classList.add('open');
-      if (btn) btn.classList.add('open');
-    }
-  },
-
-  _closeDrawer() {
-    const nav = document.getElementById('drawer-nav');
-    const overlay = document.getElementById('drawer-overlay');
-    const btn = document.getElementById('hamburger-btn');
-    if (nav) nav.classList.remove('open');
-    if (overlay) overlay.classList.remove('open');
-    if (btn) btn.classList.remove('open');
   },
 
   /**
@@ -212,10 +168,15 @@ window.App = {
       this.currentScreen = screenId;
     }
 
-    // タブのアクティブ状態を更新
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    // タブバーのアクティブ状態を更新
+    document.querySelectorAll('.tab-bar .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.screen === screenId);
     });
+    // アクティブタブを画面内にスクロール
+    const activeTab = document.querySelector('.tab-bar .tab-btn.active');
+    if (activeTab) {
+      activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
 
     // 画面切り替え時のリフレッシュ
     if (screenId === 'screen-ranking') this.refreshRankingTable();
@@ -671,11 +632,26 @@ window.App = {
       enteredSet.add(e.name + '|' + e.eventCode);
     }
 
+    // 全種目混在表示の場合: 男→女が第一優先、次に種目で優先した並び
+    if (!this._rankingFilter.eventCode && !isListView) {
+      players.sort((a, b) => {
+        const aIsMale = a.eventCode ? a.eventCode.startsWith('m') : true;
+        const bIsMale = b.eventCode ? b.eventCode.startsWith('m') : true;
+        if (aIsMale !== bIsMale) return aIsMale ? -1 : 1;
+        if (a.eventCode !== b.eventCode) return (a.eventCode || '').localeCompare(b.eventCode || '');
+        return (a.rank || 999) - (b.rank || 999);
+      });
+    }
+
     // 男女判定
     const rankIsMale = this._rankingFilter.eventCode ? this._rankingFilter.eventCode.startsWith('m') : false;
     const rankIsFemale = this._rankingFilter.eventCode ? this._rankingFilter.eventCode.startsWith('l') : false;
 
-    const maxStagger = 30; // アニメーション付与は最初の30行まで
+    // 男女別行カウンター
+    let maleRowIdx = 0;
+    let femaleRowIdx = 0;
+
+    const maxStagger = 30;
     players.forEach((p, idx) => {
       const tr = document.createElement('tr');
       if (idx < maxStagger) {
@@ -685,8 +661,13 @@ window.App = {
       // 男女別背景色
       const pIsMale = p.eventCode ? p.eventCode.startsWith('m') : rankIsMale;
       const pIsFemale = p.eventCode ? p.eventCode.startsWith('l') : rankIsFemale;
-      if (pIsMale && idx % 2 === 0) tr.style.backgroundColor = '#f0f7ff';
-      else if (pIsFemale && idx % 2 === 0) tr.style.backgroundColor = '#fff5f7';
+      if (pIsMale) {
+        tr.style.backgroundColor = maleRowIdx % 2 === 0 ? '#f0f7ff' : '#ffffff';
+        maleRowIdx++;
+      } else if (pIsFemale) {
+        tr.style.backgroundColor = femaleRowIdx % 2 === 0 ? '#fff0f3' : '#ffffff';
+        femaleRowIdx++;
+      }
       const evtObj = p.eventCode ? AppConfig.EVENTS.find(e => e.code === p.eventCode) : null;
       const furigana = p.furigana || RankingLoader.furiganaMap[p.name] || '';
       const isEntered = p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false;
@@ -695,7 +676,7 @@ window.App = {
       const furiganaHtml = furigana ? '<span style="display:block;font-size:8px;color:#9ca3af;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + this._esc(furigana) + '</span>' : '';
       tr.innerHTML =
         '<td class="text-center">' + (p.rank === '-' ? '<span style="color:#9ca3af;">-</span>' : p.rank) + '</td>' +
-        '<td style="min-width:140px;">' + furiganaHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
+        '<td style="min-width:100px;">' + furiganaHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
         '<td style="white-space:nowrap;">' + this._esc(p.affiliation || '') + '</td>' +
         '<td class="text-center">' + (p.points || '-') + '</td>' +
         '<td class="action-cell"></td>';
@@ -720,6 +701,19 @@ window.App = {
 
       tbody.appendChild(tr);
     });
+
+    // 全種目表示時: 男子→女子の背景グラデーション遷移（テーブルラッパー）
+    const tableWrapper = tbody.closest('.table-wrapper');
+    if (tableWrapper) {
+      if (!this._rankingFilter.eventCode && !isListView && maleRowIdx > 0 && femaleRowIdx > 0) {
+        const maleRatio = Math.round(maleRowIdx / (maleRowIdx + femaleRowIdx) * 100);
+        tableWrapper.style.background = 'linear-gradient(to bottom, #f0f7ff 0%, #f0f7ff ' + maleRatio + '%, #fff0f3 ' + maleRatio + '%, #fff0f3 100%)';
+      } else if (rankIsFemale) {
+        tableWrapper.style.background = '#fff8fa';
+      } else {
+        tableWrapper.style.background = '';
+      }
+    }
   },
 
   /**
@@ -752,6 +746,7 @@ window.App = {
         tr.classList.add('row-entered');
       }, 800);
     } else {
+      // 種目未確定でもモーダルなしで直接登録（種目選択はエントリーリストページで）
       this._showQuickEntryModal(player);
     }
   },
@@ -1652,7 +1647,7 @@ window.App = {
         // 男女別背景色
         if (isMaleEvent && idx % 2 === 0) tr.style.backgroundColor = '#f0f7ff';
         else if (isFemaleEvent && idx % 2 === 0) tr.style.backgroundColor = '#fff5f7';
-        const entryFuriganaHtml = entry.furigana ? '<span style="display:block;font-size:10px;color:#9ca3af;line-height:1;">' + this._esc(entry.furigana) + '</span>' : '';
+        const entryFuriganaHtml = entry.furigana ? '<span class="furigana-fit">' + this._esc(entry.furigana) + '</span>' : '';
 
         tr.innerHTML =
           '<td>' + (idx + 1) + '</td>' +
@@ -1766,7 +1761,7 @@ window.App = {
           ? '<span style="font-weight:bold;color:#1a56db;">' + pair.points + '</span>'
           : '';
 
-        const dblFuriganaHtml = entry.furigana ? '<span style="display:block;font-size:10px;color:#9ca3af;line-height:1;">' + this._esc(entry.furigana) + '</span>' : '';
+        const dblFuriganaHtml = entry.furigana ? '<span class="furigana-fit">' + this._esc(entry.furigana) + '</span>' : '';
         tr.innerHTML =
           '<td class="text-center">' + pairLabel + '</td>' +
           '<td class="doubles-swap-cell" style="cursor:pointer;">' + dblFuriganaHtml + this._esc(entry.name) + '</td>' +
@@ -2075,6 +2070,26 @@ window.App = {
     const btnAutoPlace = document.getElementById('btn-draw-auto-place');
     if (btnAutoPlace) {
       btnAutoPlace.addEventListener('click', () => this._autoPlaceAll());
+    }
+
+    // 再読込ボタン（エントリー変更を反映）
+    const btnDrawReload = document.getElementById('btn-draw-reload');
+    if (btnDrawReload) {
+      btnDrawReload.addEventListener('click', () => {
+        this._onDrawEventChange();
+        this.showMessage('エントリーデータを再読込しました', 'info');
+      });
+    }
+
+    // 抽選クリアボタン
+    const btnDrawClear = document.getElementById('btn-draw-clear');
+    if (btnDrawClear) {
+      btnDrawClear.addEventListener('click', () => {
+        if (confirm('現在の抽選結果をクリアしますか？')) {
+          this._resetDraw();
+          this.showMessage('抽選をクリアしました', 'info');
+        }
+      });
     }
   },
 
@@ -3452,9 +3467,29 @@ window.App = {
       this.showMessage('バックアップデータを読込データに反映しました', 'success');
     });
 
-    // データ読込ページのバックアップインポート
+    // データ読込ページのバックアップインポート（全データ一括）
     const fileDataBackup = document.getElementById('file-data-backup-import');
     if (fileDataBackup) fileDataBackup.addEventListener('change', (e) => this._importAllBackup(e));
+
+    // データ読込ページの個別インポート
+    const fileImportRankingOnly = document.getElementById('file-import-ranking-only');
+    if (fileImportRankingOnly) fileImportRankingOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'ranking'));
+    const fileImportTournamentOnly = document.getElementById('file-import-tournament-only');
+    if (fileImportTournamentOnly) fileImportTournamentOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'tournament'));
+    const fileImportEntryOnly = document.getElementById('file-import-entry-only');
+    if (fileImportEntryOnly) fileImportEntryOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'entry'));
+    const fileImportDrawOnly = document.getElementById('file-import-draw-only');
+    if (fileImportDrawOnly) fileImportDrawOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'draw'));
+
+    // バックアップ画面の個別インポート
+    const fileBackupRanking = document.getElementById('file-backup-import-ranking');
+    if (fileBackupRanking) fileBackupRanking.addEventListener('change', (e) => this._importPartialBackup(e, 'ranking'));
+    const fileBackupTournament = document.getElementById('file-backup-import-tournament');
+    if (fileBackupTournament) fileBackupTournament.addEventListener('change', (e) => this._importPartialBackup(e, 'tournament'));
+    const fileBackupEntry = document.getElementById('file-backup-import-entry');
+    if (fileBackupEntry) fileBackupEntry.addEventListener('change', (e) => this._importPartialBackup(e, 'entry'));
+    const fileBackupDraw = document.getElementById('file-backup-import-draw');
+    if (fileBackupDraw) fileBackupDraw.addEventListener('change', (e) => this._importPartialBackup(e, 'draw'));
 
     const btnClearAll = document.getElementById('btn-backup-clear-all');
     if (btnClearAll) btnClearAll.addEventListener('click', () => {
@@ -3734,6 +3769,59 @@ window.App = {
         }
         this.refreshBackupTable();
         this.showMessage('全データをインポートしました', 'success');
+      } catch (err) {
+        this.showMessage('インポートに失敗: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  },
+
+  _importPartialBackup(e, type) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        const labels = { ranking: 'ランキングデータ', tournament: '大会一覧', entry: 'エントリーデータ', draw: 'ドロー結果' };
+        let imported = false;
+
+        if (type === 'ranking' && data['drawSystem_rankingBackup']) {
+          localStorage.setItem('drawSystem_rankingBackup', JSON.stringify(data['drawSystem_rankingBackup']));
+          RankingLoader.restoreFromBackup();
+          imported = true;
+        }
+        if (type === 'tournament') {
+          if (data['drawSystem_tournaments']) {
+            localStorage.setItem('drawSystem_tournaments', JSON.stringify(data['drawSystem_tournaments']));
+            TournamentStore.init();
+            imported = true;
+          }
+          if (data['drawSystem_tournamentBackup']) {
+            localStorage.setItem('drawSystem_tournamentBackup', JSON.stringify(data['drawSystem_tournamentBackup']));
+            imported = true;
+          }
+        }
+        if (type === 'entry' && data['drawSystem_entries']) {
+          localStorage.setItem('drawSystem_entries', JSON.stringify(data['drawSystem_entries']));
+          EntryStore.init();
+          imported = true;
+        }
+        if (type === 'draw' && data['drawSystem_drawResults']) {
+          const dr = data['drawSystem_drawResults'];
+          if (dr.drawResults) this.drawResults = dr.drawResults;
+          if (dr.confirmedEvents) this.confirmedEvents = dr.confirmedEvents;
+          localStorage.setItem('drawSystem_drawResults', JSON.stringify(dr));
+          imported = true;
+        }
+
+        if (imported) {
+          this.refreshBackupTable();
+          this.showMessage(labels[type] + ' をインポートしました', 'success');
+        } else {
+          this.showMessage('バックアップファイルに ' + labels[type] + ' が含まれていません', 'error');
+        }
       } catch (err) {
         this.showMessage('インポートに失敗: ' + err.message, 'error');
       }

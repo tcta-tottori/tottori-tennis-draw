@@ -22,10 +22,8 @@
   .camera-container,
   .entry-summary,
   .empty-message,
-  .hamburger-btn,
-  .drawer-overlay,
-  .drawer-nav,
-  .header-court-lines {
+  .tab-bar,
+  .header-fumon {
     display: none !important;
   }
 

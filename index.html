@@ -13,42 +13,28 @@
 <body>
   <!-- ヘッダー -->
   <header class="app-header">
-    <!-- テニスコートライン装飾 -->
-    <div class="header-court-lines"></div>
+    <!-- 砂丘風紋装飾（左側のみ） -->
+    <div class="header-fumon"></div>
     <div class="header-top">
       <div class="header-logo">
         <img src="logo.png" alt="鳥取市テニス協会">
       </div>
       <div class="header-titles">
         <span class="header-org">鳥取市テニス協会</span>
-        <h1 class="app-title">ドロー会議システム</h1>
+        <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
     </div>
   </header>
 
-  <!-- ハンバーガーメニューボタン -->
-  <button id="hamburger-btn" class="hamburger-btn" aria-label="メニュー">
-    <span class="hamburger-line"></span>
-    <span class="hamburger-line"></span>
-    <span class="hamburger-line"></span>
-  </button>
-
-  <!-- サイドドロワーメニュー -->
-  <div id="drawer-overlay" class="drawer-overlay"></div>
-  <nav id="drawer-nav" class="drawer-nav">
-    <div class="drawer-header">
-      <span class="drawer-title">メニュー</span>
-      <button id="drawer-close" class="drawer-close">&times;</button>
-    </div>
-    <div class="drawer-menu">
-      <button class="tab-btn active" data-screen="screen-data">データ読込</button>
-      <button class="tab-btn" data-screen="screen-ranking">選手一覧</button>
-      <button class="tab-btn" data-screen="screen-entry">エントリー</button>
-      <button class="tab-btn" data-screen="screen-draw">抽選</button>
-      <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
-      <button class="tab-btn" data-screen="screen-backup">バックアップ</button>
-      <button class="tab-btn" data-screen="screen-manual">マニュアル</button>
-    </div>
+  <!-- タブバーメニュー（常時表示） -->
+  <nav id="tab-bar" class="tab-bar">
+    <button class="tab-btn active" data-screen="screen-data">データ読込</button>
+    <button class="tab-btn" data-screen="screen-ranking">エントリー</button>
+    <button class="tab-btn" data-screen="screen-entry">エントリーリスト</button>
+    <button class="tab-btn" data-screen="screen-draw">抽選</button>
+    <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
+    <button class="tab-btn" data-screen="screen-backup">バックアップ</button>
+    <button class="tab-btn" data-screen="screen-manual">マニュアル</button>
   </nav>
 
   <!-- メインコンテンツ -->
@@ -157,66 +143,6 @@
         </div>
       </details>
 
-      <!-- 画像読込（OCR）セクション -->
-      <details class="collapsible-section" style="margin-top:24px;">
-        <summary class="collapsible-toggle">エントリー画像読込（OCR）</summary>
-        <div class="card">
-          <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label">認識エンジン</label>
-              <select id="ocr-engine-select" class="form-select">
-                <option value="gemini">Gemini AI（推奨・手書き対応）</option>
-                <option value="tesseract">Tesseract.js（オフライン）</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;flex:1;min-width:250px;" id="gemini-api-key-group">
-              <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
-              <input type="password" id="gemini-api-key" class="form-input" placeholder="AIzaSy...">
-            </div>
-          </div>
-          <p style="font-size:11px;color:#888;margin-bottom:12px;">
-            Gemini AI: 手書き日本語の認識精度が高い。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1a56db;">APIキー取得</a>（無料枠あり）
-          </p>
-          <div class="ocr-controls">
-            <button id="btn-camera" class="btn btn-primary">カメラ撮影</button>
-            <button id="btn-file-select" class="btn btn-secondary">ファイル選択</button>
-            <input type="file" id="file-ocr-input" accept="image/*" capture="environment" hidden>
-          </div>
-          <div id="camera-container" class="camera-container" style="display:none;">
-            <video id="camera-video" autoplay playsinline></video>
-            <div class="camera-controls">
-              <button id="btn-capture" class="btn btn-primary">撮影</button>
-              <button id="btn-camera-close" class="btn btn-secondary">閉じる</button>
-            </div>
-          </div>
-          <div id="ocr-preview-area" class="ocr-preview-area" style="display:none;">
-            <h3 class="card-title">画像プレビュー</h3>
-            <div class="image-preview-wrapper">
-              <canvas id="ocr-canvas"></canvas>
-              <img id="ocr-preview-img" alt="OCR対象画像">
-            </div>
-            <button id="btn-ocr-execute" class="btn btn-primary btn-lg">OCR実行</button>
-            <div id="ocr-progress" class="progress-bar-container" style="display:none;">
-              <div class="progress-bar"><div id="ocr-progress-bar" class="progress-bar-fill"></div></div>
-              <span id="ocr-progress-text" class="progress-text">認識中...</span>
-            </div>
-          </div>
-          <div id="ocr-result-area" class="card" style="display:none;">
-            <h3 class="card-title">認識結果</h3>
-            <div class="table-wrapper">
-              <table class="data-table" id="ocr-result-table">
-                <thead><tr><th><input type="checkbox" id="ocr-check-all"></th><th>認識テキスト</th><th>氏名候補</th><th>所属候補</th><th>種目</th><th>信頼度</th></tr></thead>
-                <tbody id="ocr-result-body"></tbody>
-              </table>
-            </div>
-            <div class="action-bar">
-              <span id="ocr-selected-count">0件選択中</span>
-              <button id="btn-ocr-register" class="btn btn-primary">確認して登録</button>
-            </div>
-          </div>
-        </div>
-      </details>
-
       <!-- 大会一覧（統合） -->
       <details open class="card collapsible-section" style="margin-top:24px;">
         <summary class="card-title collapsible-toggle">大会一覧</summary>
@@ -308,12 +234,30 @@
       <details class="card collapsible-section" style="margin-top:24px;">
         <summary class="card-title collapsible-toggle">バックアップからインポート</summary>
         <p style="font-size:13px;color:#666;margin-bottom:12px;">
-          エクスポート済みのバックアップファイル（Excel/JSON）から全データを復元します。
+          エクスポート済みのバックアップファイル（Excel/JSON）からデータを復元します。個別または全データのインポートが可能です。
         </p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="margin-bottom:12px;">
           <label class="btn btn-primary" style="cursor:pointer;">
-            バックアップファイルを選択
+            全データ一括インポート
             <input type="file" id="file-data-backup-import" accept=".xlsx,.xls,.json" style="display:none;">
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            ランキングのみ
+            <input type="file" id="file-import-ranking-only" accept=".xlsx,.xls,.json" style="display:none;">
+          </label>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            大会一覧のみ
+            <input type="file" id="file-import-tournament-only" accept=".xlsx,.xls,.json" style="display:none;">
+          </label>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            エントリーのみ
+            <input type="file" id="file-import-entry-only" accept=".xlsx,.xls,.json" style="display:none;">
+          </label>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            ドロー結果のみ
+            <input type="file" id="file-import-draw-only" accept=".xlsx,.xls,.json" style="display:none;">
           </label>
         </div>
       </details>
@@ -347,9 +291,9 @@
       </details>
     </section>
 
-    <!-- 画面: ランキング閲覧 -->
+    <!-- 画面: エントリー（旧：選手一覧） -->
     <section id="screen-ranking" class="screen">
-      <h2 class="screen-title">選手一覧</h2>
+      <h2 class="screen-title">エントリー</h2>
 
       <!-- スティッキーフィルターエリア -->
       <div class="ranking-sticky-filter">
@@ -395,9 +339,69 @@
       <p class="empty-message" id="ranking-empty-msg">データが読み込まれていません。起動時に自動読込されます。</p>
     </section>
 
-    <!-- 画面3: エントリー -->
+    <!-- 画面3: エントリーリスト（旧：エントリー） -->
     <section id="screen-entry" class="screen">
-      <h2 class="screen-title">エントリー</h2>
+      <h2 class="screen-title">エントリーリスト</h2>
+
+      <!-- エントリー画像読込（OCR）セクション -->
+      <details class="collapsible-section" style="margin-bottom:16px;">
+        <summary class="collapsible-toggle">エントリー画像読込（OCR）</summary>
+        <div class="card">
+          <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">認識エンジン</label>
+              <select id="ocr-engine-select" class="form-select">
+                <option value="gemini">Gemini AI（推奨・手書き対応）</option>
+                <option value="tesseract">Tesseract.js（オフライン）</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:250px;" id="gemini-api-key-group">
+              <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
+              <input type="password" id="gemini-api-key" class="form-input" placeholder="AIzaSy...">
+            </div>
+          </div>
+          <p style="font-size:11px;color:#888;margin-bottom:12px;">
+            Gemini AI: 手書き日本語の認識精度が高い。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1a56db;">APIキー取得</a>（無料枠あり）
+          </p>
+          <div class="ocr-controls">
+            <button id="btn-camera" class="btn btn-primary">カメラ撮影</button>
+            <button id="btn-file-select" class="btn btn-secondary">ファイル選択</button>
+            <input type="file" id="file-ocr-input" accept="image/*" capture="environment" hidden>
+          </div>
+          <div id="camera-container" class="camera-container" style="display:none;">
+            <video id="camera-video" autoplay playsinline></video>
+            <div class="camera-controls">
+              <button id="btn-capture" class="btn btn-primary">撮影</button>
+              <button id="btn-camera-close" class="btn btn-secondary">閉じる</button>
+            </div>
+          </div>
+          <div id="ocr-preview-area" class="ocr-preview-area" style="display:none;">
+            <h3 class="card-title">画像プレビュー</h3>
+            <div class="image-preview-wrapper">
+              <canvas id="ocr-canvas"></canvas>
+              <img id="ocr-preview-img" alt="OCR対象画像">
+            </div>
+            <button id="btn-ocr-execute" class="btn btn-primary btn-lg">OCR実行</button>
+            <div id="ocr-progress" class="progress-bar-container" style="display:none;">
+              <div class="progress-bar"><div id="ocr-progress-bar" class="progress-bar-fill"></div></div>
+              <span id="ocr-progress-text" class="progress-text">認識中...</span>
+            </div>
+          </div>
+          <div id="ocr-result-area" class="card" style="display:none;">
+            <h3 class="card-title">認識結果</h3>
+            <div class="table-wrapper">
+              <table class="data-table" id="ocr-result-table">
+                <thead><tr><th><input type="checkbox" id="ocr-check-all"></th><th>認識テキスト</th><th>氏名候補</th><th>所属候補</th><th>種目</th><th>信頼度</th></tr></thead>
+                <tbody id="ocr-result-body"></tbody>
+              </table>
+            </div>
+            <div class="action-bar">
+              <span id="ocr-selected-count">0件選択中</span>
+              <button id="btn-ocr-register" class="btn btn-primary">確認して登録</button>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <!-- 大会設定 -->
       <div class="card" style="margin-bottom:16px;">
@@ -528,7 +532,9 @@
             <option value="">種目を選択してください</option>
           </select>
         </div>
-        <div class="toolbar-right">
+        <div class="toolbar-right" style="gap:8px;display:flex;flex-wrap:wrap;">
+          <button id="btn-draw-reload" class="btn btn-secondary">再読込</button>
+          <button id="btn-draw-clear" class="btn btn-danger">抽選クリア</button>
         </div>
       </div>
 
@@ -709,15 +715,34 @@
         <p style="font-size:13px;color:#666;margin-bottom:12px;">
           全データをまとめてExcel形式でエクスポート・インポートできます（過去3回分を保持）。
         </p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
           <button id="btn-backup-export-excel" class="btn btn-primary">Excelエクスポート</button>
           <button id="btn-backup-export-all" class="btn btn-secondary">JSONエクスポート</button>
           <label class="btn btn-secondary" style="cursor:pointer;">
-            インポート
+            全データインポート
             <input type="file" id="file-backup-import-all" accept=".json,.xlsx,.xls" style="display:none;">
           </label>
           <button id="btn-backup-reflect" class="btn btn-primary">読込データへ反映</button>
           <button id="btn-backup-clear-all" class="btn btn-danger">全データクリア</button>
+        </div>
+        <p style="font-size:12px;color:#888;margin-bottom:8px;">個別インポート:</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label class="btn btn-sm btn-secondary" style="cursor:pointer;">
+            ランキング
+            <input type="file" id="file-backup-import-ranking" accept=".json,.xlsx,.xls" style="display:none;">
+          </label>
+          <label class="btn btn-sm btn-secondary" style="cursor:pointer;">
+            大会一覧
+            <input type="file" id="file-backup-import-tournament" accept=".json,.xlsx,.xls" style="display:none;">
+          </label>
+          <label class="btn btn-sm btn-secondary" style="cursor:pointer;">
+            エントリー
+            <input type="file" id="file-backup-import-entry" accept=".json,.xlsx,.xls" style="display:none;">
+          </label>
+          <label class="btn btn-sm btn-secondary" style="cursor:pointer;">
+            ドロー結果
+            <input type="file" id="file-backup-import-draw" accept=".json,.xlsx,.xls" style="display:none;">
+          </label>
         </div>
       </div>
     </section>
@@ -748,17 +773,17 @@
               <div class="flow-step-number">2</div>
               <div class="flow-step-body">
                 <h4>ランキング確認</h4>
-                <p>「ランキング」タブで読み込んだデータを確認できます。<br>種目別の絞り込み、氏名・所属での検索が可能です。</p>
+                <p>「エントリー」タブで読み込んだデータを確認・登録できます。<br>種目別の絞り込み、氏名・所属での検索が可能です。</p>
               </div>
             </div>
             <div class="flow-step">
               <div class="flow-step-number">3</div>
               <div class="flow-step-body">
                 <h4>エントリー登録</h4>
-                <p>「エントリー」タブで選手を登録します。</p>
+                <p>「エントリーリスト」タブで登録済み選手を確認・管理します。</p>
                 <ul>
                   <li><strong>手動追加</strong>：「手動追加」ボタンから氏名入力。ランキングデータから候補が自動表示されます。</li>
-                  <li><strong>画像読込</strong>：「データ読込」タブの画像読込セクションで申込用紙を撮影・認識して一括登録。</li>
+                  <li><strong>画像読込</strong>：「エントリーリスト」タブ上部の画像読込セクションで申込用紙を撮影・認識して一括登録。</li>
                 </ul>
               </div>
             </div>

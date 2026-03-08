@@ -13,25 +13,8 @@
 <body>
   <!-- ヘッダー -->
   <header class="app-header">
-    <!-- 砂丘シーン背景 -->
-    <div class="header-scene">
-      <svg class="header-camels" viewBox="0 0 400 80" preserveAspectRatio="xMaxYMax meet" xmlns="http://www.w3.org/2000/svg">
-        <!-- ラクダ1（大） -->
-        <g transform="translate(280,22) scale(0.5)" opacity="0.35" fill="#8B6914">
-          <path d="M10,60 L10,45 Q10,35 15,30 Q18,27 20,30 L22,35 L24,28 Q26,22 30,20 Q35,18 38,22 L40,28 L42,25 Q44,20 48,22 L50,28 Q52,32 52,38 L52,45 L55,45 L55,52 L50,55 L50,60 L46,60 L46,50 L20,50 L20,60 L16,60 L16,50 L12,52 L10,60Z"/>
-          <circle cx="42" cy="24" r="1.5" fill="#5a4510"/>
-          <path d="M48,22 Q52,18 55,20" fill="none" stroke="#8B6914" stroke-width="1.5"/>
-        </g>
-        <!-- ラクダ2（小、遠景） -->
-        <g transform="translate(340,32) scale(0.3)" opacity="0.25" fill="#9B7924">
-          <path d="M10,60 L10,45 Q10,35 15,30 Q18,27 20,30 L22,35 L24,28 Q26,22 30,20 Q35,18 38,22 L40,28 L42,25 Q44,20 48,22 L50,28 Q52,32 52,38 L52,45 L55,45 L55,52 L50,55 L50,60 L46,60 L46,50 L20,50 L20,60 L16,60 L16,50 L12,52 L10,60Z"/>
-        </g>
-        <!-- ラクダ3（左側、遠景） -->
-        <g transform="translate(200,35) scale(0.25)" opacity="0.2" fill="#a08030">
-          <path d="M10,60 L10,45 Q10,35 15,30 Q18,27 20,30 L22,35 L24,28 Q26,22 30,20 Q35,18 38,22 L40,28 L42,25 Q44,20 48,22 L50,28 Q52,32 52,38 L52,45 L55,45 L55,52 L50,55 L50,60 L46,60 L46,50 L20,50 L20,60 L16,60 L16,50 L12,52 L10,60Z"/>
-        </g>
-      </svg>
-    </div>
+    <!-- テニスコートライン装飾 -->
+    <div class="header-court-lines"></div>
     <div class="header-top">
       <div class="header-logo">
         <img src="logo.png" alt="鳥取市テニス協会">
@@ -76,8 +59,8 @@
       <h2 class="screen-title">データ読込</h2>
 
       <!-- Google スプレッドシートから読み込み -->
-      <div class="card" style="margin-bottom: 24px;">
-        <h3 class="card-title">Google スプレッドシートから読み込み</h3>
+      <details open class="card collapsible-section" style="margin-bottom: 24px;">
+        <summary class="card-title collapsible-toggle">Google スプレッドシートから読み込み</summary>
         <p style="font-size:13px;color:#666;margin-bottom:12px;">
           スプレッドシートのURLまたはIDを入力して読み込みます。<br>
           ※スプレッドシートの共有設定を「リンクを知っている全員が閲覧可」にしてください。
@@ -126,11 +109,11 @@
             <li>URLをコピーして上の入力欄に貼り付け</li>
           </ol>
         </details>
-      </div>
+      </details>
 
       <!-- ローカルファイルから読み込み -->
-      <details open>
-        <summary style="cursor:pointer;font-size:15px;font-weight:600;margin-bottom:12px;">ローカルファイルから読み込み</summary>
+      <details open class="collapsible-section">
+        <summary class="collapsible-toggle">ローカルファイルから読み込み</summary>
         <div class="data-load-grid">
           <!-- ランキングデータ読込 -->
           <div class="card">
@@ -175,8 +158,8 @@
       </details>
 
       <!-- 画像読込（OCR）セクション -->
-      <details style="margin-top:24px;">
-        <summary style="cursor:pointer;font-size:15px;font-weight:600;margin-bottom:12px;">エントリー画像読込（OCR）</summary>
+      <details class="collapsible-section" style="margin-top:24px;">
+        <summary class="collapsible-toggle">エントリー画像読込（OCR）</summary>
         <div class="card">
           <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
             <div class="form-group" style="margin-bottom:0;">
@@ -235,8 +218,8 @@
       </details>
 
       <!-- 大会一覧（統合） -->
-      <div class="card" style="margin-top:24px;">
-        <h3 class="card-title">大会一覧</h3>
+      <details open class="card collapsible-section" style="margin-top:24px;">
+        <summary class="card-title collapsible-toggle">大会一覧</summary>
         <div class="toolbar" style="margin-bottom:12px;">
           <div class="toolbar-left">
             <span style="font-size:13px;color:#6b7280;">
@@ -270,7 +253,7 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </details>
 
       <!-- 大会編集モーダル -->
       <div id="modal-tournament-edit" class="modal-overlay" style="display:none;">
@@ -321,9 +304,23 @@
         </div>
       </div>
 
+      <!-- バックアップからインポート -->
+      <details class="card collapsible-section" style="margin-top:24px;">
+        <summary class="card-title collapsible-toggle">バックアップからインポート</summary>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          エクスポート済みのバックアップファイル（Excel/JSON）から全データを復元します。
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label class="btn btn-primary" style="cursor:pointer;">
+            バックアップファイルを選択
+            <input type="file" id="file-data-backup-import" accept=".xlsx,.xls,.json" style="display:none;">
+          </label>
+        </div>
+      </details>
+
       <!-- 読込結果サマリー（ページ下部） -->
-      <div class="card" id="data-summary" style="display:none;margin-top:24px;">
-        <h3 class="card-title">読込結果サマリー</h3>
+      <details open class="card collapsible-section" id="data-summary" style="display:none;margin-top:24px;">
+        <summary class="card-title collapsible-toggle">読込結果サマリー</summary>
         <div id="data-summary-content" class="summary-grid">
           <div class="summary-item">
             <span class="summary-label">選手数</span>
@@ -347,7 +344,7 @@
           </div>
         </div>
         <div id="data-summary-detail" style="margin-top:12px;"></div>
-      </div>
+      </details>
     </section>
 
     <!-- 画面: ランキング閲覧 -->
@@ -381,14 +378,14 @@
 
       <!-- ランキングテーブル -->
       <div class="table-wrapper">
-        <table class="data-table" id="ranking-table">
+        <table class="data-table ranking-auto-width" id="ranking-table">
           <thead>
             <tr>
-              <th style="width:50px;">順位</th>
+              <th>順位</th>
               <th>氏名</th>
               <th>所属</th>
-              <th style="width:70px;">ポイント</th>
-              <th style="width:80px;">操作</th>
+              <th>ポイント</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody id="ranking-table-body">
@@ -435,7 +432,7 @@
       <!-- フィルター＆操作 -->
       <div class="toolbar">
         <div class="toolbar-left">
-          <label for="entry-event-filter" class="toolbar-label">種目フィルター:</label>
+          <label for="entry-event-filter" class="toolbar-label">種目:</label>
           <select id="entry-event-filter" class="form-select">
           </select>
           <span style="font-size:13px;color:#6b7280;margin-left:8px;">
@@ -449,9 +446,6 @@
             </svg>
             手動追加
           </button>
-          <button id="btn-entry-export" class="btn btn-secondary">エクスポート</button>
-          <button id="btn-entry-import" class="btn btn-secondary">インポート</button>
-          <input type="file" id="file-entry-import" accept=".json" hidden>
           <button id="btn-entry-clear" class="btn btn-danger">全クリア</button>
         </div>
       </div>
@@ -467,7 +461,6 @@
               <th>No.</th>
               <th>氏名</th>
               <th>所属</th>
-              <th>種目</th>
               <th>ポイント</th>
               <th>操作</th>
             </tr>
@@ -586,11 +579,6 @@
         <div id="draw-placement-area" style="display:none;">
           <!-- ライブトーナメント表プレビュー -->
           <div id="live-bracket-preview" class="live-bracket-preview">
-            <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <label for="bracket-scale-slider" style="font-size:13px;white-space:nowrap;">縦サイズ:</label>
-              <input type="range" id="bracket-scale-slider" min="0.5" max="2.0" step="0.1" value="1.0" style="width:120px;">
-              <span id="bracket-scale-value" style="font-size:12px;color:#666;">100%</span>
-            </div>
             <div class="bracket-svg-wrapper" id="live-bracket-svg-wrapper" style="overflow-x:auto;">
               <svg id="live-bracket-svg" xmlns="http://www.w3.org/2000/svg"></svg>
             </div>
@@ -719,14 +707,16 @@
       <div class="card" style="margin-bottom:16px;">
         <h3 class="card-title">一括エクスポート・インポート</h3>
         <p style="font-size:13px;color:#666;margin-bottom:12px;">
-          全データをまとめてJSON形式でエクスポート・インポートできます。
+          全データをまとめてExcel形式でエクスポート・インポートできます（過去3回分を保持）。
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button id="btn-backup-export-all" class="btn btn-primary">全データエクスポート</button>
+          <button id="btn-backup-export-excel" class="btn btn-primary">Excelエクスポート</button>
+          <button id="btn-backup-export-all" class="btn btn-secondary">JSONエクスポート</button>
           <label class="btn btn-secondary" style="cursor:pointer;">
-            全データインポート
-            <input type="file" id="file-backup-import-all" accept=".json" style="display:none;">
+            インポート
+            <input type="file" id="file-backup-import-all" accept=".json,.xlsx,.xls" style="display:none;">
           </label>
+          <button id="btn-backup-reflect" class="btn btn-primary">読込データへ反映</button>
           <button id="btn-backup-clear-all" class="btn btn-danger">全データクリア</button>
         </div>
       </div>

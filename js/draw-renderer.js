@@ -9,11 +9,11 @@ window.DrawRenderer = {
   PARAMS: {
     slotHeight: 28,           // 1スロットの高さ (選手+間隔で2スロット使う)
     roundWidth: 100,          // ラウンドごとの幅
-    nameAreaWidth: 210,       // 選手名+所属エリア幅
-    drawNumWidth: 30,         // ドロー番号列幅
-    headerHeight: 60,
-    footerHeight: 40,
-    centerGap: 80,            // 左右の山の中央間隔
+    nameAreaWidth: 200,       // 選手名+所属エリア幅（切り詰め）
+    drawNumWidth: 24,         // ドロー番号列幅（切り詰め）
+    headerHeight: 50,         // ヘッダー高さ（圧縮）
+    footerHeight: 30,         // フッター高さ（圧縮）
+    centerGap: 60,            // 左右の山の中央間隔（圧縮）
     fontSize: {
       title: 18, eventName: 15, meta: 12,
       playerName: 13, affiliation: 10, bye: 11,
@@ -48,14 +48,14 @@ window.DrawRenderer = {
     P.slotHeight = Math.round(baseSlotHeight * vScale);
 
     // 文字サイズは常に固定
-    P.nameAreaWidth = 210;
+    P.nameAreaWidth = 200;
     P.fontSize.playerName = 13;
     P.fontSize.affiliation = 10;
 
     // コンテナ幅に自動フィット: 線の幅（roundWidth, centerGap）のみ調整
     const autoFit = options.autoFit !== false;
-    const baseRoundWidth = 100;
-    const baseCenterGap = 80;
+    const baseRoundWidth = 80;
+    const baseCenterGap = 50;
 
     if (autoFit) {
       const fixedWidth = (P.drawNumWidth + P.nameAreaWidth) * 2; // 名前エリア+番号は固定
@@ -129,29 +129,29 @@ window.DrawRenderer = {
     const P = this.PARAMS;
     const eventName = drawData.eventName || '';
 
-    // 左側: 種目名（テキスト表示）
-    this._text(svg, 8, 20, eventName, {
-      fontSize: P.fontSize.title + 2, fontWeight: 'bold', fill: P.colors.text,
+    // 左側: 種目名
+    this._text(svg, 4, 16, eventName, {
+      fontSize: P.fontSize.title, fontWeight: 'bold', fill: P.colors.text,
     });
 
     // 右端揃え: 大会名、日付・場所、ゲーム形式
     const tournamentName = drawData.tournamentName || AppConfig.TOURNAMENT_NAME || '';
     const matchFormat = options.matchFormat || drawData.matchFormat || AppConfig.MATCH_FORMAT || '';
-    const infoX = totalWidth - 8;
-    this._text(svg, infoX, 18, tournamentName, {
-      fontSize: P.fontSize.title - 2, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'end',
+    const infoX = totalWidth - 4;
+    this._text(svg, infoX, 14, tournamentName, {
+      fontSize: P.fontSize.meta + 1, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'end',
     });
 
     const dateParts = [];
     if (drawData.date) dateParts.push(drawData.date);
     if (drawData.venue) dateParts.push(drawData.venue);
     if (dateParts.length > 0) {
-      this._text(svg, infoX, 36, dateParts.join('  '), {
+      this._text(svg, infoX, 28, dateParts.join('  '), {
         fontSize: P.fontSize.meta, fill: P.colors.subText, textAnchor: 'end',
       });
     }
     if (matchFormat) {
-      this._text(svg, infoX, 52, matchFormat, {
+      this._text(svg, infoX, 42, matchFormat, {
         fontSize: P.fontSize.meta, fill: P.colors.subText, textAnchor: 'end',
       });
     }
@@ -205,7 +205,7 @@ window.DrawRenderer = {
         maxNameLen = Math.max(maxNameLen, (entry.name || '').length);
       }
     }
-    const affiliationX_offset = Math.min(P.nameAreaWidth * 0.6, Math.max(80, maxNameLen * (P.fontSize.playerName) * 0.65 + 8));
+    const affiliationX_offset = Math.min(P.nameAreaWidth * 0.55, Math.max(70, maxNameLen * (P.fontSize.playerName) * 0.6 + 4));
 
     // --- 選手描画 ---
     for (let i = 0; i < halfSize; i++) {
@@ -258,7 +258,7 @@ window.DrawRenderer = {
           // 1行目
           const el1 = this._text(svg, nameX, cy - 2, players[0] || '', {
             fontSize: P.fontSize.playerName - 1, fill: P.colors.text,
-            fontWeight: entry.seed > 0 ? 'bold' : 'normal',
+            fontWeight: 'bold',
           });
           el1.setAttribute('clip-path', 'url(#' + clipId + ')');
           // 所属1
@@ -269,7 +269,7 @@ window.DrawRenderer = {
           // 2行目
           const el2 = this._text(svg, nameX, cy + P.slotHeight / 2 - 2, players[1] || '', {
             fontSize: P.fontSize.playerName - 1, fill: P.colors.text,
-            fontWeight: entry.seed > 0 ? 'bold' : 'normal',
+            fontWeight: 'bold',
           });
           el2.setAttribute('clip-path', 'url(#' + clipId + ')');
           // 所属2
@@ -278,12 +278,9 @@ window.DrawRenderer = {
           });
           af2.setAttribute('clip-path', 'url(#' + clipId + ')');
         } else {
-          // シングルス: 名前の中央からブラケット線が出るように配置
-          // cy = playerY(i) = ブラケット線の接続Y座標
-          // dominant-baseline="central" で文字の垂直中央をcyに合わせる
           const nameEl = this._text(svg, nameX, cy, entry.name, {
             fontSize: P.fontSize.playerName, fill: P.colors.text,
-            fontWeight: entry.seed > 0 ? 'bold' : 'normal',
+            fontWeight: 'bold',
           });
           nameEl.setAttribute('dominant-baseline', 'central');
           nameEl.setAttribute('clip-path', 'url(#' + clipId + ')');

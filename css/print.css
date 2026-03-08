@@ -24,7 +24,8 @@
   .empty-message,
   .hamburger-btn,
   .drawer-overlay,
-  .drawer-nav {
+  .drawer-nav,
+  .header-court-lines {
     display: none !important;
   }
 

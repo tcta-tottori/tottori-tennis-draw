@@ -495,7 +495,7 @@ window.App = {
 
       // ふりがなデータ件数
       const furiganaTotal = Object.keys(RankingLoader.furiganaMap || {}).length;
-      if (furiganaCountEl) furiganaCountEl.textContent = furiganaTotal + '件';
+      if (furiganaCountEl) furiganaCountEl.textContent = furiganaTotal;
 
       // 種目別の詳細表示（男女色分け）
       const detailEl = document.getElementById('data-summary-detail');
@@ -596,19 +596,16 @@ window.App = {
         tabsEl.appendChild(listBtn);
       }
 
-      // 全種目タブ（最後）
-      const sep2 = document.createElement('span');
-      sep2.style.cssText = 'width:1px;height:20px;background:#d1d5db;margin:0 4px;';
-      tabsEl.appendChild(sep2);
-      const allBtn = document.createElement('button');
-      allBtn.className = 'btn btn-sm ' + (!this._rankingFilter.showList && this._rankingFilter.eventCode === '' ? 'btn-primary' : 'btn-secondary');
-      allBtn.textContent = '全種目';
-      allBtn.addEventListener('click', () => {
-        this._rankingFilter.eventCode = '';
-        this._rankingFilter.showList = false;
-        this.refreshRankingTable();
-      });
-      tabsEl.appendChild(allBtn);
+      // 全種目タブは削除
+      // デフォルトで最初の種目を自動選択（eventCode未選択なら）
+      if (!this._rankingFilter.eventCode && !this._rankingFilter.showList) {
+        const firstEvt = categoryEvents.find(e => (RankingLoader.rankings[e.code] || []).length > 0);
+        if (firstEvt) {
+          this._rankingFilter.eventCode = firstEvt.code;
+          this.refreshRankingTable();
+          return;
+        }
+      }
     }
 
     this._renderRankingRows();
@@ -674,6 +671,10 @@ window.App = {
       enteredSet.add(e.name + '|' + e.eventCode);
     }
 
+    // 男女判定
+    const rankIsMale = this._rankingFilter.eventCode ? this._rankingFilter.eventCode.startsWith('m') : false;
+    const rankIsFemale = this._rankingFilter.eventCode ? this._rankingFilter.eventCode.startsWith('l') : false;
+
     const maxStagger = 30; // アニメーション付与は最初の30行まで
     players.forEach((p, idx) => {
       const tr = document.createElement('tr');
@@ -681,6 +682,11 @@ window.App = {
         tr.classList.add('row-enter');
         tr.style.animationDelay = (idx * 20) + 'ms';
       }
+      // 男女別背景色
+      const pIsMale = p.eventCode ? p.eventCode.startsWith('m') : rankIsMale;
+      const pIsFemale = p.eventCode ? p.eventCode.startsWith('l') : rankIsFemale;
+      if (pIsMale && idx % 2 === 0) tr.style.backgroundColor = '#f0f7ff';
+      else if (pIsFemale && idx % 2 === 0) tr.style.backgroundColor = '#fff5f7';
       const evtObj = p.eventCode ? AppConfig.EVENTS.find(e => e.code === p.eventCode) : null;
       const furigana = p.furigana || RankingLoader.furiganaMap[p.name] || '';
       const isEntered = p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false;
@@ -1346,42 +1352,6 @@ window.App = {
       btnSave.addEventListener('click', () => this._saveEntry());
     }
 
-    // エクスポート
-    const btnExport = document.getElementById('btn-entry-export');
-    if (btnExport) {
-      btnExport.addEventListener('click', () => {
-        const json = EntryStore.exportJSON();
-        const blob = new Blob([json], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'entries_' + new Date().toISOString().slice(0, 10) + '.json';
-        a.click();
-        this.showMessage('エントリーデータをエクスポートしました', 'success');
-      });
-    }
-
-    // インポート
-    const btnImport = document.getElementById('btn-entry-import');
-    const fileImport = document.getElementById('file-entry-import');
-    if (btnImport && fileImport) {
-      btnImport.addEventListener('click', () => fileImport.click());
-      fileImport.addEventListener('change', (e) => {
-        if (e.target.files.length === 0) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          try {
-            const count = EntryStore.importJSON(ev.target.result);
-            this.refreshEntryTable();
-            this.showMessage(count + '件のエントリーをインポートしました', 'success');
-          } catch (err) {
-            this.showMessage('インポートに失敗: ' + err.message, 'error');
-          }
-        };
-        reader.readAsText(e.target.files[0]);
-        fileImport.value = '';
-      });
-    }
-
     // 全クリア
     const btnClear = document.getElementById('btn-entry-clear');
     if (btnClear) {
@@ -1609,11 +1579,20 @@ window.App = {
 
     // テーブルヘッダーを切り替え
     const thead = document.getElementById('entry-table-head');
+    // 男女判定（種目コードで色分け）
+    const isMaleEvent = targetCode && targetCode.startsWith('m');
+    const isFemaleEvent = targetCode && targetCode.startsWith('l');
     if (thead) {
       if (isDoubles) {
-        thead.innerHTML = '<tr><th>P</th><th>氏名</th><th>所属</th><th>種目</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
+        thead.innerHTML = '<tr><th>P</th><th>氏名</th><th>所属</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
       } else {
-        thead.innerHTML = '<tr><th>No.</th><th>氏名</th><th>所属</th><th>種目</th><th>ポイント</th><th>操作</th></tr>';
+        thead.innerHTML = '<tr><th>No.</th><th>氏名</th><th>所属</th><th>ポイント</th><th>操作</th></tr>';
+      }
+      // 男女別ヘッダー色
+      if (isMaleEvent) {
+        thead.querySelector('tr').style.background = '#e3f2fd';
+      } else if (isFemaleEvent) {
+        thead.querySelector('tr').style.background = '#fce4ec';
       }
     }
 
@@ -1670,15 +1649,15 @@ window.App = {
           tr.classList.add('row-enter');
           tr.style.animationDelay = (idx * 20) + 'ms';
         }
-        const evtObj = AppConfig.EVENTS.find(e => e.code === entry.eventCode);
-        const evtName = evtObj ? evtObj.shortName : entry.eventCode;
+        // 男女別背景色
+        if (isMaleEvent && idx % 2 === 0) tr.style.backgroundColor = '#f0f7ff';
+        else if (isFemaleEvent && idx % 2 === 0) tr.style.backgroundColor = '#fff5f7';
         const entryFuriganaHtml = entry.furigana ? '<span style="display:block;font-size:10px;color:#9ca3af;line-height:1;">' + this._esc(entry.furigana) + '</span>' : '';
 
         tr.innerHTML =
           '<td>' + (idx + 1) + '</td>' +
           '<td>' + entryFuriganaHtml + this._esc(entry.name) + '</td>' +
           '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-          '<td>' + this._esc(evtName) + '</td>' +
           '<td>' + (entry.points || 0) + '</td>' +
           '<td class="action-cell"></td>';
 
@@ -1739,7 +1718,12 @@ window.App = {
         if (seedPairs.length > 0) {
           html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">';
           seedPairs.forEach((p, i) => {
-            html += '<span class="seed-chip">[' + (i + 1) + '] ' + this._esc(p.name) + ' <small>(' + p.points + 'pt)</small></span>';
+            // ダブルス: 苗字のみ表示
+            let displayName = p.name;
+            if (displayName && displayName.includes(' / ')) {
+              displayName = displayName.split(' / ').map(n => n.split(/\s+/)[0]).join('/');
+            }
+            html += '<span class="seed-chip">[' + (i + 1) + '] ' + this._esc(displayName) + ' <small>(' + p.points + 'pt)</small></span>';
           });
           html += '</div>';
         }
@@ -1751,10 +1735,12 @@ window.App = {
     this._swapSelectedEntryId = this._swapSelectedEntryId || null;
     this._swapEventCode = eventCode;
 
-    // ペアごとに2行でグループ表示（水色/白の2色交互、不完全ペアは赤）
+    // ペアごとに2行でグループ表示（男女別色分け）
+    const dblIsMale = eventCode.startsWith('m');
+    const dblIsFemale = eventCode.startsWith('l');
     pairs.forEach((pair, pairIdx) => {
       const isIncomplete = pair.incomplete;
-      const bgColor = isIncomplete ? '#ffebee' : (pairIdx % 2 === 0 ? '#e3f2fd' : '#ffffff');
+      const bgColor = isIncomplete ? '#ffebee' : (pairIdx % 2 === 0 ? (dblIsFemale ? '#fff5f7' : '#f0f7ff') : '#ffffff');
       pair.entries.forEach((entry, entryIdx) => {
         const tr = document.createElement('tr');
         if (pairIdx < 15) {
@@ -1785,7 +1771,6 @@ window.App = {
           '<td class="text-center">' + pairLabel + '</td>' +
           '<td class="doubles-swap-cell" style="cursor:pointer;">' + dblFuriganaHtml + this._esc(entry.name) + '</td>' +
           '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-          '<td>' + this._esc(AppConfig.EVENTS.find(e => e.code === entry.eventCode)?.shortName || entry.eventCode) + '</td>' +
           '<td>' + (entry.points || 0) + '</td>' +
           '<td class="text-center">' + combinedPtsLabel + '</td>' +
           '<td class="action-cell"></td>';
@@ -1839,7 +1824,7 @@ window.App = {
       // ペア間の区切り線
       if (pairIdx < pairs.length - 1) {
         const separatorTr = document.createElement('tr');
-        separatorTr.innerHTML = '<td colspan="7" style="padding:0;height:2px;background:#cbd5e1;"></td>';
+        separatorTr.innerHTML = '<td colspan="6" style="padding:0;height:2px;background:#cbd5e1;"></td>';
         tbody.appendChild(separatorTr);
       }
     });
@@ -2152,19 +2137,7 @@ window.App = {
       }
     }
 
-    // スケールスライダーのイベント（初回のみ）
-    if (!this._drawSliderInit) {
-      this._drawSliderInit = true;
-      const scaleSlider = document.getElementById('bracket-scale-slider');
-      if (scaleSlider) {
-        scaleSlider.addEventListener('input', () => {
-          const val = document.getElementById('bracket-scale-value');
-          if (val) val.textContent = Math.round(parseFloat(scaleSlider.value) * 100) + '%';
-          this._renderLiveBracket();
-        });
-      }
-      // 横サイズスライダーは廃止（自動フィット）
-    }
+    // スケールスライダーは廃止（自動フィット）
 
     // 最初の種目を自動選択して抽選画面を表示
     select.value = firstCode;
@@ -2586,12 +2559,16 @@ window.App = {
       if (this._unplacedPlayers.length === 0 && !this._unplacedByes) {
         unplacedList.innerHTML = '<span style="color:#2E7D32;font-size:13px;">全選手が配置済みです</span>';
       } else if (this._unplacedPlayers.length > 0) {
-        // 個別ルーレット配置ボタン
-        if (this._unplacedPlayers.length > 1) {
+        // ルーレット配置ボタン（選手を選択してから押す）
+        if (this._unplacedPlayers.length > 0) {
           const rouletteBtn = document.createElement('button');
           rouletteBtn.className = 'btn btn-sm btn-primary';
           rouletteBtn.style.cssText = 'margin-bottom:8px;margin-right:8px;';
-          rouletteBtn.textContent = '1人ずつルーレット配置';
+          rouletteBtn.textContent = 'ルーレット配置';
+          rouletteBtn.disabled = this._selectedPlayer === null;
+          if (this._selectedPlayer === null) {
+            rouletteBtn.title = '先に選手を選択してください';
+          }
           rouletteBtn.addEventListener('click', () => this._rouletteIndividualPlayer());
           unplacedList.appendChild(rouletteBtn);
           unplacedList.appendChild(document.createElement('br'));
@@ -2707,9 +2684,7 @@ window.App = {
       isDoubles: isDoubles,
     };
 
-    const scaleSlider = document.getElementById('bracket-scale-slider');
-    const scale = scaleSlider ? parseFloat(scaleSlider.value) || 1.0 : 1.0;
-    DrawRenderer.render(wrapper, drawData, { scale: scale });
+    DrawRenderer.render(wrapper, drawData, { scale: 1.0 });
 
     const svg = wrapper.querySelector('svg');
     if (!svg) return;
@@ -2803,6 +2778,21 @@ window.App = {
     this._placeInDraw(this._manualDraw, drawIndex, player);
     this._unplacedPlayers.splice(this._selectedPlayer, 1);
     this._selectedPlayer = null;
+
+    // 残り1人なら自動配置
+    if (this._unplacedPlayers.length === 1 && (!this._unplacedByes || this._unplacedByes === 0)) {
+      const lastPlayer = this._unplacedPlayers[0];
+      const emptySlots = [];
+      for (let i = 0; i < this._manualDraw.length; i++) {
+        if (this._manualDraw[i].isEmpty) emptySlots.push(i);
+      }
+      if (emptySlots.length === 1) {
+        this._placeInDraw(this._manualDraw, emptySlots[0], lastPlayer);
+        this._unplacedPlayers = [];
+        this.showMessage('最後の1人を自動配置しました', 'success');
+      }
+    }
+
     this._renderManualPlacement();
   },
 
@@ -3115,6 +3105,10 @@ window.App = {
    */
   _rouletteIndividualPlayer() {
     if (!this._manualDraw || !this._unplacedPlayers || this._unplacedPlayers.length === 0) return;
+    if (this._selectedPlayer === null) {
+      this.showMessage('先に選手を選択してください', 'info');
+      return;
+    }
 
     const draw = this._manualDraw;
     const emptySlots = [];
@@ -3123,7 +3117,8 @@ window.App = {
     }
     if (emptySlots.length === 0) return;
 
-    const player = this._unplacedPlayers[0];
+    const playerIdx = this._selectedPlayer;
+    const player = this._unplacedPlayers[playerIdx];
 
     // ルーレット表示
     const unplacedArea = document.getElementById('unplaced-players');
@@ -3161,7 +3156,7 @@ window.App = {
 
       // 配置
       this._placeInDraw(draw, targetSlot, player);
-      this._unplacedPlayers.splice(0, 1);
+      this._unplacedPlayers.splice(playerIdx, 1);
       this._selectedPlayer = null;
 
       setTimeout(() => {
@@ -3434,11 +3429,32 @@ window.App = {
   // ================================================================
 
   initBackupScreen() {
+    // Excelエクスポート
+    const btnExportExcel = document.getElementById('btn-backup-export-excel');
+    if (btnExportExcel) btnExportExcel.addEventListener('click', () => this._exportBackupExcel());
+
     const btnExportAll = document.getElementById('btn-backup-export-all');
     if (btnExportAll) btnExportAll.addEventListener('click', () => this._exportAllBackup());
 
     const fileImportAll = document.getElementById('file-backup-import-all');
     if (fileImportAll) fileImportAll.addEventListener('change', (e) => this._importAllBackup(e));
+
+    // 読込データへ反映ボタン
+    const btnReflect = document.getElementById('btn-backup-reflect');
+    if (btnReflect) btnReflect.addEventListener('click', () => {
+      RankingLoader.restoreFromBackup();
+      TournamentStore.init();
+      EntryStore.init();
+      this._restoreDrawResults();
+      const status = RankingLoader.getStatus();
+      this._updateRankingStatus(status);
+      this.refreshTournamentsTable();
+      this.showMessage('バックアップデータを読込データに反映しました', 'success');
+    });
+
+    // データ読込ページのバックアップインポート
+    const fileDataBackup = document.getElementById('file-data-backup-import');
+    if (fileDataBackup) fileDataBackup.addEventListener('change', (e) => this._importAllBackup(e));
 
     const btnClearAll = document.getElementById('btn-backup-clear-all');
     if (btnClearAll) btnClearAll.addEventListener('click', () => {
@@ -3628,6 +3644,63 @@ window.App = {
     allData.exportedAt = new Date().toISOString();
     this._downloadJSON(JSON.stringify(allData, null, 2), 'draw_system_full_backup.json');
     this.showMessage('全データをエクスポートしました', 'success');
+  },
+
+  _exportBackupExcel() {
+    if (typeof XLSX === 'undefined') { this.showMessage('SheetJS が読み込まれていません', 'error'); return; }
+    const wb = XLSX.utils.book_new();
+    const now = new Date().toLocaleString('ja-JP');
+
+    // エントリーデータシート
+    const entries = EntryStore.getAll();
+    const entryData = [['エントリーデータ', '', '', '', 'エクスポート日時: ' + now]];
+    entryData.push(['ID', '氏名', 'ふりがな', '所属', '種目コード', 'ポイント']);
+    entries.forEach(e => {
+      entryData.push([e.id, e.name, e.furigana || '', e.affiliation || '', e.eventCode || '', e.points || 0]);
+    });
+    const wsEntry = XLSX.utils.aoa_to_sheet(entryData);
+    wsEntry['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, wsEntry, 'エントリー');
+
+    // 大会一覧シート
+    const tournaments = TournamentStore.getAll();
+    const tournData = [['大会一覧', '', '', '', '', '', 'エクスポート日時: ' + now]];
+    tournData.push(['ID', '大会名', '試合種目', '日程', '曜日', '会場', '予備日', '予備日会場']);
+    tournaments.forEach(t => {
+      tournData.push([t.id, t.name, t.events || '', t.date || '', t.dayOfWeek || '', t.venue || '', t.reserveDate || '', t.reserveVenue || '']);
+    });
+    const wsTour = XLSX.utils.aoa_to_sheet(tournData);
+    wsTour['!cols'] = [{ wch: 5 }, { wch: 24 }, { wch: 16 }, { wch: 8 }, { wch: 6 }, { wch: 20 }, { wch: 8 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, wsTour, '大会一覧');
+
+    // ドロー結果シート
+    const drawCodes = Object.keys(this.drawResults);
+    if (drawCodes.length > 0) {
+      const drawData = [['ドロー結果', '', '', 'エクスポート日時: ' + now]];
+      drawData.push(['種目', 'ドローサイズ', 'エントリー数', '確定']);
+      drawCodes.forEach(code => {
+        const r = this.drawResults[code];
+        drawData.push([r.eventName || code, r.drawSize || '', r.entryCount || '', r.confirmed ? 'はい' : 'いいえ']);
+      });
+      const wsDraw = XLSX.utils.aoa_to_sheet(drawData);
+      wsDraw['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 12 }, { wch: 8 }];
+      XLSX.utils.book_append_sheet(wb, wsDraw, 'ドロー結果');
+    }
+
+    // バックアップ履歴管理（最大3回分）
+    const backupKey = 'drawSystem_backupHistory';
+    let history = [];
+    try {
+      const saved = localStorage.getItem(backupKey);
+      if (saved) history = JSON.parse(saved);
+    } catch (e) { /* ignore */ }
+    history.unshift({ date: new Date().toISOString(), entries: entries.length, tournaments: tournaments.length, draws: drawCodes.length });
+    if (history.length > 3) history = history.slice(0, 3);
+    try { localStorage.setItem(backupKey, JSON.stringify(history)); } catch (e) { /* ignore */ }
+
+    const filename = 'ドロー会議バックアップ_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    XLSX.writeFile(wb, filename);
+    this.showMessage('Excelバックアップをエクスポートしました', 'success');
   },
 
   _importAllBackup(e) {

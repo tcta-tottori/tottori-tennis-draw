@@ -107,56 +107,40 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: linear-gradient(180deg, #5eb8f5 0%, #87ceeb 35%, #b8dff0 55%, #e8d5a0 70%, #d4b66a 85%, #c4a24e 100%);
-  box-shadow: 0 2px 12px rgba(43, 126, 198, 0.3);
+  background: linear-gradient(135deg, #4db8e8 0%, #2b96d4 30%, #1a7cb8 60%, #1568a0 100%);
+  box-shadow: 0 2px 12px rgba(21, 104, 160, 0.3);
   overflow: hidden;
 }
 
-.header-scene {
+/* テニスコートライン装飾 */
+.header-court-lines {
   position: absolute;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
 }
 
-/* 雲 */
-.header-scene::before {
+.header-court-lines::before {
   content: '';
   position: absolute;
-  top: 6px;
-  right: 10%;
-  width: 80px;
-  height: 24px;
-  background: rgba(255,255,255,0.4);
-  border-radius: 24px;
-  box-shadow:
-    -30px 8px 0 -4px rgba(255,255,255,0.3),
-    60px -2px 0 -2px rgba(255,255,255,0.25),
-    140px 6px 0 -6px rgba(255,255,255,0.35);
+  top: 50%;
+  right: 8%;
+  width: 120px;
+  height: 70px;
+  transform: translateY(-50%) perspective(200px) rotateX(15deg);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 2px;
 }
 
-/* 砂丘の曲線 */
-.header-scene::after {
+.header-court-lines::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: -5%;
-  width: 110%;
-  height: 40%;
-  background:
-    radial-gradient(ellipse 60% 80% at 25% 90%, #d4b06a 0%, transparent 70%),
-    radial-gradient(ellipse 50% 100% at 70% 100%, #c9a455 0%, transparent 60%),
-    radial-gradient(ellipse 80% 60% at 50% 100%, #dfc080 0%, transparent 50%);
-}
-
-/* ラクダSVG */
-.header-camels {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 50%;
-  max-width: 400px;
-  height: 100%;
+  top: 50%;
+  right: calc(8% + 60px);
+  width: 0;
+  height: 70px;
+  transform: translateY(-50%) perspective(200px) rotateX(15deg);
+  border-left: 1.5px solid rgba(255,255,255,0.15);
 }
 
 .header-top {
@@ -171,12 +155,11 @@ body {
 .header-logo {
   width: 42px;
   height: 42px;
-  border-radius: 8px;
-  background: #fff;
+  border-radius: 50%;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   flex-shrink: 0;
   overflow: hidden;
   animation: logoFadeIn 0.6s ease-out;
@@ -208,19 +191,14 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: rgba(0,0,0,0.28);
-  padding: 4px 14px 4px 12px;
-  border-radius: 8px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
 .header-org {
   font-size: 10px;
-  color: rgba(255,255,255,0.95);
+  color: rgba(255,255,255,0.85);
   font-weight: 600;
   letter-spacing: 0.12em;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 .app-title {
@@ -232,9 +210,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow:
-    0 1px 2px rgba(0,0,0,0.7),
-    0 0 8px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 /* --- ハンバーガーメニューボタン --- */
@@ -245,12 +221,12 @@ body {
   z-index: 200;
   width: 40px;
   height: 40px;
-  border: 1px solid rgba(180, 150, 100, 0.4);
-  background: rgba(235, 218, 185, 0.85);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(160, 120, 50, 0.2);
+  border: 1px solid rgba(150, 150, 150, 0.3);
+  background: rgba(120, 120, 120, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -263,14 +239,14 @@ body {
 }
 
 .hamburger-btn:hover {
-  background: rgba(220, 200, 160, 0.95);
+  background: rgba(120, 120, 120, 0.4);
 }
 
 .hamburger-line {
   display: block;
   width: 20px;
   height: 2px;
-  background: #6b5030;
+  background: #555;
   border-radius: 2px;
   transition: all 0.3s ease;
 }
@@ -307,14 +283,13 @@ body {
   left: 0;
   width: 260px;
   height: 100vh;
-  /* 砂色ベース半透明 */
-  background: rgba(235, 218, 185, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
   z-index: 300;
   transform: translateX(-100%);
-  transition: transform 0.3s ease;
-  box-shadow: 4px 0 24px rgba(160, 120, 50, 0.25);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -324,41 +299,13 @@ body {
   transform: translateX(0);
 }
 
-/* 風紋パターン（繰り返しストライプ） */
-.drawer-nav::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      175deg,
-      transparent 0px,
-      transparent 8px,
-      rgba(190, 160, 100, 0.12) 8px,
-      rgba(190, 160, 100, 0.12) 10px,
-      transparent 10px,
-      transparent 18px
-    ),
-    repeating-linear-gradient(
-      185deg,
-      transparent 0px,
-      transparent 12px,
-      rgba(170, 140, 80, 0.08) 12px,
-      rgba(170, 140, 80, 0.08) 14px,
-      transparent 14px,
-      transparent 26px
-    );
-  z-index: 0;
-}
-
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(180, 150, 100, 0.3);
-  background: linear-gradient(135deg, rgba(180, 150, 90, 0.5) 0%, rgba(200, 170, 110, 0.4) 100%);
+  border-bottom: 1px solid rgba(43, 126, 198, 0.15);
+  background: linear-gradient(135deg, rgba(43, 126, 198, 0.08) 0%, rgba(77, 184, 232, 0.05) 100%);
   position: relative;
   z-index: 1;
 }
@@ -366,7 +313,7 @@ body {
 .drawer-title {
   font-size: 16px;
   font-weight: 700;
-  color: #5a4520;
+  color: var(--color-primary-dark);
   letter-spacing: 0.06em;
 }
 
@@ -374,14 +321,14 @@ body {
   border: none;
   background: none;
   font-size: 24px;
-  color: #8a6d3b;
+  color: #999;
   cursor: pointer;
   padding: 4px 8px;
   line-height: 1;
 }
 
 .drawer-close:hover {
-  color: #5a4520;
+  color: #333;
 }
 
 .drawer-menu {
@@ -402,24 +349,40 @@ body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   font-weight: 500;
-  color: #5a4520;
+  color: #444;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast);
+  transition: all 0.25s ease;
   -webkit-tap-highlight-color: transparent;
   text-align: left;
+  opacity: 0;
+  transform: translateY(8px);
 }
 
+.drawer-nav.open .tab-btn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.drawer-nav.open .tab-btn:nth-child(1) { transition-delay: 0.06s; }
+.drawer-nav.open .tab-btn:nth-child(2) { transition-delay: 0.1s; }
+.drawer-nav.open .tab-btn:nth-child(3) { transition-delay: 0.14s; }
+.drawer-nav.open .tab-btn:nth-child(4) { transition-delay: 0.18s; }
+.drawer-nav.open .tab-btn:nth-child(5) { transition-delay: 0.22s; }
+.drawer-nav.open .tab-btn:nth-child(6) { transition-delay: 0.26s; }
+.drawer-nav.open .tab-btn:nth-child(7) { transition-delay: 0.30s; }
+
 .drawer-menu .tab-btn:hover {
-  background: rgba(200, 170, 110, 0.3);
+  background: rgba(43, 126, 198, 0.08);
+  color: var(--color-primary);
 }
 
 .drawer-menu .tab-btn.active {
-  color: #3e2c0a;
+  color: var(--color-primary-dark);
   font-weight: 700;
-  background: rgba(200, 170, 110, 0.4);
-  border-left: 4px solid #a0783c;
-  padding-left: 20px;
+  background: rgba(43, 126, 198, 0.12);
+  border-left: 3px solid var(--color-primary);
+  padding-left: 21px;
 }
 
 .drawer-menu .tab-btn.active::after {
@@ -1675,15 +1638,9 @@ tr.row-entered td strong {
     height: 36px;
   }
 
-  .header-camels {
-    width: 40%;
-    opacity: 0.8;
-  }
-
-  .header-scene::before {
-    width: 50px;
-    height: 16px;
-    top: 4px;
+  .header-court-lines::before {
+    width: 80px;
+    height: 50px;
     right: 5%;
   }
 
@@ -1792,6 +1749,90 @@ tr.row-entered td strong {
 /* カードのhover浮き上がりと競合しないよう、revealedにはtransformを維持 */
 .card.revealed {
   animation: scrollReveal 0.5s ease-out forwards;
+}
+
+/* --- 選手一覧テーブル自動幅調整 --- */
+.ranking-auto-width {
+  table-layout: auto;
+  width: 100%;
+}
+
+.ranking-auto-width th,
+.ranking-auto-width td {
+  white-space: nowrap;
+}
+
+.ranking-auto-width th:nth-child(1),
+.ranking-auto-width td:nth-child(1) {
+  width: 1%;
+  text-align: center;
+}
+
+.ranking-auto-width th:nth-child(4),
+.ranking-auto-width td:nth-child(4) {
+  width: 1%;
+  text-align: center;
+}
+
+.ranking-auto-width th:nth-child(5),
+.ranking-auto-width td:nth-child(5) {
+  width: 1%;
+}
+
+/* --- 折りたたみセクション --- */
+.collapsible-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-white);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.collapsible-toggle {
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+}
+
+.collapsible-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-toggle::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 6px solid var(--color-primary);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.2s ease;
+}
+
+details[open] > .collapsible-toggle::before {
+  transform: rotate(90deg);
+}
+
+/* --- マニュアルテーブル溢れ防止 --- */
+.manual-content .table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.manual-content .data-table {
+  min-width: auto;
+}
+
+.manual-content .data-table td,
+.manual-content .data-table th {
+  word-break: break-word;
+  white-space: normal;
 }
 
 /* --- ダブルスペア表示 --- */

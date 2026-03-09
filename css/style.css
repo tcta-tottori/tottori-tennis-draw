@@ -1680,7 +1680,7 @@ tr.row-entered td strong {
 
 /* --- エントリーテーブル自動幅調整 --- */
 .ranking-auto-width {
-  table-layout: auto;
+  table-layout: fixed;
   width: 100%;
 }
 
@@ -1695,15 +1695,24 @@ tr.row-entered td strong {
   text-overflow: ellipsis;
 }
 
+/* 順位列 */
 .ranking-auto-width th:nth-child(1),
 .ranking-auto-width td:nth-child(1) {
-  width: 40px;
+  width: 8%;
   text-align: center;
 }
 
-/* 氏名・ふりがな列 */
+/* 氏名列 */
+.ranking-auto-width th:nth-child(2),
 .ranking-auto-width td:nth-child(2) {
+  width: auto;
   white-space: nowrap;
+}
+
+/* 所属列 */
+.ranking-auto-width th:nth-child(3),
+.ranking-auto-width td:nth-child(3) {
+  width: auto;
 }
 
 /* PC横画面: ふりがな列を表示 */
@@ -1712,29 +1721,36 @@ tr.row-entered td strong {
 }
 
 @media (min-width: 769px) and (orientation: landscape) {
+  /* 6列モード: 順位/氏名/ふりがな/所属/ポイント/操作 */
+  .ranking-auto-width th:nth-child(1),
+  .ranking-auto-width td:nth-child(1) { width: 7%; }
+  .ranking-auto-width th:nth-child(2),
+  .ranking-auto-width td:nth-child(2) { width: 22%; }
   .ranking-auto-width .col-furigana {
     display: table-cell;
     font-size: 12px;
-    color: #9ca3af;
+    color: #6b7280;
+    width: 22%;
   }
+  /* 所属（4列目）*/
+  .ranking-auto-width th:nth-child(4),
+  .ranking-auto-width td:nth-child(4) { width: 22%; }
   .ranking-auto-width .furigana-inline {
     display: none;
   }
 }
 
 /* ポイント列 */
-.ranking-auto-width th:nth-child(4),
-.ranking-auto-width td:nth-child(4),
 .ranking-auto-width th.col-points,
 .ranking-auto-width td.col-points {
-  width: 50px;
+  width: 10%;
   text-align: center;
 }
 
 /* 操作列 */
 .ranking-auto-width th:last-child,
 .ranking-auto-width td:last-child {
-  width: 80px;
+  width: 12%;
   padding-right: 8px;
 }
 
@@ -1882,11 +1898,138 @@ details[open] > .collapsible-toggle::before {
   background: rgba(0,0,0,0.25);
 }
 
+/* --- ルーレットポップアップモーダル --- */
+.roulette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: rouletteFadeIn 0.25s ease-out;
+}
+@keyframes rouletteFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.roulette-popup {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 36px;
+  min-width: 300px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: roulettePopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+@keyframes roulettePopIn {
+  from { opacity: 0; transform: scale(0.7) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.roulette-popup::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #1a7cb8, #2196F3, #1a7cb8);
+  background-size: 200% 100%;
+  animation: rouletteShimmer 1.5s linear infinite;
+}
+@keyframes rouletteShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.roulette-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a7cb8;
+  margin-bottom: 6px;
+}
+.roulette-player-name {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 16px;
+}
+.roulette-number-display {
+  font-size: 48px;
+  font-weight: 800;
+  color: #1a5a8e;
+  font-family: 'Courier New', monospace;
+  min-height: 60px;
+  line-height: 1.2;
+  letter-spacing: 2px;
+  transition: color 0.3s;
+}
+.roulette-number-display.decided {
+  color: #16a34a;
+  animation: rouletteDecided 0.5s ease;
+}
+@keyframes rouletteDecided {
+  0% { transform: scale(1.3); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.roulette-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 12px;
+}
+.roulette-result-summary {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a5a8e;
+  line-height: 1.6;
+}
+.roulette-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+.roulette-result-row .seed-label {
+  background: #e6f1fb;
+  color: #1a5a8e;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.roulette-result-row .position-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #16a34a;
+}
+.roulette-complete {
+  color: #16a34a;
+  font-weight: 700;
+  font-size: 16px;
+  animation: roulettePopIn 0.35s ease;
+}
+.roulette-close-btn {
+  margin-top: 16px;
+  padding: 8px 28px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1a7cb8 0%, #125a8a 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.roulette-close-btn:hover {
+  opacity: 0.85;
+}
+
 /* --- ふりがな1行収まり --- */
 .furigana-fit {
   display: block;
   font-size: 10px;
-  color: #9ca3af;
+  color: #6b7280;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;

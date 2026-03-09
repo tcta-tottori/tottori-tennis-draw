@@ -2046,6 +2046,8 @@ window.App = {
         name: p.name,
         furigana: p.furigana,
         affiliation: p.affiliation,
+        affiliation1: p.affiliation1 || '',
+        affiliation2: p.affiliation2 || '',
         points: p.points,
         seed: 0,
       }));
@@ -2398,6 +2400,8 @@ window.App = {
       name: player.name,
       furigana: player.furigana || '',
       affiliation: player.affiliation || '',
+      affiliation1: player.affiliation1 || '',
+      affiliation2: player.affiliation2 || '',
       points: player.points || 0,
       seed: player.seed || 0,
       isBye: false,
@@ -2640,10 +2644,52 @@ window.App = {
     }
   },
 
+  /**
+   * 同所属チェック: 手動配置時に1回戦で同所属が当たるかを判定
+   * ダブルスでは片方でも同所属メンバーがいれば衝突とみなす
+   */
+  _checkAffiliationCollision(drawIndex, player) {
+    const avoidCollision = document.querySelector('input[name="affiliation-collision"]:checked');
+    const shouldAvoid = !avoidCollision || avoidCollision.value === 'avoid';
+    if (!shouldAvoid) return false;
+
+    // 1回戦の対戦相手インデックスを算出（偶数→+1、奇数→-1）
+    const opponentIdx = (drawIndex % 2 === 0) ? drawIndex + 1 : drawIndex - 1;
+    if (opponentIdx < 0 || opponentIdx >= this._manualDraw.length) return false;
+
+    const opponent = this._manualDraw[opponentIdx];
+    if (!opponent || opponent.isEmpty || opponent.isBye) return false;
+
+    // ダブルスかどうか判定
+    const evt = this._currentDrawData ? AppConfig.EVENTS.find(e => e.code === this._currentDrawData.eventCode) : null;
+    const isDoubles = evt ? evt.category === 'doubles' : false;
+
+    if (isDoubles) {
+      // ダブルス: affiliation1, affiliation2 を使って片方でも一致すればNG
+      const playerAffs = [player.affiliation1 || player.affiliation || '', player.affiliation2 || ''].filter(a => a);
+      const opponentAffs = [opponent.affiliation1 || opponent.affiliation || '', opponent.affiliation2 || ''].filter(a => a);
+      for (const pa of playerAffs) {
+        for (const oa of opponentAffs) {
+          if (pa && oa && pa === oa) return true;
+        }
+      }
+      return false;
+    } else {
+      // シングルス: 所属が一致すればNG
+      return player.affiliation && opponent.affiliation && player.affiliation === opponent.affiliation;
+    }
+  },
+
   _placePlayerAt(drawIndex) {
     if (this._selectedPlayer === null || !this._manualDraw) return;
     const player = this._unplacedPlayers[this._selectedPlayer];
     if (!player) return;
+
+    // 同所属チェック
+    if (this._checkAffiliationCollision(drawIndex, player)) {
+      this.showMessage('同所属の選手が1回戦で対戦してしまうため、この位置には配置できません', 'error');
+      return;
+    }
 
     this._placeInDraw(this._manualDraw, drawIndex, player);
     this._unplacedPlayers.splice(this._selectedPlayer, 1);
@@ -2676,6 +2722,8 @@ window.App = {
       name: entry.name,
       furigana: entry.furigana,
       affiliation: entry.affiliation,
+      affiliation1: entry.affiliation1 || '',
+      affiliation2: entry.affiliation2 || '',
       points: entry.points,
       seed: 0,
     });
@@ -2878,7 +2926,29 @@ window.App = {
   },
 
   /**
-   * ルーレット抽選: 数字が素早くランダムに動き、Enterで確定
+   * ルーレットポップアップを表示するヘルパー
+   */
+  _showRoulettePopup() {
+    const overlay = document.createElement('div');
+    overlay.className = 'roulette-overlay';
+    const popup = document.createElement('div');
+    popup.className = 'roulette-popup';
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+    return { overlay, popup };
+  },
+
+  _closeRoulettePopup(overlay) {
+    if (overlay && overlay.parentNode) {
+      overlay.style.animation = 'none';
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.2s';
+      setTimeout(() => overlay.remove(), 200);
+    }
+  },
+
+  /**
+   * ルーレット抽選: ポップアップ式アニメーション
    */
   _rouletteSeedPositions() {
     if (!this._currentDrawData) return;
@@ -2890,20 +2960,6 @@ window.App = {
     const pos34 = DrawEngine.getSeed34Positions(drawSize);
     const pos58 = DrawEngine.getSeed58Positions(drawSize);
 
-    // ルーレット用の表示要素を作成
-    const container = document.getElementById('seed-position-selection');
-    if (!container) return;
-
-    // ルーレット表示エリア
-    let rouletteDiv = document.getElementById('roulette-display');
-    if (!rouletteDiv) {
-      rouletteDiv = document.createElement('div');
-      rouletteDiv.id = 'roulette-display';
-      rouletteDiv.style.cssText = 'padding:10px;text-align:center;background:#fff;border-radius:8px;margin-top:8px;border:2px solid #1976D2;max-width:320px;margin-left:auto;margin-right:auto;';
-      container.appendChild(rouletteDiv);
-    }
-
-    // シード3,4のルーレット
     const allPositions = [];
     if (seeded.length >= 3) {
       allPositions.push({ label: 'シード3・4', positions: pos34, seeds: [3, 4] });
@@ -2914,37 +2970,32 @@ window.App = {
 
     if (allPositions.length === 0) return;
 
+    const { overlay, popup } = this._showRoulettePopup();
     let currentGroup = 0;
     let rouletteTimer = null;
-    let currentIdx = 0;
 
     const showGroup = (groupIdx) => {
       const group = allPositions[groupIdx];
-      const shuffledPositions = DrawEngine.shuffleArray([...group.positions]);
 
-      rouletteDiv.innerHTML = '<h4 style="margin-bottom:8px;color:#1976D2;font-size:13px;">' + group.label + ' の位置抽選</h4>' +
-        '<div id="roulette-number" style="font-size:28px;font-weight:bold;color:#333;font-family:monospace;min-height:36px;line-height:1.2;"></div>' +
-        '<p style="font-size:12px;color:#666;margin-top:4px;">タップまたはEnterで確定</p>';
+      popup.innerHTML =
+        '<div class="roulette-title">' + group.label + ' の位置抽選</div>' +
+        '<div class="roulette-number-display" id="roulette-number">--</div>' +
+        '<div class="roulette-hint">タップまたはEnterで確定</div>';
 
       const numDisplay = document.getElementById('roulette-number');
-      currentIdx = 0;
+      let idx = 0;
 
-      // ルーレット開始
+      // アニメーション: 最初は速く、だんだん遅くはしない（手動停止なので一定速度）
       rouletteTimer = setInterval(() => {
-        currentIdx = (currentIdx + 1) % group.positions.length;
-        if (numDisplay) numDisplay.textContent = 'No.' + group.positions[currentIdx];
-      }, 80);
+        idx = (idx + 1) % group.positions.length;
+        if (numDisplay) numDisplay.textContent = 'No.' + group.positions[idx];
+      }, 70);
 
-      // 確定ハンドラ
       const stopRoulette = () => {
-        if (rouletteTimer) {
-          clearInterval(rouletteTimer);
-          rouletteTimer = null;
-        }
+        if (rouletteTimer) { clearInterval(rouletteTimer); rouletteTimer = null; }
         document.removeEventListener('keydown', onKeyDown);
-        rouletteDiv.removeEventListener('click', stopRoulette);
+        overlay.removeEventListener('click', onClickStop);
 
-        // 結果をランダムに割り当て
         const result = DrawEngine.shuffleArray([...group.positions]);
 
         // セレクトに反映
@@ -2953,39 +3004,47 @@ window.App = {
           if (sel && i < result.length) sel.value = result[i];
         });
 
-        if (numDisplay) {
-          numDisplay.textContent = result.map((p, i) => '[' + group.seeds[i] + ']→No.' + p).join(' ');
-          numDisplay.style.color = '#2E7D32';
-          numDisplay.style.fontSize = '18px';
-        }
+        // 結果表示
+        let html = '<div class="roulette-title">' + group.label + ' 抽選結果</div><div style="margin:16px 0;">';
+        result.forEach((p, i) => {
+          html += '<div class="roulette-result-row">' +
+            '<span class="seed-label">シード' + group.seeds[i] + '</span>' +
+            '<span style="color:#666;">→</span>' +
+            '<span class="position-label">No.' + p + '</span></div>';
+        });
+        html += '</div>';
 
-        // 次のグループへ
+        if (numDisplay) {
+          numDisplay.classList.add('decided');
+          numDisplay.textContent = result.map(p => 'No.' + p).join(' / ');
+        }
+        popup.innerHTML = html;
+
         currentGroup++;
         if (currentGroup < allPositions.length) {
-          setTimeout(() => showGroup(currentGroup), 1500);
+          setTimeout(() => showGroup(currentGroup), 1800);
         } else {
           setTimeout(() => {
-            rouletteDiv.innerHTML = '<p style="color:#2E7D32;font-weight:bold;">抽選完了！「シード位置を確定して配置」を押してください。</p>';
-          }, 1500);
+            popup.innerHTML =
+              '<div class="roulette-complete">抽選完了！</div>' +
+              '<p style="font-size:13px;color:#666;margin-top:8px;">「シード位置を確定して配置」を押してください</p>' +
+              '<button class="roulette-close-btn" id="roulette-close">閉じる</button>';
+            document.getElementById('roulette-close').addEventListener('click', () => this._closeRoulettePopup(overlay));
+          }, 1800);
         }
       };
 
-      const onKeyDown = (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          stopRoulette();
-        }
-      };
+      const onKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); stopRoulette(); } };
+      const onClickStop = (e) => { if (e.target === overlay || popup.contains(e.target)) stopRoulette(); };
       document.addEventListener('keydown', onKeyDown);
-      rouletteDiv.addEventListener('click', stopRoulette);
-      rouletteDiv.style.cursor = 'pointer';
+      overlay.addEventListener('click', onClickStop);
     };
 
     showGroup(0);
   },
 
   /**
-   * 個別ルーレット: 未配置選手を1人ずつ空きスロットにルーレットで配置
+   * 個別ルーレット: ポップアップ式で未配置選手を配置
    */
   _rouletteIndividualPlayer() {
     if (!this._manualDraw || !this._unplacedPlayers || this._unplacedPlayers.length === 0) return;
@@ -3004,38 +3063,29 @@ window.App = {
     const playerIdx = this._selectedPlayer;
     const player = this._unplacedPlayers[playerIdx];
 
-    // ルーレット表示
-    const unplacedArea = document.getElementById('unplaced-players');
-    if (!unplacedArea) return;
+    const { overlay, popup } = this._showRoulettePopup();
 
-    let rDiv = document.getElementById('individual-roulette-display');
-    if (!rDiv) {
-      rDiv = document.createElement('div');
-      rDiv.id = 'individual-roulette-display';
-      rDiv.style.cssText = 'padding:10px;text-align:center;background:#fff;border-radius:8px;margin:8px auto;border:2px solid #1976D2;max-width:320px;';
-      unplacedArea.appendChild(rDiv);
-    }
-
-    rDiv.innerHTML = '<p style="font-size:12px;color:#666;margin-bottom:4px;">' + this._esc(player.name) + ' の配置位置</p>' +
-      '<div id="individual-roulette-num" style="font-size:28px;font-weight:bold;color:#333;font-family:monospace;min-height:36px;line-height:1.2;"></div>' +
-      '<p style="font-size:11px;color:#666;margin-top:4px;">タップまたはEnterで確定</p>';
+    popup.innerHTML =
+      '<div class="roulette-title">配置位置の抽選</div>' +
+      '<div class="roulette-player-name">' + this._esc(player.name) + '</div>' +
+      '<div class="roulette-number-display" id="individual-roulette-num">--</div>' +
+      '<div class="roulette-hint">タップまたはEnterで確定</div>';
 
     const numDisplay = document.getElementById('individual-roulette-num');
     let timer = setInterval(() => {
       const randSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
       if (numDisplay) numDisplay.textContent = 'No.' + (randSlot + 1);
-    }, 80);
+    }, 70);
 
     const stop = () => {
       if (timer) { clearInterval(timer); timer = null; }
       document.removeEventListener('keydown', onKey);
-      rDiv.removeEventListener('click', stop);
+      overlay.removeEventListener('click', onClickStop);
 
-      // ランダムに空きスロットを選択
       const targetSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
       if (numDisplay) {
         numDisplay.textContent = 'No.' + (targetSlot + 1);
-        numDisplay.style.color = '#2E7D32';
+        numDisplay.classList.add('decided');
       }
 
       // 配置
@@ -3044,15 +3094,22 @@ window.App = {
       this._selectedPlayer = null;
 
       setTimeout(() => {
-        if (rDiv.parentNode) rDiv.parentNode.removeChild(rDiv);
-        this._renderManualPlacement();
+        popup.innerHTML =
+          '<div class="roulette-title">配置完了</div>' +
+          '<div class="roulette-player-name">' + this._esc(player.name) + '</div>' +
+          '<div class="roulette-result-row"><span class="position-label" style="font-size:24px;">No.' + (targetSlot + 1) + ' に配置</span></div>' +
+          '<button class="roulette-close-btn" id="roulette-close">閉じる</button>';
+        document.getElementById('roulette-close').addEventListener('click', () => {
+          this._closeRoulettePopup(overlay);
+          this._renderManualPlacement();
+        });
       }, 800);
     };
 
     const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); stop(); } };
+    const onClickStop = (e) => { if (e.target === overlay || popup.contains(e.target)) stop(); };
     document.addEventListener('keydown', onKey);
-    rDiv.addEventListener('click', stop);
-    rDiv.style.cursor = 'pointer';
+    overlay.addEventListener('click', onClickStop);
   },
 
   // ================================================================

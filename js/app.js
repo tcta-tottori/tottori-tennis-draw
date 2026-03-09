@@ -785,24 +785,67 @@ window.App = {
       });
       RankingLoader.addToFuriganaMap(player.name, furigana);
 
-      // ボタンを「登録済」バッジに変更
-      btn.remove();
-      const badge = document.createElement('span');
-      badge.className = 'entered-badge';
-      badge.textContent = '登録済';
-      tr.querySelector('.action-cell').appendChild(badge);
-
-      // 行を目立つ色にフラッシュしてからグレーに
+      // スムーズにフェードアウトして消える
       tr.style.transition = 'background-color 0.3s';
-      tr.style.backgroundColor = '#ffeb3b';
-      setTimeout(() => {
-        tr.style.backgroundColor = '#e0e0e0';
-        tr.classList.add('row-entered');
-      }, 800);
+      tr.style.backgroundColor = '#c8e6c9';
+      btn.textContent = '登録済';
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+
+      if (this._hideEnteredPlayers) {
+        // 非表示モード: フェードアウトしてから行を非表示に
+        setTimeout(() => {
+          tr.classList.add('row-fade-out');
+          setTimeout(() => {
+            tr.classList.add('row-entered');
+            tr.classList.remove('row-fade-out');
+            // 行の色を再計算
+            this._resetRowColors();
+          }, 450);
+        }, 500);
+      } else {
+        setTimeout(() => {
+          tr.classList.add('row-entered');
+          btn.remove();
+          const badge = document.createElement('span');
+          badge.className = 'entered-badge';
+          badge.textContent = '登録済';
+          tr.querySelector('.action-cell').appendChild(badge);
+        }, 800);
+      }
     } else {
       // 種目未確定でもモーダルなしで直接登録（種目選択はエントリーリストページで）
       this._showQuickEntryModal(player);
     }
+  },
+
+  /**
+   * エントリー後に表示行の背景色を再計算
+   */
+  _resetRowColors() {
+    const tbody = document.getElementById('ranking-table-body');
+    if (!tbody) return;
+    const visibleRows = Array.from(tbody.querySelectorAll('tr')).filter(tr => {
+      return !tr.classList.contains('row-entered') || !document.getElementById('ranking-table').classList.contains('hide-entered');
+    });
+    const rankIsMale = this._rankingFilter.eventCode ? this._rankingFilter.eventCode.startsWith('m') : false;
+    const rankIsFemale = this._rankingFilter.eventCode ? this._rankingFilter.eventCode.startsWith('l') : false;
+    let visIdx = 0;
+    visibleRows.forEach(tr => {
+      if (tr.classList.contains('row-entered') && document.getElementById('ranking-table').classList.contains('hide-entered')) return;
+      if (tr.classList.contains('row-entered')) {
+        tr.style.backgroundColor = '#d5d5d5';
+      } else {
+        if (rankIsMale) {
+          tr.style.backgroundColor = visIdx % 2 === 0 ? '#f0f7ff' : '#ffffff';
+        } else if (rankIsFemale) {
+          tr.style.backgroundColor = visIdx % 2 === 0 ? '#fff0f3' : '#ffffff';
+        } else {
+          tr.style.backgroundColor = visIdx % 2 === 0 ? '' : '#ffffff';
+        }
+      }
+      visIdx++;
+    });
   },
 
   /**

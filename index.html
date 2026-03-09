@@ -24,7 +24,7 @@
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
       <div class="header-version">
-        <span class="version-number">Ver.1.0</span>
+        <span class="version-number">Ver.1.1</span>
         <span class="version-date">2026.3.9</span>
       </div>
     </div>
@@ -53,94 +53,97 @@
         <summary class="card-title collapsible-toggle">ランキング・名簿リスト</summary>
 
         <!-- Google スプレッドシートから読み込み -->
-        <h4 style="font-size:13px;font-weight:600;margin-bottom:8px;">Google スプレッドシートから読み込み</h4>
-        <p style="font-size:12px;color:#666;margin-bottom:8px;">
-          スプレッドシートのURLまたはIDを入力して読み込みます。
-          <span style="color:#999;">※共有設定を「リンクを知っている全員が閲覧可」にしてください。</span>
-        </p>
-        <div class="data-load-grid">
-          <div>
-            <label class="form-label">ランキングデータ（rank）</label>
-            <div style="display:flex;gap:8px;">
-              <button id="btn-gs-ranking" class="btn btn-primary">読込</button>
-              <a id="btn-gs-ranking-link" class="btn btn-secondary" href="#" target="_blank" style="display:none;" title="スプレッドシートを開く">開く</a>
+        <div style="background:#f0f7ff;border:1px solid #d0e3f5;border-radius:10px;padding:16px 18px;margin-bottom:16px;">
+          <h4 style="font-size:14px;font-weight:700;margin-bottom:10px;color:#1a5a8e;">Google スプレッドシートから読み込み</h4>
+          <p style="font-size:12px;color:#555;margin-bottom:12px;">
+            スプレッドシートのURLまたはIDを入力して読み込みます。
+            <span style="color:#888;">※共有設定を「リンクを知っている全員が閲覧可」にしてください。</span>
+          </p>
+          <div class="data-load-grid" style="gap:20px;">
+            <div>
+              <label class="form-label" style="font-weight:600;">ランキングデータ（rank）</label>
+              <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <button id="btn-gs-ranking" class="btn btn-primary">読込</button>
+                <a id="btn-gs-ranking-link" class="btn btn-secondary" href="#" target="_blank" style="display:none;" title="スプレッドシートを開く">開く</a>
+              </div>
+              <input type="text" id="gs-ranking-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="font-size:11px;color:#999;padding:6px 10px;">
+              <div id="gs-ranking-progress" class="progress-bar-container" style="display:none;margin-top:8px;">
+                <div class="progress-bar"><div id="gs-ranking-progress-bar" class="progress-bar-fill" style="width:0%;"></div></div>
+                <span id="gs-ranking-progress-text" class="progress-text">読込中...</span>
+              </div>
+              <div id="gs-ranking-status" class="load-status" style="margin-top:8px;">
+                <span class="status-icon status-pending">&#9679;</span>
+                <span class="status-text">未読込</span>
+              </div>
             </div>
-            <input type="text" id="gs-ranking-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="margin-top:4px;font-size:11px;color:#999;padding:4px 8px;">
-            <div id="gs-ranking-progress" class="progress-bar-container" style="display:none;margin-top:8px;">
-              <div class="progress-bar"><div id="gs-ranking-progress-bar" class="progress-bar-fill" style="width:0%;"></div></div>
-              <span id="gs-ranking-progress-text" class="progress-text">読込中...</span>
-            </div>
-            <div id="gs-ranking-status" class="load-status" style="margin-top:8px;">
-              <span class="status-icon status-pending">&#9679;</span>
-              <span class="status-text">未読込</span>
+            <div>
+              <label class="form-label" style="font-weight:600;">ふりがなデータ</label>
+              <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <button id="btn-gs-furigana" class="btn btn-primary">読込</button>
+                <a id="btn-gs-furigana-link" class="btn btn-secondary" href="#" target="_blank" style="display:none;" title="スプレッドシートを開く">開く</a>
+              </div>
+              <input type="text" id="gs-furigana-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="font-size:11px;color:#999;padding:6px 10px;">
+              <div id="gs-furigana-progress" class="progress-bar-container" style="display:none;margin-top:8px;">
+                <div class="progress-bar"><div id="gs-furigana-progress-bar" class="progress-bar-fill" style="width:0%;"></div></div>
+                <span id="gs-furigana-progress-text" class="progress-text">読込中...</span>
+              </div>
+              <div id="gs-furigana-status" class="load-status" style="margin-top:8px;">
+                <span class="status-icon status-pending">&#9679;</span>
+                <span class="status-text">未読込</span>
+              </div>
             </div>
           </div>
-          <div>
-            <label class="form-label">ふりがなデータ</label>
-            <div style="display:flex;gap:8px;">
-              <button id="btn-gs-furigana" class="btn btn-primary">読込</button>
-              <a id="btn-gs-furigana-link" class="btn btn-secondary" href="#" target="_blank" style="display:none;" title="スプレッドシートを開く">開く</a>
-            </div>
-            <input type="text" id="gs-furigana-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="margin-top:4px;font-size:11px;color:#999;padding:4px 8px;">
-            <div id="gs-furigana-progress" class="progress-bar-container" style="display:none;margin-top:8px;">
-              <div class="progress-bar"><div id="gs-furigana-progress-bar" class="progress-bar-fill" style="width:0%;"></div></div>
-              <span id="gs-furigana-progress-text" class="progress-text">読込中...</span>
-            </div>
-            <div id="gs-furigana-status" class="load-status" style="margin-top:8px;">
-              <span class="status-icon status-pending">&#9679;</span>
-              <span class="status-text">未読込</span>
-            </div>
-          </div>
+          <details style="margin-top:10px;">
+            <summary style="cursor:pointer;font-size:12px;color:#1a56db;">共有設定の方法</summary>
+            <ol style="font-size:11px;color:#555;margin-top:6px;padding-left:20px;">
+              <li>Google スプレッドシートを開く</li>
+              <li>右上の「共有」ボタンをクリック</li>
+              <li>「一般的なアクセス」を「リンクを知っている全員」に変更</li>
+              <li>権限は「閲覧者」でOK</li>
+              <li>URLをコピーして上の入力欄に貼り付け</li>
+            </ol>
+          </details>
         </div>
-        <details style="margin-top:8px;">
-          <summary style="cursor:pointer;font-size:12px;color:#1a56db;">共有設定の方法</summary>
-          <ol style="font-size:11px;color:#555;margin-top:6px;padding-left:20px;">
-            <li>Google スプレッドシートを開く</li>
-            <li>右上の「共有」ボタンをクリック</li>
-            <li>「一般的なアクセス」を「リンクを知っている全員」に変更</li>
-            <li>権限は「閲覧者」でOK</li>
-            <li>URLをコピーして上の入力欄に貼り付け</li>
-          </ol>
-        </details>
 
         <!-- ローカルファイルから読み込み -->
-        <hr style="margin:16px 0;border:none;border-top:1px solid var(--color-border);">
-        <h4 style="font-size:13px;font-weight:600;margin-bottom:8px;">ローカルファイルから読み込み</h4>
-        <div class="data-load-grid">
-          <div class="card">
-            <h3 class="card-title">ランキングデータ (rank.xlsx)</h3>
-            <div id="drop-ranking" class="drop-zone">
-              <div class="drop-zone-content">
-                <svg class="drop-zone-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M12 16V4m0 0L8 8m4-4l4 4"/>
-                  <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
-                </svg>
-                <p>ここにrank.xlsxをドラッグ&ドロップ</p>
-                <p class="drop-zone-sub">またはクリックしてファイルを選択</p>
+        <div style="background:#f9fafb;border:1px solid var(--color-border);border-radius:10px;padding:16px 18px;">
+          <h4 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#374151;">ローカルファイルから読み込み</h4>
+          <div class="data-load-grid" style="gap:20px;">
+            <div class="card" style="margin-bottom:0;">
+              <h3 class="card-title">ランキングデータ (rank.xlsx)</h3>
+              <div id="drop-ranking" class="drop-zone">
+                <div class="drop-zone-content">
+                  <svg class="drop-zone-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 16V4m0 0L8 8m4-4l4 4"/>
+                    <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
+                  </svg>
+                  <p>ここにrank.xlsxをドラッグ&ドロップ</p>
+                  <p class="drop-zone-sub">またはクリックしてファイルを選択</p>
+                </div>
+                <input type="file" id="file-ranking" accept=".xlsx,.xls,.csv" hidden>
               </div>
-              <input type="file" id="file-ranking" accept=".xlsx,.xls,.csv" hidden>
-            </div>
-            <div id="status-ranking" class="load-status">
-              <span class="status-icon status-pending">&#9679;</span>
-              <span class="status-text">未読込</span>
-            </div>
-          </div>
-          <div class="card">
-            <h3 class="card-title">ふりがなデータ</h3>
-            <div id="drop-furigana" class="drop-zone">
-              <div class="drop-zone-content">
-                <svg class="drop-zone-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M12 16V4m0 0L8 8m4-4l4 4"/>
-                  <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
-                </svg>
-                <p>ここにふりがなデータをドラッグ&ドロップ</p>
-                <p class="drop-zone-sub">またはクリックしてファイルを選択</p>
+              <div id="status-ranking" class="load-status">
+                <span class="status-icon status-pending">&#9679;</span>
+                <span class="status-text">未読込</span>
               </div>
-              <input type="file" id="file-furigana" accept=".xlsx,.xls,.csv,.json" hidden>
             </div>
-            <div id="status-furigana" class="load-status">
-              <span class="status-icon status-pending">&#9679;</span>
-              <span class="status-text">未読込</span>
+            <div class="card" style="margin-bottom:0;">
+              <h3 class="card-title">ふりがなデータ</h3>
+              <div id="drop-furigana" class="drop-zone">
+                <div class="drop-zone-content">
+                  <svg class="drop-zone-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 16V4m0 0L8 8m4-4l4 4"/>
+                    <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
+                  </svg>
+                  <p>ここにふりがなデータをドラッグ&ドロップ</p>
+                  <p class="drop-zone-sub">またはクリックしてファイルを選択</p>
+                </div>
+                <input type="file" id="file-furigana" accept=".xlsx,.xls,.csv,.json" hidden>
+              </div>
+              <div id="status-furigana" class="load-status">
+                <span class="status-icon status-pending">&#9679;</span>
+                <span class="status-text">未読込</span>
+              </div>
             </div>
           </div>
         </div>

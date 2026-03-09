@@ -131,7 +131,7 @@ window.DrawRenderer = {
       P.centerGap = Math.round(baseCenterGap * hScale);
     }
 
-    const slotsPerHalf = halfSize * 2;
+    const slotsPerHalf = isConfirmed ? effectiveHalfSlots * 2 : halfSize * 2;
     const bracketBodyHeight = slotsPerHalf * P.slotHeight;
     const halfWidth = P.drawNumWidth + P.nameAreaWidth + halfRounds * P.roundWidth;
     const totalWidth = halfWidth * 2 + P.centerGap;
@@ -159,7 +159,7 @@ window.DrawRenderer = {
 
     this._drawHalf(svg, leftDraw, halfSize, halfRounds, bodyTop, 0, 'left', options);
     this._drawHalf(svg, rightDraw, halfSize, halfRounds, bodyTop, halfWidth + P.centerGap, 'right', options);
-    this._drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth);
+    this._drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth, bracketBodyHeight);
     this._drawSeedInfo(svg, drawData, bodyTop + bracketBodyHeight + 8, totalWidth);
   },
 
@@ -560,11 +560,10 @@ window.DrawRenderer = {
   /**
    * 決勝線
    */
-  _drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth) {
+  _drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth, bracketBodyHeight) {
     const P = this.PARAMS;
-    const playerY = (i) => bodyTop + (i * 2) * P.slotHeight + P.slotHeight / 2;
     const centerX = totalWidth / 2;
-    const finalY = (playerY(0) + playerY(halfSize - 1)) / 2;
+    const finalY = bodyTop + bracketBodyHeight / 2;
     const leftEndX = P.drawNumWidth + P.nameAreaWidth + halfRounds * P.roundWidth;
     this._line(svg, leftEndX, finalY, centerX, finalY, P.colors.line);
     const rightStartX = halfWidth + P.centerGap;
@@ -1057,32 +1056,117 @@ window.DrawRenderer = {
       }
     }
 
-    // ブラケット罫線は簡易版（データ行全体を基に計算）
-    const dataRows = wsData.length - headerRows;
-    // 1回戦のブラケットは各compact item境界に配置
-    // 簡易実装: 通常のブラケット罫線を使用（行位置は実データに基づく）
-    for (let round = 0; round < halfRounds; round++) {
-      const pairSize = Math.pow(2, round + 1);
-      const matchCount = leftCompact.length / pairSize * (round === 0 ? 1 : 1);
-      const leftCol = leftDataCols + round;
-      const rightCol = leftDataCols + halfRounds + centerCols + (halfRounds - 1 - round);
+    // ブラケット罫線: 各compact itemの実際の行位置に基づいて計算
+    // 各compact itemの「出力行」(名前が書かれている行)を計算
+    // match: 4行使用 (top名前, 空, bottom名前, 空) → 出力行 = startRow (top), startRow+2 (bottom)
+    // bye-pass: 2行使用 (名前, 空) → 出力行 = startRow
+    // bye-pair: 0行 (スキップ)
 
-      // 簡易: compact itemsに基づくブラケット位置は複雑なのでスキップ
-      // 代わりに均等分割で近似
-      if (dataRows > 0) {
-        const groupCount = Math.floor(leftCompact.filter(c => c.type !== 'bye-pair').length / Math.pow(2, round));
-        if (groupCount < 1) continue;
-        const rowsPerGroup = Math.floor(dataRows / groupCount);
-        for (let g = 0; g < Math.floor(groupCount / 2); g++) {
-          const topRow = headerRows + g * 2 * rowsPerGroup + Math.floor(rowsPerGroup / 2) - 1;
-          const bottomRow = headerRows + (g * 2 + 1) * rowsPerGroup + Math.floor(rowsPerGroup / 2) - 1;
-          if (topRow >= headerRows && bottomRow < wsData.length) {
-            wsData._bracketInfo.push({ topRow, bottomRow, col: leftCol, side: 'left' });
-            wsData._bracketInfo.push({ topRow, bottomRow, col: rightCol, side: 'right' });
+    const computeOutputRows = (compact, itemRows) => {
+      const outputs = []; // 各compact itemの出力行 {nameRow, midRow, type}
+      for (let ci = 0; ci < compact.length; ci++) {
+        const item = compact[ci];
+        const startRow = itemRows[ci];
+        if (item.type === 'match') {
+          const topNameRow = startRow;
+          const bottomNameRow = startRow + 2;
+          const midRow = startRow + 1; // midpoint between top and bottom name rows
+          outputs.push({ topRow: topNameRow, bottomRow: bottomNameRow, midRow, type: 'match' });
+        } else if (item.type === 'bye-pass') {
+          outputs.push({ topRow: startRow, bottomRow: startRow, midRow: startRow, type: 'bye-pass' });
+        } else {
+          // bye-pair: no output
+          outputs.push({ topRow: -1, bottomRow: -1, midRow: -1, type: 'bye-pair' });
+        }
+      }
+      return outputs;
+    };
+
+    const leftOutputs = computeOutputRows(leftCompact, leftItemRows);
+    const rightOutputs = computeOutputRows(rightCompact, rightItemRows);
+
+    // Round 0: pair adjacent compact items and draw brackets between their output rows
+    // Round N: pair groups of 2^N compact items, using midpoints from previous round grouping
+
+    const drawBracketRounds = (compact, outputs, side) => {
+      // currentMidRows[ci] tracks the "output Y" of each compact item for the current round
+      const currentMidRows = outputs.map(o => o.midRow);
+
+      for (let round = 0; round < halfRounds; round++) {
+        const leftCol = leftDataCols + round;
+        const rightCol = leftDataCols + halfRounds + centerCols + (halfRounds - 1 - round);
+        const col = side === 'left' ? leftCol : rightCol;
+        const groupSize = Math.pow(2, round + 1);
+        const pairCount = Math.floor(compact.length / groupSize);
+
+        for (let p = 0; p < pairCount; p++) {
+          const startIdx = p * groupSize;
+          const halfGroup = groupSize / 2;
+          const midIdx = startIdx + halfGroup;
+          const endIdx = startIdx + groupSize - 1;
+
+          // Collect valid midRows for top half and bottom half of this group
+          const topMids = [];
+          for (let k = startIdx; k < midIdx; k++) {
+            if (outputs[k].type !== 'bye-pair') topMids.push(currentMidRows[k]);
+          }
+          const bottomMids = [];
+          for (let k = midIdx; k <= endIdx; k++) {
+            if (outputs[k].type !== 'bye-pair') bottomMids.push(currentMidRows[k]);
+          }
+
+          if (topMids.length === 0 && bottomMids.length === 0) continue;
+
+          let topRow, bottomRow, newMid;
+          if (round === 0) {
+            // Round 0: use the actual name rows from outputs
+            if (topMids.length > 0 && bottomMids.length > 0) {
+              // For a match item, use its top name row as the bracket top; for bye-pass, use its name row
+              const topItem = outputs[startIdx];
+              const bottomItem = outputs[startIdx + 1];
+              if (topItem.type === 'match') {
+                topRow = topItem.topRow;
+              } else {
+                topRow = topItem.midRow;
+              }
+              if (bottomItem.type === 'match') {
+                bottomRow = bottomItem.bottomRow;
+              } else {
+                bottomRow = bottomItem.midRow;
+              }
+              newMid = Math.floor((topRow + bottomRow) / 2);
+              wsData._bracketInfo.push({ topRow, bottomRow, col, side });
+            } else if (topMids.length > 0) {
+              newMid = topMids[0];
+            } else {
+              newMid = bottomMids[0];
+            }
+          } else {
+            // Round 1+: use the midpoints from previous round grouping
+            if (topMids.length > 0 && bottomMids.length > 0) {
+              topRow = Math.floor((topMids[0] + topMids[topMids.length - 1]) / 2);
+              bottomRow = Math.floor((bottomMids[0] + bottomMids[bottomMids.length - 1]) / 2);
+              newMid = Math.floor((topRow + bottomRow) / 2);
+              if (topRow >= headerRows && bottomRow < wsData.length) {
+                wsData._bracketInfo.push({ topRow, bottomRow, col, side });
+              }
+            } else if (topMids.length > 0) {
+              newMid = Math.floor((topMids[0] + topMids[topMids.length - 1]) / 2);
+            } else {
+              newMid = Math.floor((bottomMids[0] + bottomMids[bottomMids.length - 1]) / 2);
+            }
+          }
+
+          // Update all items in this group to the new midpoint for next round
+          for (let k = startIdx; k <= endIdx; k++) {
+            currentMidRows[k] = newMid;
           }
         }
       }
-    }
+    };
+
+    drawBracketRounds(leftCompact, leftOutputs, 'left');
+    drawBracketRounds(rightCompact, rightOutputs, 'right');
   },
 
 

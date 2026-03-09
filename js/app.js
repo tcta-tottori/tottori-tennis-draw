@@ -1856,6 +1856,32 @@ window.App = {
       this.showMessage('大会一覧をバックアップファイルに保存しました', 'success');
     });
 
+    const fileBackupRestore = document.getElementById('file-tournament-backup-restore');
+    if (fileBackupRestore) fileBackupRestore.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          const tournaments = data.tournaments || data;
+          if (!Array.isArray(tournaments)) {
+            this.showMessage('バックアップファイルの形式が正しくありません', 'error');
+            return;
+          }
+          if (!confirm('現在の大会データを上書きして復元しますか？（' + tournaments.length + '件）')) return;
+          localStorage.setItem('drawSystem_tournaments', JSON.stringify({ tournaments: tournaments }));
+          TournamentStore.init();
+          this.refreshTournamentsTable();
+          this.showMessage('バックアップから ' + tournaments.length + '件の大会を復元しました', 'success');
+        } catch (err) {
+          this.showMessage('バックアップの読込に失敗しました: ' + err.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+      fileBackupRestore.value = '';
+    });
+
     const btnClear = document.getElementById('btn-tournament-clear');
     if (btnClear) btnClear.addEventListener('click', () => {
       if (confirm('全大会データを削除しますか？')) {

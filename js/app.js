@@ -634,7 +634,14 @@ window.App = {
 
     if (emptyMsg) emptyMsg.style.display = 'none';
     if (table) table.style.display = '';
-    if (countEl) countEl.textContent = players.length + '名' + (q ? '（検索結果）' : '');
+
+    // エントリー済み非表示の初期状態を維持
+    if (this._hideEnteredPlayers === undefined) this._hideEnteredPlayers = true;
+    if (this._hideEnteredPlayers) {
+      table.classList.add('hide-entered');
+    } else {
+      table.classList.remove('hide-entered');
+    }
 
     // エントリー済み名簿をチェック用に構築
     const enteredSet = new Set();
@@ -726,6 +733,41 @@ window.App = {
         tableWrapper.style.background = '';
       }
     }
+
+    // エントリー済み非表示トグルボタン
+    const enteredCount = players.filter(p => p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false).length;
+    let toggleContainer = document.getElementById('ranking-entered-toggle');
+    if (!toggleContainer) {
+      toggleContainer = document.createElement('div');
+      toggleContainer.id = 'ranking-entered-toggle';
+      toggleContainer.style.cssText = 'text-align:center;padding:8px 0;';
+      const parentWrapper = table.closest('.table-wrapper');
+      if (parentWrapper && parentWrapper.nextSibling) {
+        parentWrapper.parentNode.insertBefore(toggleContainer, parentWrapper.nextSibling);
+      } else if (parentWrapper) {
+        parentWrapper.parentNode.appendChild(toggleContainer);
+      }
+    }
+    if (enteredCount > 0) {
+      toggleContainer.style.display = '';
+      const hideMode = this._hideEnteredPlayers;
+      toggleContainer.innerHTML = '';
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'btn btn-sm btn-secondary';
+      toggleBtn.style.cssText = 'font-size:12px;';
+      toggleBtn.textContent = hideMode ? 'エントリー済み ' + enteredCount + '名を表示' : 'エントリー済みを非表示';
+      toggleBtn.addEventListener('click', () => {
+        this._hideEnteredPlayers = !this._hideEnteredPlayers;
+        this._renderRankingRows();
+      });
+      toggleContainer.appendChild(toggleBtn);
+    } else {
+      toggleContainer.style.display = 'none';
+    }
+
+    // 表示件数を更新（非表示分を考慮）
+    const visibleCount = this._hideEnteredPlayers ? (players.length - enteredCount) : players.length;
+    if (countEl) countEl.textContent = visibleCount + '名' + (q ? '（検索結果）' : '') + (enteredCount > 0 && this._hideEnteredPlayers ? '（登録済 ' + enteredCount + '名 非表示）' : '');
   },
 
   /**
@@ -2461,10 +2503,25 @@ window.App = {
           unplacedList.appendChild(rouletteBtn);
           unplacedList.appendChild(document.createElement('br'));
         }
+        // ダブルス判定
+        const drawEventSel = document.getElementById('draw-event-select');
+        const drawEventCode = drawEventSel ? drawEventSel.value : '';
+        let drawIsDoubles = false;
+        try { drawIsDoubles = drawEventCode && EntryStore.isDoublesEvent(drawEventCode); } catch(e) {}
+
         this._unplacedPlayers.forEach((p, idx) => {
           const chip = document.createElement('button');
           chip.className = 'unplaced-chip' + (this._selectedPlayer === idx ? ' selected' : '');
-          chip.textContent = p.name + (p.points ? ' (' + p.points + 'pt)' : '');
+          // ダブルスは苗字のみ・所属3文字
+          let chipLabel = p.name;
+          if (drawIsDoubles && chipLabel && chipLabel.includes(' / ')) {
+            chipLabel = chipLabel.split(' / ').map(n => n.split(/[\s\u3000]+/)[0]).join('/');
+          }
+          let chipAff = '';
+          if (drawIsDoubles && p.affiliation) {
+            chipAff = ' ' + p.affiliation.substring(0, 3);
+          }
+          chip.textContent = chipLabel + chipAff + (p.points ? ' (' + p.points + 'pt)' : '');
           chip.addEventListener('click', () => {
             this._selectedPlayer = (this._selectedPlayer === idx) ? null : idx;
             this._renderManualPlacement();

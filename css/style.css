@@ -104,9 +104,10 @@ body {
 
 /* --- ヘッダー --- */
 .app-header {
+  position: -webkit-sticky;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 101;
   background: linear-gradient(135deg, #4db8e8 0%, #2b96d4 30%, #1a7cb8 60%, #1568a0 100%);
   box-shadow: 0 2px 12px rgba(21, 104, 160, 0.3);
   overflow: hidden;
@@ -196,6 +197,25 @@ body {
   z-index: 1;
 }
 
+/* バージョン表示 */
+.header-version {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.header-version .version-number {
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  line-height: 1.2;
+}
+.header-version .version-date {
+  font-size: 9px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.2;
+}
+
 .header-logo {
   width: 42px;
   height: 42px;
@@ -266,9 +286,10 @@ body {
 
 /* --- タブバーメニュー（ヘッダー色合わせ） --- */
 .tab-bar {
+  position: -webkit-sticky;
   position: sticky;
   top: 58px;
-  z-index: 99;
+  z-index: 100;
   display: flex;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -1298,6 +1319,10 @@ tr.row-entered td {
 tr.row-entered td strong {
   color: #888;
 }
+/* エントリー済み選手を非表示（デフォルト） */
+#ranking-table.hide-entered tr.row-entered {
+  display: none;
+}
 .entered-badge {
   display: inline-block;
   padding: 3px 10px;
@@ -1543,19 +1568,28 @@ tr.row-entered td strong {
   }
   #entry-table th:nth-child(1),
   #entry-table td:nth-child(1) {
-    width: 7%;
+    width: 6%;
   }
   #entry-table th:nth-child(2),
   #entry-table td:nth-child(2) {
-    width: 32%;
+    width: 24%;
   }
   #entry-table th:nth-child(3),
   #entry-table td:nth-child(3) {
-    width: 25%;
+    width: 20%;
   }
   #entry-table .btn-sm {
     padding: 2px 6px;
     font-size: 10px;
+  }
+
+  /* 大会選択欄モバイル対応 */
+  #screen-ranking .card > div[style] {
+    gap: 8px !important;
+  }
+  #tournament-select {
+    max-width: 100%;
+    font-size: 13px;
   }
 }
 
@@ -1777,6 +1811,16 @@ tr.row-entered td strong {
   padding-right: 8px;
 }
 
+/* --- 大会一覧テーブル nowrap --- */
+.tournament-nowrap {
+  white-space: nowrap;
+}
+.tournament-nowrap th,
+.tournament-nowrap td {
+  white-space: nowrap;
+  padding: 8px 10px;
+}
+
 /* --- エントリーテーブル固定幅 --- */
 #entry-table {
   table-layout: fixed;
@@ -1793,12 +1837,12 @@ tr.row-entered td strong {
 /* シングルス: 5列 (No./氏名/所属/ポイント/操作) */
 #entry-table th:nth-child(1),
 #entry-table td:nth-child(1) {
-  width: 8%;
+  width: 6%;
   text-align: center;
 }
 #entry-table th:nth-child(2),
 #entry-table td:nth-child(2) {
-  width: 30%;
+  width: 26%;
 }
 #entry-table td:nth-child(2) {
   white-space: normal;
@@ -1806,46 +1850,58 @@ tr.row-entered td strong {
 }
 #entry-table th:nth-child(3),
 #entry-table td:nth-child(3) {
-  width: 28%;
+  width: 22%;
 }
 #entry-table td:nth-child(3) {
   white-space: normal;
   word-break: break-all;
 }
+/* ポイント列 */
+#entry-table th:nth-child(4),
+#entry-table td:nth-child(4) {
+  width: 12%;
+  text-align: center;
+}
+/* 操作列 */
+#entry-table th:last-child,
+#entry-table td:last-child {
+  width: 34%;
+  text-align: center;
+}
 
-/* ポイント列（シングルス4列目 / ダブルス4,5列目） */
 #entry-table .action-cell {
   white-space: nowrap;
   text-align: center;
+  overflow: visible;
 }
 
 /* ダブルス: 6列 (P/氏名/所属/個人pt/合計pt/操作) */
 #entry-table.entry-doubles th:nth-child(1),
 #entry-table.entry-doubles td:nth-child(1) {
-  width: 6%;
+  width: 5%;
   text-align: center;
 }
 #entry-table.entry-doubles th:nth-child(2),
 #entry-table.entry-doubles td:nth-child(2) {
-  width: 26%;
+  width: 24%;
 }
 #entry-table.entry-doubles th:nth-child(3),
 #entry-table.entry-doubles td:nth-child(3) {
-  width: 22%;
+  width: 18%;
 }
 #entry-table.entry-doubles th:nth-child(4),
 #entry-table.entry-doubles td:nth-child(4) {
-  width: 12%;
+  width: 10%;
   text-align: center;
 }
 #entry-table.entry-doubles th:nth-child(5),
 #entry-table.entry-doubles td:nth-child(5) {
-  width: 12%;
+  width: 10%;
   text-align: center;
 }
 #entry-table.entry-doubles th:nth-child(6),
 #entry-table.entry-doubles td:nth-child(6) {
-  width: 22%;
+  width: 33%;
   text-align: center;
 }
 

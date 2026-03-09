@@ -23,6 +23,10 @@
         <span class="header-org">鳥取市テニス協会</span>
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
+      <div class="header-version">
+        <span class="version-number">Ver.1.0</span>
+        <span class="version-date">2026.3.9</span>
+      </div>
     </div>
   </header>
 
@@ -44,12 +48,15 @@
     <section id="screen-data" class="screen active">
       <h2 class="screen-title">データ読込</h2>
 
-      <!-- Google スプレッドシートから読み込み -->
-      <details class="card collapsible-section" style="margin-bottom: 24px;">
-        <summary class="card-title collapsible-toggle">Google スプレッドシートから読み込み</summary>
-        <p style="font-size:13px;color:#666;margin-bottom:12px;">
-          スプレッドシートのURLまたはIDを入力して読み込みます。<br>
-          ※スプレッドシートの共有設定を「リンクを知っている全員が閲覧可」にしてください。
+      <!-- ランキング・名簿リスト -->
+      <details class="card collapsible-section" style="margin-bottom: 24px;" open>
+        <summary class="card-title collapsible-toggle">ランキング・名簿リスト</summary>
+
+        <!-- Google スプレッドシートから読み込み -->
+        <h4 style="font-size:13px;font-weight:600;margin-bottom:8px;">Google スプレッドシートから読み込み</h4>
+        <p style="font-size:12px;color:#666;margin-bottom:8px;">
+          スプレッドシートのURLまたはIDを入力して読み込みます。
+          <span style="color:#999;">※共有設定を「リンクを知っている全員が閲覧可」にしてください。</span>
         </p>
         <div class="data-load-grid">
           <div>
@@ -85,9 +92,9 @@
             </div>
           </div>
         </div>
-        <details style="margin-top:12px;">
-          <summary style="cursor:pointer;font-size:13px;color:#1a56db;">共有設定の方法</summary>
-          <ol style="font-size:12px;color:#555;margin-top:8px;padding-left:20px;">
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer;font-size:12px;color:#1a56db;">共有設定の方法</summary>
+          <ol style="font-size:11px;color:#555;margin-top:6px;padding-left:20px;">
             <li>Google スプレッドシートを開く</li>
             <li>右上の「共有」ボタンをクリック</li>
             <li>「一般的なアクセス」を「リンクを知っている全員」に変更</li>
@@ -95,13 +102,11 @@
             <li>URLをコピーして上の入力欄に貼り付け</li>
           </ol>
         </details>
-      </details>
 
-      <!-- ローカルファイルから読み込み -->
-      <details class="collapsible-section">
-        <summary class="collapsible-toggle">ローカルファイルから読み込み</summary>
+        <!-- ローカルファイルから読み込み -->
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--color-border);">
+        <h4 style="font-size:13px;font-weight:600;margin-bottom:8px;">ローカルファイルから読み込み</h4>
         <div class="data-load-grid">
-          <!-- ランキングデータ読込 -->
           <div class="card">
             <h3 class="card-title">ランキングデータ (rank.xlsx)</h3>
             <div id="drop-ranking" class="drop-zone">
@@ -120,8 +125,6 @@
               <span class="status-text">未読込</span>
             </div>
           </div>
-
-          <!-- ふりがなデータ読込 -->
           <div class="card">
             <h3 class="card-title">ふりがなデータ</h3>
             <div id="drop-furigana" class="drop-zone">
@@ -161,18 +164,18 @@
             <button id="btn-tournament-clear" class="btn btn-danger">全クリア</button>
           </div>
         </div>
-        <div class="table-wrapper">
-          <table class="data-table" id="tournament-table">
+        <div class="table-wrapper" style="overflow-x:auto;">
+          <table class="data-table tournament-nowrap" id="tournament-table">
             <thead>
               <tr>
-                <th style="width:30px;">No.</th>
+                <th>No.</th>
                 <th>大会名</th>
                 <th>試合種目</th>
                 <th>日程</th>
                 <th>会場</th>
                 <th>予備日</th>
                 <th>予備日会場</th>
-                <th style="width:120px;">操作</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody id="tournament-table-body">
@@ -299,17 +302,17 @@
       <div class="card" style="margin-bottom:16px;">
         <h3 class="card-title">大会設定</h3>
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;">
-          <div class="form-group" style="margin-bottom:0;flex:2;min-width:250px;">
+          <div class="form-group" style="margin-bottom:0;flex:2;min-width:0;">
             <label for="tournament-select" class="form-label">大会選択</label>
-            <select id="tournament-select" class="form-select">
+            <select id="tournament-select" class="form-select" style="width:100%;">
               <option value="">-- 大会を選択 --</option>
             </select>
           </div>
-          <div class="form-group" style="margin-bottom:0;min-width:140px;">
+          <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
             <label for="tournament-date-input" class="form-label">開催日</label>
             <input type="text" id="tournament-date-input" class="form-input" placeholder="例: 令和7年11月9日（日）">
           </div>
-          <div class="form-group" style="margin-bottom:0;min-width:200px;">
+          <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
             <label for="tournament-venue-input" class="form-label">会場</label>
             <select id="tournament-venue-input" class="form-select">
             </select>
@@ -317,9 +320,9 @@
           <div class="form-group" style="margin-bottom:0;width:100%;">
             <label for="tournament-format-input" class="form-label">ゲームルール</label>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <select id="tournament-format-select" class="form-select" style="flex:1;min-width:200px;">
+              <select id="tournament-format-select" class="form-select" style="flex:1;min-width:120px;">
               </select>
-              <input type="text" id="tournament-format-custom" class="form-input" placeholder="またはルールを直接入力" style="flex:1;min-width:200px;">
+              <input type="text" id="tournament-format-custom" class="form-input" placeholder="またはルールを直接入力" style="flex:1;min-width:120px;">
             </div>
           </div>
         </div>

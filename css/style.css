@@ -389,17 +389,34 @@ body {
   animation: rowSlideIn 0.3s ease-out both;
 }
 
-/* エントリー済み行の上下潰れアニメーション */
-.row-fade-out td {
-  transition: padding 0.4s ease-in, line-height 0.4s ease-in;
-}
+/* エントリー済み行: 上下の行がスムーズに近づいて消えるアニメーション */
 .row-fade-out {
-  animation: rowCrush 0.5s ease-in forwards;
+  overflow: hidden;
+  pointer-events: none;
 }
-@keyframes rowCrush {
-  0% { opacity: 1; max-height: 60px; transform: scaleY(1); }
-  50% { opacity: 0.5; max-height: 30px; transform: scaleY(0.5); }
-  100% { opacity: 0; max-height: 0; transform: scaleY(0); line-height: 0; overflow: hidden; }
+.row-fade-out td {
+  transition: padding-top 0.45s ease-in-out, padding-bottom 0.45s ease-in-out,
+              border-color 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-color: transparent !important;
+  opacity: 0;
+}
+.row-fade-out td > * {
+  transition: max-height 0.45s ease-in-out, opacity 0.25s ease-in-out, margin 0.45s ease-in-out;
+  max-height: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0 !important;
+}
+.row-fade-out td .furigana-inline {
+  max-height: 0 !important;
+  opacity: 0;
+}
+/* line-height collapse */
+.row-fade-out td {
+  line-height: 0;
+  font-size: 0;
 }
 
 @keyframes rowSlideIn {

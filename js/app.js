@@ -829,20 +829,16 @@ window.App = {
       btn.style.opacity = '0.6';
 
       if (this._hideEnteredPlayers) {
-        // 非表示モード: 黄色ハイライト後に上下から潰れて消える
+        // 非表示モード: 上下の行がスムーズに近づいて消える
         setTimeout(() => {
-          tr.style.transformOrigin = 'center center';
-          tr.style.overflow = 'hidden';
           tr.classList.add('row-fade-out');
           setTimeout(() => {
             tr.classList.add('row-entered');
             tr.classList.remove('row-fade-out');
-            tr.style.transform = '';
-            tr.style.overflow = '';
             // 行の色を再計算
             this._resetRowColors();
-          }, 550);
-        }, 600);
+          }, 500);
+        }, 500);
       } else {
         setTimeout(() => {
           tr.classList.add('row-entered');

@@ -13,7 +13,7 @@
 <body>
   <!-- ヘッダー -->
   <header class="app-header">
-    <!-- 砂丘風紋装飾（左側のみ） -->
+    <!-- 砂丘風紋装飾（右側） -->
     <div class="header-fumon"></div>
     <div class="header-top">
       <div class="header-logo">
@@ -45,7 +45,7 @@
       <h2 class="screen-title">データ読込</h2>
 
       <!-- Google スプレッドシートから読み込み -->
-      <details open class="card collapsible-section" style="margin-bottom: 24px;">
+      <details class="card collapsible-section" style="margin-bottom: 24px;">
         <summary class="card-title collapsible-toggle">Google スプレッドシートから読み込み</summary>
         <p style="font-size:13px;color:#666;margin-bottom:12px;">
           スプレッドシートのURLまたはIDを入力して読み込みます。<br>
@@ -98,7 +98,7 @@
       </details>
 
       <!-- ローカルファイルから読み込み -->
-      <details open class="collapsible-section">
+      <details class="collapsible-section">
         <summary class="collapsible-toggle">ローカルファイルから読み込み</summary>
         <div class="data-load-grid">
           <!-- ランキングデータ読込 -->
@@ -144,7 +144,7 @@
       </details>
 
       <!-- 大会一覧（統合） -->
-      <details open class="card collapsible-section" style="margin-top:24px;">
+      <details class="card collapsible-section" style="margin-top:24px;">
         <summary class="card-title collapsible-toggle">大会一覧</summary>
         <div class="toolbar" style="margin-bottom:12px;">
           <div class="toolbar-left">
@@ -263,7 +263,7 @@
       </details>
 
       <!-- 読込結果サマリー（ページ下部） -->
-      <details open class="card collapsible-section" id="data-summary" style="display:none;margin-top:24px;">
+      <details class="card collapsible-section" id="data-summary" style="display:none;margin-top:24px;">
         <summary class="card-title collapsible-toggle">読込結果サマリー</summary>
         <div id="data-summary-content" class="summary-grid">
           <div class="summary-item">
@@ -337,71 +337,53 @@
         </table>
       </div>
       <p class="empty-message" id="ranking-empty-msg">データが読み込まれていません。起動時に自動読込されます。</p>
+
+      <!-- エントリー読込（Excel/スプレッドシート） -->
+      <details class="collapsible-section" style="margin-top:16px;">
+        <summary class="collapsible-toggle">エントリーデータ読込（Excel/CSV）</summary>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          AIで認識・整理したエントリーデータ（Excel/CSV）を読み込み、選手一覧と自動照合してエントリーリストに追加します。
+        </p>
+        <p style="font-size:11px;color:#999;margin-bottom:12px;">
+          ファイル形式: 1列目=氏名、2列目=所属、3列目=種目コード（省略時は現在の種目）。ヘッダー行は自動スキップされます。
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+          <label class="btn btn-primary" style="cursor:pointer;">
+            ファイルを選択
+            <input type="file" id="file-entry-import" accept=".xlsx,.xls,.csv" style="display:none;">
+          </label>
+          <label for="entry-import-event" class="toolbar-label">デフォルト種目:</label>
+          <select id="entry-import-event" class="form-select" style="min-width:160px;"></select>
+        </div>
+        <div id="entry-import-result" style="display:none;">
+          <h4 style="font-size:14px;margin-bottom:8px;">照合結果</h4>
+          <div class="table-wrapper">
+            <table class="data-table" id="entry-import-table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="entry-import-check-all" checked></th>
+                  <th>読込氏名</th>
+                  <th>照合結果</th>
+                  <th>氏名</th>
+                  <th>所属</th>
+                  <th>種目</th>
+                  <th>ポイント</th>
+                </tr>
+              </thead>
+              <tbody id="entry-import-body"></tbody>
+            </table>
+          </div>
+          <div class="action-bar">
+            <span id="entry-import-count">0件</span>
+            <button id="btn-entry-import-register" class="btn btn-primary">選択した選手をエントリーリストに追加</button>
+          </div>
+        </div>
+      </details>
     </section>
 
     <!-- 画面3: エントリーリスト（旧：エントリー） -->
     <section id="screen-entry" class="screen">
       <h2 class="screen-title">エントリーリスト</h2>
-
-      <!-- エントリー画像読込（OCR）セクション -->
-      <details class="collapsible-section" style="margin-bottom:16px;">
-        <summary class="collapsible-toggle">エントリー画像読込（OCR）</summary>
-        <div class="card">
-          <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label">認識エンジン</label>
-              <select id="ocr-engine-select" class="form-select">
-                <option value="gemini">Gemini AI（推奨・手書き対応）</option>
-                <option value="tesseract">Tesseract.js（オフライン）</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;flex:1;min-width:250px;" id="gemini-api-key-group">
-              <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
-              <input type="password" id="gemini-api-key" class="form-input" placeholder="AIzaSy...">
-            </div>
-          </div>
-          <p style="font-size:11px;color:#888;margin-bottom:12px;">
-            Gemini AI: 手書き日本語の認識精度が高い。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1a56db;">APIキー取得</a>（無料枠あり）
-          </p>
-          <div class="ocr-controls">
-            <button id="btn-camera" class="btn btn-primary">カメラ撮影</button>
-            <button id="btn-file-select" class="btn btn-secondary">ファイル選択</button>
-            <input type="file" id="file-ocr-input" accept="image/*" capture="environment" hidden>
-          </div>
-          <div id="camera-container" class="camera-container" style="display:none;">
-            <video id="camera-video" autoplay playsinline></video>
-            <div class="camera-controls">
-              <button id="btn-capture" class="btn btn-primary">撮影</button>
-              <button id="btn-camera-close" class="btn btn-secondary">閉じる</button>
-            </div>
-          </div>
-          <div id="ocr-preview-area" class="ocr-preview-area" style="display:none;">
-            <h3 class="card-title">画像プレビュー</h3>
-            <div class="image-preview-wrapper">
-              <canvas id="ocr-canvas"></canvas>
-              <img id="ocr-preview-img" alt="OCR対象画像">
-            </div>
-            <button id="btn-ocr-execute" class="btn btn-primary btn-lg">OCR実行</button>
-            <div id="ocr-progress" class="progress-bar-container" style="display:none;">
-              <div class="progress-bar"><div id="ocr-progress-bar" class="progress-bar-fill"></div></div>
-              <span id="ocr-progress-text" class="progress-text">認識中...</span>
-            </div>
-          </div>
-          <div id="ocr-result-area" class="card" style="display:none;">
-            <h3 class="card-title">認識結果</h3>
-            <div class="table-wrapper">
-              <table class="data-table" id="ocr-result-table">
-                <thead><tr><th><input type="checkbox" id="ocr-check-all"></th><th>認識テキスト</th><th>氏名候補</th><th>所属候補</th><th>種目</th><th>信頼度</th></tr></thead>
-                <tbody id="ocr-result-body"></tbody>
-              </table>
-            </div>
-            <div class="action-bar">
-              <span id="ocr-selected-count">0件選択中</span>
-              <button id="btn-ocr-register" class="btn btn-primary">確認して登録</button>
-            </div>
-          </div>
-        </div>
-      </details>
 
       <!-- 大会設定 -->
       <div class="card" style="margin-bottom:16px;">
@@ -965,7 +947,6 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- 外部ライブラリ -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
   <!-- 自作JS -->
@@ -974,7 +955,7 @@
   <script src="js/fuzzy-match.js"></script>
   <script src="js/entry-store.js"></script>
   <script src="js/tournament-store.js"></script>
-  <script src="js/ocr-engine.js"></script>
+
   <script src="js/seed-rules.js"></script>
   <script src="js/draw-engine.js"></script>
   <script src="js/draw-renderer.js"></script>

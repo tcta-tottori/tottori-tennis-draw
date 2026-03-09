@@ -35,7 +35,7 @@ window.App = {
     // 各画面の初期化
     this.initDataScreen();
     this.initRankingScreen();
-    this.initOCRScreen();
+    this.initEntryImport();
     this.initEntryScreen();
     this.initDrawScreen();
     this.initBracketScreen();
@@ -792,280 +792,105 @@ window.App = {
   },
 
   // ================================================================
-  // OCR入力画面
+  // エントリーデータ読込（Excel/CSV → 選手一覧と自動照合）
   // ================================================================
 
-  initOCRScreen() {
-    const btnCamera = document.getElementById('btn-camera');
-    const btnFileSelect = document.getElementById('btn-file-select');
-    const fileInput = document.getElementById('file-ocr-input');
-    const btnCapture = document.getElementById('btn-capture');
-    const btnCameraClose = document.getElementById('btn-camera-close');
-    const btnOCRExecute = document.getElementById('btn-ocr-execute');
-    const btnOCRRegister = document.getElementById('btn-ocr-register');
-    const checkAll = document.getElementById('ocr-check-all');
-
-    // カメラ撮影ボタン
-    if (btnCamera && fileInput) {
-      btnCamera.addEventListener('click', () => {
-        fileInput.setAttribute('capture', 'environment');
-        fileInput.click();
-      });
-    }
-
-    // ファイル選択ボタン
-    if (btnFileSelect && fileInput) {
-      btnFileSelect.addEventListener('click', () => {
-        fileInput.removeAttribute('capture');
-        fileInput.click();
-      });
-    }
-
-    // ファイル選択/カメラ撮影の結果
+  initEntryImport() {
+    const fileInput = document.getElementById('file-entry-import');
     if (fileInput) {
       fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-          this._handleOCRImage(e.target.files[0]);
+          this._handleEntryImportFile(e.target.files[0]);
+          e.target.value = '';
         }
       });
     }
 
-    // カメラプレビューの撮影・閉じる
-    if (btnCapture) {
-      btnCapture.addEventListener('click', () => this._captureFromCamera());
-    }
-    if (btnCameraClose) {
-      btnCameraClose.addEventListener('click', () => this._closeCamera());
+    // 種目セレクト初期化
+    const eventSelect = document.getElementById('entry-import-event');
+    if (eventSelect) {
+      eventSelect.innerHTML = '<option value="">-- 自動判定 --</option>';
+      for (const evt of AppConfig.EVENTS) {
+        const opt = document.createElement('option');
+        opt.value = evt.code;
+        opt.textContent = evt.name;
+        eventSelect.appendChild(opt);
+      }
     }
 
-    // OCR 実行
-    if (btnOCRExecute) {
-      btnOCRExecute.addEventListener('click', () => this._executeOCR());
-    }
-
-    // OCR 結果の全選択
+    // 全選択チェック
+    const checkAll = document.getElementById('entry-import-check-all');
     if (checkAll) {
       checkAll.addEventListener('change', () => {
-        document.querySelectorAll('#ocr-result-body input[type="checkbox"]').forEach(cb => {
+        document.querySelectorAll('#entry-import-body input[type="checkbox"]').forEach(cb => {
           cb.checked = checkAll.checked;
         });
-        this._updateOCRSelectedCount();
       });
     }
 
-    // OCR 結果の登録
-    if (btnOCRRegister) {
-      btnOCRRegister.addEventListener('click', () => this._registerOCRResults());
+    // 登録ボタン
+    const btnRegister = document.getElementById('btn-entry-import-register');
+    if (btnRegister) {
+      btnRegister.addEventListener('click', () => this._registerEntryImport());
     }
+  },
 
-    // Gemini APIキーの復元
-    const geminiKeyInput = document.getElementById('gemini-api-key');
-    if (geminiKeyInput) {
+  /**
+   * エントリーデータファイル読込（Excel/CSV）
+   * 1列目=氏名、2列目=所属、3列目=種目コード(省略可)
+   */
+  _handleEntryImportFile(file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
       try {
-        const savedKey = localStorage.getItem('drawSystem_geminiApiKey');
-        if (savedKey) geminiKeyInput.value = savedKey;
-      } catch (e) {}
-    }
-
-    // エンジン切替でAPIキー欄の表示/非表示
-    const engineSelect = document.getElementById('ocr-engine-select');
-    const apiKeyGroup = document.getElementById('gemini-api-key-group');
-    if (engineSelect && apiKeyGroup) {
-      const toggleApiKey = () => {
-        apiKeyGroup.style.display = engineSelect.value === 'gemini' ? '' : 'none';
-      };
-      engineSelect.addEventListener('change', toggleApiKey);
-      toggleApiKey();
-    }
-  },
-
-  _handleOCRImage(file) {
-    const previewArea = document.getElementById('ocr-preview-area');
-    const previewImg = document.getElementById('ocr-preview-img');
-    if (!previewArea || !previewImg) return;
-
-    const url = URL.createObjectURL(file);
-    previewImg.src = url;
-    previewImg.style.display = 'block';
-    previewArea.style.display = '';
-    this._ocrImageFile = file;
-
-    // 結果エリアを隠す
-    const resultArea = document.getElementById('ocr-result-area');
-    if (resultArea) resultArea.style.display = 'none';
-  },
-
-  _captureFromCamera() {
-    const video = document.getElementById('camera-video');
-    const canvas = document.getElementById('ocr-canvas');
-    if (!video || !canvas) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-
-    canvas.toBlob((blob) => {
-      this._handleOCRImage(new File([blob], 'capture.jpg', { type: 'image/jpeg' }));
-      this._closeCamera();
-    }, 'image/jpeg');
-  },
-
-  _closeCamera() {
-    const cameraContainer = document.getElementById('camera-container');
-    const video = document.getElementById('camera-video');
-    if (cameraContainer) cameraContainer.style.display = 'none';
-    if (video && video.srcObject) {
-      video.srcObject.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
-    }
-  },
-
-  async _executeOCR() {
-    if (!this._ocrImageFile) {
-      this.showMessage('画像を選択してください', 'error');
-      return;
-    }
-
-    const progressEl = document.getElementById('ocr-progress');
-    const progressBar = document.getElementById('ocr-progress-bar');
-    const progressText = document.getElementById('ocr-progress-text');
-    if (progressEl) progressEl.style.display = '';
-
-    const engineSelect = document.getElementById('ocr-engine-select');
-    const useGemini = engineSelect && engineSelect.value === 'gemini';
-
-    try {
-      if (useGemini) {
-        await this._executeGeminiOCR(progressBar, progressText);
-      } else {
-        await this._executeTesseractOCR(progressBar, progressText);
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        this._processEntryImportRows(rows);
+      } catch (err) {
+        this.showMessage('ファイル読込エラー: ' + err.message, 'error');
       }
-    } catch (err) {
-      console.error(err);
-      this.showMessage('OCR認識に失敗しました: ' + err.message, 'error');
-    } finally {
-      if (progressEl) progressEl.style.display = 'none';
-    }
-  },
-
-  async _executeTesseractOCR(progressBar, progressText) {
-    if (typeof Tesseract === 'undefined') {
-      this.showMessage('OCRライブラリ(Tesseract.js)が読み込まれていません', 'error');
-      return;
-    }
-
-    const result = await Tesseract.recognize(this._ocrImageFile, 'jpn', {
-      logger: (m) => {
-        if (m.status === 'recognizing text' && progressBar) {
-          const pct = Math.round(m.progress * 100);
-          progressBar.style.width = pct + '%';
-          if (progressText) progressText.textContent = '認識中... ' + pct + '%';
-        }
-      },
-    });
-
-    const text = result.data.text;
-    this._displayOCRResults(text);
-    this.showMessage('OCR認識が完了しました', 'success');
-  },
-
-  async _executeGeminiOCR(progressBar, progressText) {
-    const apiKeyInput = document.getElementById('gemini-api-key');
-    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
-    if (!apiKey) {
-      this.showMessage('Gemini APIキーを入力してください', 'error');
-      return;
-    }
-
-    // APIキーをlocalStorageに保存
-    try { localStorage.setItem('drawSystem_geminiApiKey', apiKey); } catch (e) {}
-
-    if (progressBar) progressBar.style.width = '30%';
-    if (progressText) progressText.textContent = 'Gemini AIで認識中...';
-
-    // 画像をBase64に変換
-    const base64 = await this._fileToBase64(this._ocrImageFile);
-    const mimeType = this._ocrImageFile.type || 'image/jpeg';
-
-    if (progressBar) progressBar.style.width = '50%';
-
-    const requestBody = {
-      contents: [{
-        parts: [
-          {
-            text: 'この画像はテニス大会のエントリー申込用紙です。手書きの氏名を読み取ってください。\n' +
-              '以下のフォーマットで全ての氏名を1行ずつ出力してください。所属が読み取れる場合はカンマ区切りで追加してください。\n' +
-              'フォーマット: 氏名,所属\n' +
-              '例:\n山田 太郎,鳥取TC\n鈴木 花子,米子クラブ\n\n' +
-              '注意:\n- 姓と名の間にスペースを入れてください\n- 読み取れない文字は?で表記してください\n- ヘッダーや説明文は不要です。氏名のみ出力してください'
-          },
-          {
-            inline_data: {
-              mime_type: mimeType,
-              data: base64,
-            }
-          }
-        ]
-      }]
     };
-
-    const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error('Gemini API エラー: ' + (errorData.error?.message || response.statusText));
-    }
-
-    const data = await response.json();
-    if (progressBar) progressBar.style.width = '90%';
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (!text.trim()) {
-      this.showMessage('テキストが認識できませんでした', 'error');
-      return;
-    }
-
-    this._displayOCRResults(text);
-    this.showMessage('Gemini AIで認識が完了しました', 'success');
+    reader.readAsArrayBuffer(file);
   },
 
-  _fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        // data:image/jpeg;base64,XXXX の XXXX 部分を取得
-        const base64 = result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  },
+  _processEntryImportRows(rows) {
+    const resultEl = document.getElementById('entry-import-result');
+    const tbody = document.getElementById('entry-import-body');
+    const countEl = document.getElementById('entry-import-count');
+    if (!resultEl || !tbody) return;
 
-  _displayOCRResults(text) {
-    const resultArea = document.getElementById('ocr-result-area');
-    const tbody = document.getElementById('ocr-result-body');
-    if (!resultArea || !tbody) return;
-
-    resultArea.style.display = '';
+    resultEl.style.display = '';
     tbody.innerHTML = '';
 
-    // テキストから氏名候補を抽出
-    const extracted = FuzzyMatch.extractNames(text);
+    const defaultEventSelect = document.getElementById('entry-import-event');
+    const defaultEvent = defaultEventSelect ? defaultEventSelect.value : '';
 
-    for (const item of extracted) {
-      // マッチング実行
-      const candidates = item.possibleName ? FuzzyMatch.matchName(item.possibleName) : [];
-      const bestMatch = candidates.length > 0 ? candidates[0] : null;
+    // ヘッダー行スキップ判定
+    let startRow = 0;
+    if (rows.length > 0) {
+      const first = String(rows[0][0] || '').toLowerCase();
+      if (first.includes('氏名') || first.includes('名前') || first === 'name' || first === '選手名') {
+        startRow = 1;
+      }
+    }
+
+    let matchCount = 0;
+    let totalCount = 0;
+
+    for (let i = startRow; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !row[0]) continue;
+      const importName = String(row[0]).trim();
+      const importClub = row[1] ? String(row[1]).trim() : '';
+      const importEvent = row[2] ? String(row[2]).trim() : defaultEvent;
+      if (!importName) continue;
+      totalCount++;
+
+      // 選手一覧との照合（ファジーマッチ）
+      const candidates = FuzzyMatch.matchName(importName);
+      const bestMatch = candidates.length > 0 && candidates[0].score >= 50 ? candidates[0] : null;
+      if (bestMatch) matchCount++;
 
       const tr = document.createElement('tr');
 
@@ -1073,52 +898,48 @@ window.App = {
       const tdCheck = document.createElement('td');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      cb.checked = bestMatch !== null && bestMatch.score >= 60;
-      cb.addEventListener('change', () => this._updateOCRSelectedCount());
+      cb.checked = true;
       tdCheck.appendChild(cb);
       tr.appendChild(tdCheck);
 
-      // 認識テキスト
+      // 読込氏名
       const tdRaw = document.createElement('td');
-      tdRaw.textContent = item.rawText;
+      tdRaw.textContent = importName;
+      tdRaw.style.fontSize = '12px';
       tr.appendChild(tdRaw);
 
-      // 氏名候補（ドロップダウン）
-      const tdName = document.createElement('td');
-      if (candidates.length > 0) {
-        const sel = document.createElement('select');
-        sel.className = 'form-select form-select-sm';
-        sel.innerHTML = '<option value="">-- 候補なし --</option>';
-        for (const c of candidates.slice(0, 5)) {
-          const opt = document.createElement('option');
-          opt.value = c.name;
-          opt.textContent = c.name + ' (' + c.score + ')';
-          opt.dataset.affiliation = c.affiliation || '';
-          opt.dataset.points = c.points || 0;
-          opt.dataset.eventCode = c.eventCode || '';
-          if (c === bestMatch) opt.selected = true;
-          sel.appendChild(opt);
-        }
-        tdName.appendChild(sel);
+      // 照合結果
+      const tdStatus = document.createElement('td');
+      if (bestMatch && bestMatch.score >= 80) {
+        tdStatus.innerHTML = '<span style="color:#2E7D32;font-weight:bold;">一致</span>';
+      } else if (bestMatch) {
+        tdStatus.innerHTML = '<span style="color:#F57F17;">類似(' + bestMatch.score + '%)</span>';
       } else {
-        const inp = document.createElement('input');
-        inp.type = 'text';
-        inp.className = 'form-input form-input-sm';
-        inp.value = item.possibleName || '';
-        tdName.appendChild(inp);
+        tdStatus.innerHTML = '<span style="color:#C62828;">未照合</span>';
       }
+      tr.appendChild(tdStatus);
+
+      // 氏名（編集可能 - 照合結果優先）
+      const tdName = document.createElement('td');
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'form-input form-input-sm';
+      nameInput.value = bestMatch ? bestMatch.name : importName;
+      nameInput.style.width = '120px';
+      tdName.appendChild(nameInput);
       tr.appendChild(tdName);
 
-      // 所属候補
+      // 所属
       const tdClub = document.createElement('td');
       const clubInput = document.createElement('input');
       clubInput.type = 'text';
       clubInput.className = 'form-input form-input-sm';
-      clubInput.value = bestMatch ? bestMatch.affiliation : (item.possibleAffiliation || '');
+      clubInput.value = bestMatch ? bestMatch.affiliation : importClub;
+      clubInput.style.width = '100px';
       tdClub.appendChild(clubInput);
       tr.appendChild(tdClub);
 
-      // 種目（ドロップダウン）
+      // 種目
       const tdEvent = document.createElement('td');
       const evtSel = document.createElement('select');
       evtSel.className = 'form-select form-select-sm';
@@ -1127,39 +948,32 @@ window.App = {
         const opt = document.createElement('option');
         opt.value = evt.code;
         opt.textContent = evt.shortName;
-        if (bestMatch && bestMatch.eventCode === evt.code) opt.selected = true;
+        if (bestMatch && bestMatch.eventCode === evt.code) {
+          opt.selected = true;
+        } else if (!bestMatch && importEvent === evt.code) {
+          opt.selected = true;
+        }
         evtSel.appendChild(opt);
       }
       tdEvent.appendChild(evtSel);
       tr.appendChild(tdEvent);
 
-      // 信頼度
-      const tdConf = document.createElement('td');
-      tdConf.textContent = bestMatch ? bestMatch.score + '%' : '-';
-      if (bestMatch && bestMatch.score >= 80) {
-        tdConf.style.color = '#2E7D32';
-        tdConf.style.fontWeight = 'bold';
-      } else if (bestMatch && bestMatch.score >= 60) {
-        tdConf.style.color = '#F57F17';
-      } else {
-        tdConf.style.color = '#C62828';
-      }
-      tr.appendChild(tdConf);
+      // ポイント
+      const tdPt = document.createElement('td');
+      tdPt.textContent = bestMatch ? (bestMatch.points || 0) : '0';
+      tdPt.style.textAlign = 'center';
+      tdPt.dataset.points = bestMatch ? (bestMatch.points || 0) : 0;
+      tr.appendChild(tdPt);
 
       tbody.appendChild(tr);
     }
 
-    this._updateOCRSelectedCount();
+    if (countEl) countEl.textContent = totalCount + '件 (照合: ' + matchCount + '件)';
+    this.showMessage(totalCount + '件読込、' + matchCount + '件が選手一覧と照合されました', 'info');
   },
 
-  _updateOCRSelectedCount() {
-    const count = document.querySelectorAll('#ocr-result-body input[type="checkbox"]:checked').length;
-    const el = document.getElementById('ocr-selected-count');
-    if (el) el.textContent = count + '件選択中';
-  },
-
-  _registerOCRResults() {
-    const rows = document.querySelectorAll('#ocr-result-body tr');
+  _registerEntryImport() {
+    const rows = document.querySelectorAll('#entry-import-body tr');
     let registered = 0;
 
     rows.forEach(tr => {
@@ -1167,39 +981,23 @@ window.App = {
       if (!cb || !cb.checked) return;
 
       const cells = tr.querySelectorAll('td');
-      // cells: [check, rawText, name, club, event, confidence]
-
-      // 氏名取得
-      let name = '';
-      const nameSelect = cells[2].querySelector('select');
-      const nameInput = cells[2].querySelector('input');
-      if (nameSelect && nameSelect.value) {
-        name = nameSelect.value;
-      } else if (nameInput && nameInput.value) {
-        name = nameInput.value.trim();
-      }
-      if (!name) return;
-
-      // 所属
-      const clubInput = cells[3].querySelector('input');
+      // cells: [check, rawName, status, name, club, event, points]
+      const nameInput = cells[3].querySelector('input');
+      const clubInput = cells[4].querySelector('input');
+      const evtSelect = cells[5].querySelector('select');
+      const name = nameInput ? nameInput.value.trim() : '';
       const affiliation = clubInput ? clubInput.value.trim() : '';
-
-      // 種目
-      const evtSelect = cells[4].querySelector('select');
       const eventCode = evtSelect ? evtSelect.value : '';
-      if (!eventCode) return;
 
-      // ポイント取得（select の場合、選択中の option から）
-      let points = 0;
-      if (nameSelect && nameSelect.value) {
-        const selectedOpt = nameSelect.options[nameSelect.selectedIndex];
-        points = Number(selectedOpt.dataset.points) || 0;
-      }
+      if (!name || !eventCode) return;
 
-      // ふりがな
+      const points = Number(cells[6].dataset.points) || 0;
       const furigana = RankingLoader.furiganaMap[name] || '';
 
-      // EntryStore に追加
+      // 重複チェック
+      const existing = EntryStore.getAll().find(e => e.name === name && e.eventCode === eventCode);
+      if (existing) return;
+
       EntryStore.add({
         name: name,
         furigana: furigana,
@@ -1211,14 +1009,12 @@ window.App = {
     });
 
     if (registered > 0) {
-      this.showMessage(registered + '件をエントリーに登録しました', 'success');
-      // チェックを外す
-      document.querySelectorAll('#ocr-result-body input[type="checkbox"]').forEach(cb => {
-        cb.checked = false;
-      });
-      this._updateOCRSelectedCount();
+      this.showMessage(registered + '件をエントリーリストに追加しました', 'success');
+      // 結果エリアを非表示
+      const resultEl = document.getElementById('entry-import-result');
+      if (resultEl) resultEl.style.display = 'none';
     } else {
-      this.showMessage('登録する項目が選択されていません', 'error');
+      this.showMessage('追加する項目がありません（重複または種目未選択）', 'error');
     }
   },
 
@@ -2932,7 +2728,21 @@ window.App = {
    * 所属重複回避オプションを考慮
    */
   _autoPlaceAll() {
-    if (!this._manualDraw || this._unplacedPlayers.length === 0) return;
+    if (!this._manualDraw) return;
+
+    // 未配置選手がいない場合 = 再配置モード（シード以外をリセットして再シャッフル）
+    if (this._unplacedPlayers.length === 0) {
+      const nonSeedPlayers = [];
+      for (let i = 0; i < this._manualDraw.length; i++) {
+        const entry = this._manualDraw[i];
+        if (!entry.isBye && !entry.isEmpty && entry.seed === 0) {
+          nonSeedPlayers.push({ ...entry });
+          this._manualDraw[i] = { position: i + 1, name: '', affiliation: '', isEmpty: true, isBye: false, seed: 0 };
+        }
+      }
+      if (nonSeedPlayers.length === 0) return;
+      this._unplacedPlayers = nonSeedPlayers;
+    }
 
     const avoidCollision = document.querySelector('input[name="affiliation-collision"]:checked');
     const shouldAvoid = !avoidCollision || avoidCollision.value === 'avoid';

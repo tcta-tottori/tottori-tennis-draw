@@ -66,9 +66,26 @@ window.AppConfig = {
 
   // デフォルト大会日程
   DEFAULT_TOURNAMENTS: [
-    { name: '令和7年度 鳥取市長杯', events: '男女シングルス', date: '6/15', dayOfWeek: '(日)', venue: 'ヤマタスポーツパーク・テニスコート', reserveDate: '6/22', reserveVenue: '' },
-    { name: '令和7年度 会長杯団体戦', events: '団体戦', date: '7/13', dayOfWeek: '(日)', venue: 'ヤマタスポーツパーク・テニスコート', reserveDate: '7/20', reserveVenue: '' },
-    { name: '令和7年度 鳥取県テニス選手権大会', events: '男女シングルス・ダブルス', date: '11/9', dayOfWeek: '(日)', venue: 'ヤマタスポーツパーク・テニスコート', reserveDate: '11/16', reserveVenue: '' },
+    { name: '第56回東部地区テニス選手権', events: '男女シングルス', date: '3月22日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '3/28', reserveVenue: '千代' },
+    { name: '第56回東部地区テニス選手権', events: '男女ダブルス', date: '3月29日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '4/4', reserveVenue: '千代' },
+    { name: '佐々木杯テニス大会', events: 'ミックスダブルス', date: '4月5日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '4/11', reserveVenue: '千代' },
+    { name: '第61回鳥取市テニス協会会長杯（春季）', events: '団体戦', date: '4月29日', dayOfWeek: '（祝）', venue: 'テニスコート', reserveDate: '5/6', reserveVenue: '千代' },
+    { name: '第70回鳥取健康テニス（春期） 一般の部・ジュニアの部', events: '一般：男女複 / ジュニア：男女単', date: '5月2日', dayOfWeek: '（土）', venue: 'テニスコート', reserveDate: '荒天中止', reserveVenue: '' },
+    { name: '令和８年度クラブ対抗戦 前期日程', events: '男子1部～8部', date: '5月10日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '5/31', reserveVenue: '千代' },
+    { name: '鳥取市市民体育祭（BCグループ）', events: '校区別対抗戦', date: '7月5日', dayOfWeek: '（日）', venue: '鳥取市千代テニス場', reserveDate: '7/19', reserveVenue: '千代' },
+    { name: '令和８年度クラブ対抗戦 後期日程', events: '女子1部～4部 / 男・女予選会', date: '7月12日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '7/18', reserveVenue: '千代' },
+    { name: '第11回気高カップシングルス大会', events: '男女シングルス', date: '8月2日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '8/8', reserveVenue: '千代' },
+    { name: 'サマーミックスダブルス', events: 'ミックスダブルス', date: '8月16日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '9/6', reserveVenue: '千代' },
+    { name: '第49回ダンロップテニストーナメント', events: '男女ダブルス', date: '8月30日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '9/5', reserveVenue: '千代' },
+    { name: '鳥取市テニス協会 テニス祭り', events: 'テニス教室他', date: '10月12日', dayOfWeek: '（祝）', venue: '鳥取産業体育館', reserveDate: '', reserveVenue: '' },
+    { name: '第30回エネトピア杯ミックスダブルス', events: 'ミックスダブルス', date: '10月18日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '10/24', reserveVenue: '千代' },
+    { name: '第71回鳥取健康テニス（秋期） 一般の部・ジュニアの部', events: '一般：男女複 / ジュニア：男女単', date: '11月7日', dayOfWeek: '（土）', venue: 'テニスコート', reserveDate: '荒天中止', reserveVenue: '' },
+    { name: '鳥取県テニス選手権 シングルス', events: '男女シングルス', date: '11月8日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '11/14', reserveVenue: '千代' },
+    { name: '第62回鳥取市テニス協会会長杯（秋季）', events: '男女ダブルス', date: '11月15日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '11/21', reserveVenue: '千代' },
+    { name: '2026 プリンスオープン鳥取県大会', events: '団体戦（予定）', date: '11月22日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '11/28', reserveVenue: 'ヤマタ' },
+    { name: '第41回鳥取市市長杯', events: '男女シングルス', date: '11月23日', dayOfWeek: '（祝）', venue: 'テニスコート', reserveDate: '12/5', reserveVenue: 'ヤマタ' },
+    { name: '鳥取県テニス選手権 ダブルス', events: '男女ダブルス', date: '11月29日', dayOfWeek: '（日）', venue: 'テニスコート', reserveDate: '12/6', reserveVenue: 'ヤマタ' },
+    { name: '尾坂杯鳥取室内テニス選手権', events: '男女シングルス / 男女ダブルス', date: '12/27～2/23', dayOfWeek: '', venue: '鳥取市民体育館 / 鳥取産業体育館', reserveDate: '', reserveVenue: '' },
   ],
 
   // ランキングシート設定（gidベースで全シートを定義）

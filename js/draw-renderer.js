@@ -12,7 +12,8 @@ window.DrawRenderer = {
     nameAreaWidth: 200,       // 選手名+所属エリア幅（切り詰め）
     drawNumWidth: 24,         // ドロー番号列幅（切り詰め）
     headerHeight: 50,         // ヘッダー高さ（圧縮）
-    footerHeight: 30,         // フッター高さ（圧縮）
+    footerHeight: 30,         // フッター高さ（圧縮・シード1行時）
+    footerHeight2Row: 48,     // フッター高さ（シード2行時）
     centerGap: 60,            // 左右の山の中央間隔（圧縮）
     fontSize: {
       title: 18, eventName: 15, meta: 12,
@@ -94,7 +95,9 @@ window.DrawRenderer = {
     // 片側の幅: ドロー番号 + 名前エリア + ラウンド線
     const halfWidth = P.drawNumWidth + P.nameAreaWidth + halfRounds * P.roundWidth;
     const totalWidth = halfWidth * 2 + P.centerGap;
-    const totalHeight = P.headerHeight + bracketBodyHeight + P.footerHeight;
+    const seedCount = (drawData.seeds || []).length;
+    const footerH = seedCount > 8 ? P.footerHeight2Row : P.footerHeight;
+    const totalHeight = P.headerHeight + bracketBodyHeight + footerH;
 
     let svg = container.querySelector('svg');
     if (!svg) {
@@ -372,17 +375,30 @@ window.DrawRenderer = {
     const seeds = drawData.seeds || [];
     if (seeds.length === 0) return;
     const isDoubles = drawData.isDoubles || false;
-    const seedText = 'シード  ' + seeds.map(s => {
+    const formatSeed = (s) => {
       let displayName = s.name;
       if (isDoubles && displayName.includes(' / ')) {
-        // ダブルス: 苗字のみ表示（山本/田中）
         displayName = displayName.split(' / ').map(n => n.split(/\s+/)[0]).join('/');
       }
       return s.seed + '.' + displayName;
-    }).join('   ');
-    this._text(svg, totalWidth / 2, y, seedText, {
-      fontSize: P.fontSize.seed, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'middle',
-    });
+    };
+    if (seeds.length > 8) {
+      // 2行表示: 前半と後半に分割
+      const half = Math.ceil(seeds.length / 2);
+      const line1 = 'シード  ' + seeds.slice(0, half).map(formatSeed).join('   ');
+      const line2 = seeds.slice(half).map(formatSeed).join('   ');
+      this._text(svg, totalWidth / 2, y, line1, {
+        fontSize: P.fontSize.seed, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'middle',
+      });
+      this._text(svg, totalWidth / 2, y + 16, line2, {
+        fontSize: P.fontSize.seed, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'middle',
+      });
+    } else {
+      const seedText = 'シード  ' + seeds.map(formatSeed).join('   ');
+      this._text(svg, totalWidth / 2, y, seedText, {
+        fontSize: P.fontSize.seed, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'middle',
+      });
+    }
   },
 
   // =============================================================

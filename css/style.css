@@ -644,6 +644,23 @@ body {
   border-color: var(--color-secondary);
 }
 
+/* 自動入力フィールド（グレー背景） */
+.tournament-auto-field {
+  background-color: #f3f4f6 !important;
+  color: #6b7280;
+}
+
+.btn-success {
+  background-color: #16a34a;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #15803d;
+  border-color: #15803d;
+}
+
 .btn-danger {
   background-color: var(--color-danger);
   color: #ffffff;
@@ -1719,13 +1736,13 @@ tr.row-entered td strong {
 
   /* ランキングテーブル: スマホ時の列幅 (4列: 氏名/所属/ポイント/操作) */
   .ranking-auto-width th:nth-child(1),
-  .ranking-auto-width td:nth-child(1) { width: 30%; }
+  .ranking-auto-width td:nth-child(1) { width: 28%; padding-left: 8px; }
   .ranking-auto-width th:nth-child(2),
   .ranking-auto-width td:nth-child(2) { width: 22%; }
   .ranking-auto-width th.col-points,
   .ranking-auto-width td.col-points { width: 16%; }
-  .ranking-auto-width th:last-child,
-  .ranking-auto-width td:last-child { width: 32%; padding-right: 2px; }
+  .ranking-auto-width th:last-child { width: 34%; padding-right: 20px; }
+  .ranking-auto-width td:last-child { width: 34%; padding-right: 2px; }
 
   .ranking-auto-width th,
   .ranking-auto-width td {
@@ -1802,14 +1819,15 @@ tr.row-entered td strong {
 /* 氏名列 */
 .ranking-auto-width th:nth-child(1),
 .ranking-auto-width td:nth-child(1) {
-  width: 34%;
+  width: 32%;
   white-space: nowrap;
+  padding-left: 10px;
 }
 
 /* 所属列 */
 .ranking-auto-width th:nth-child(2),
 .ranking-auto-width td:nth-child(2) {
-  width: 26%;
+  width: 24%;
 }
 
 /* PC横画面: ふりがな列を表示 */
@@ -1838,14 +1856,17 @@ tr.row-entered td strong {
 /* ポイント列 */
 .ranking-auto-width th.col-points,
 .ranking-auto-width td.col-points {
-  width: 14%;
+  width: 16%;
   text-align: center;
 }
 
 /* 操作列 */
-.ranking-auto-width th:last-child,
+.ranking-auto-width th:last-child {
+  width: 28%;
+  padding-right: 24px;
+}
 .ranking-auto-width td:last-child {
-  width: 26%;
+  width: 28%;
   padding-right: 4px;
 }
 
@@ -1876,6 +1897,7 @@ tr.row-entered td strong {
 #entry-table th:nth-child(1),
 #entry-table td:nth-child(1) {
   width: 30%;
+  padding-left: 10px;
 }
 #entry-table td:nth-child(1) {
   white-space: normal;
@@ -1883,7 +1905,7 @@ tr.row-entered td strong {
 }
 #entry-table th:nth-child(2),
 #entry-table td:nth-child(2) {
-  width: 24%;
+  width: 22%;
 }
 #entry-table td:nth-child(2) {
   white-space: normal;
@@ -1892,11 +1914,15 @@ tr.row-entered td strong {
 /* ポイント列 */
 #entry-table th:nth-child(3),
 #entry-table td:nth-child(3) {
-  width: 12%;
+  width: 14%;
   text-align: center;
 }
 /* 操作列 */
-#entry-table th:last-child,
+#entry-table th:last-child {
+  width: 34%;
+  text-align: center;
+  padding-right: 24px;
+}
 #entry-table td:last-child {
   width: 34%;
   text-align: center;
@@ -2081,6 +2107,55 @@ details[open] > .collapsible-toggle::before {
 }
 .draw-status-chip .chip-clear:hover {
   background: rgba(0,0,0,0.25);
+}
+
+/* データ状況サマリーチップ */
+.data-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.data-summary-chip small {
+  font-weight: 400;
+  color: inherit;
+  opacity: 0.8;
+}
+.data-summary-chip .chip-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.1);
+  color: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+.data-summary-chip .chip-clear:hover {
+  background: rgba(0,0,0,0.25);
+}
+.chip-entry {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+.chip-draw {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+.chip-confirmed {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
 }
 
 /* --- ルーレットポップアップモーダル --- */

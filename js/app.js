@@ -1190,16 +1190,22 @@ window.App = {
     if (tournamentSelect) {
       tournamentSelect.addEventListener('change', () => {
         const id = parseInt(tournamentSelect.value);
-        if (!id) return;
+        if (!id) {
+          this._selectedTournamentEvents = null;
+          this._updateCategoryToggle();
+          return;
+        }
         const t = TournamentStore.getById(id);
         if (!t) return;
         AppConfig.TOURNAMENT_NAME = t.name;
         if (dateInput) dateInput.value = t.date + (t.dayOfWeek ? ' ' + t.dayOfWeek : '');
         if (venueSelect) {
-          // 会場を選択肢から探してセット、なければ最初の選択肢
           const venueMatch = (AppConfig.VENUE_OPTIONS || []).find(v => t.venue && v.includes(t.venue));
           if (venueMatch) venueSelect.value = venueMatch;
         }
+        // 試合種目から利用可能な種目を判定
+        this._selectedTournamentEvents = t.events || '';
+        this._updateCategoryToggle();
         updateConfig();
       });
     }
@@ -1267,6 +1273,136 @@ window.App = {
       select.appendChild(opt);
     });
     if (prevValue) select.value = prevValue;
+  },
+
+  /**
+   * 大会の試合種目に基づいてカテゴリ切替を制御
+   */
+  _updateCategoryToggle() {
+    const evts = this._selectedTournamentEvents || '';
+    const toggleEl = document.getElementById('ranking-category-toggle');
+    if (!toggleEl) return;
+    const singlesBtn = toggleEl.querySelector('[data-category="singles"]');
+    const doublesBtn = toggleEl.querySelector('[data-category="doubles"]');
+    if (!singlesBtn || !doublesBtn) return;
+
+    const hasSingles = !evts || /シングルス/i.test(evts);
+    const hasDoubles = !evts || /ダブルス/i.test(evts);
+
+    singlesBtn.disabled = !hasSingles;
+    doublesBtn.disabled = !hasDoubles;
+    singlesBtn.style.opacity = hasSingles ? '1' : '0.4';
+    doublesBtn.style.opacity = hasDoubles ? '1' : '0.4';
+
+    // 現在のカテゴリが無効になった場合は自動切替
+    if (!hasSingles && this._rankingFilter.category === 'singles') {
+      doublesBtn.click();
+    } else if (!hasDoubles && this._rankingFilter.category === 'doubles') {
+      singlesBtn.click();
+    }
+  },
+
+  /**
+   * エントリーページ上部のデータ状況サマリー
+   */
+  _refreshDataSummary() {
+    const container = document.getElementById('entry-data-summary');
+    const chips = document.getElementById('entry-data-summary-chips');
+    if (!container || !chips) return;
+
+    chips.innerHTML = '';
+    let hasAny = false;
+
+    // エントリーデータ
+    const allEntries = EntryStore.getAll();
+    const entryByEvent = {};
+    allEntries.forEach(e => {
+      if (!entryByEvent[e.eventCode]) entryByEvent[e.eventCode] = 0;
+      entryByEvent[e.eventCode]++;
+    });
+
+    // 種目ソート: 男子→女子、性別内で年齢順
+    const sortedCodes = this._getSortedEventCodes(Object.keys(entryByEvent));
+
+    for (const code of sortedCodes) {
+      hasAny = true;
+      const evt = AppConfig.EVENTS.find(e => e.code === code);
+      const evtName = evt ? evt.shortName || evt.name : code;
+      const count = entryByEvent[code];
+
+      const chip = document.createElement('span');
+      chip.className = 'data-summary-chip chip-entry';
+      chip.innerHTML = this._esc(evtName) + ' <small>' + count + '名</small>';
+
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'chip-clear';
+      clearBtn.textContent = '\u00d7';
+      clearBtn.title = evtName + ' のエントリーをクリア';
+      clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(evtName + ' のエントリー(' + count + '名)をクリアしますか？')) {
+          const toRemove = allEntries.filter(en => en.eventCode === code);
+          toRemove.forEach(en => EntryStore.remove(en.id));
+          this.refreshEntryTable();
+          this._refreshDataSummary();
+          this.showMessage(evtName + ' のエントリーをクリアしました', 'info');
+        }
+      });
+      chip.appendChild(clearBtn);
+      chips.appendChild(chip);
+    }
+
+    // 抽選・確定データ
+    for (const code of Object.keys(this.drawResults || {})) {
+      const result = this.drawResults[code];
+      if (!result) continue;
+      hasAny = true;
+      const evt = AppConfig.EVENTS.find(e => e.code === code);
+      const evtName = evt ? evt.shortName || evt.name : code;
+      const isConfirmed = this.confirmedEvents && this.confirmedEvents[code];
+
+      const chip = document.createElement('span');
+      chip.className = 'data-summary-chip ' + (isConfirmed ? 'chip-confirmed' : 'chip-draw');
+      chip.innerHTML = (isConfirmed ? '確定' : '抽選') + ': ' + this._esc(evtName);
+
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'chip-clear';
+      clearBtn.textContent = '\u00d7';
+      clearBtn.title = evtName + ' のドローをクリア';
+      clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(evtName + ' のドローをクリアしますか？')) {
+          delete this.drawResults[code];
+          if (this.confirmedEvents) delete this.confirmedEvents[code];
+          this._saveDrawResults();
+          this._refreshDataSummary();
+          this.showMessage(evtName + ' のドローをクリアしました', 'info');
+        }
+      });
+      chip.appendChild(clearBtn);
+      chips.appendChild(chip);
+    }
+
+    container.style.display = hasAny ? '' : 'none';
+  },
+
+  /**
+   * 種目コードを男子→女子、性別内で年齢順にソート
+   */
+  _getSortedEventCodes(codes) {
+    const order = AppConfig.EVENTS.map(e => e.code);
+    // 男子→女子の順で再整列
+    const genderOrder = (code) => {
+      if (code.startsWith('m')) return 0;
+      if (code.startsWith('l')) return 1;
+      return 2;
+    };
+    return [...codes].sort((a, b) => {
+      const ga = genderOrder(a);
+      const gb = genderOrder(b);
+      if (ga !== gb) return ga - gb;
+      return order.indexOf(a) - order.indexOf(b);
+    });
   },
 
   // ================================================================
@@ -1523,11 +1659,14 @@ window.App = {
     // 抽選・確定ステータスバーを更新
     this._refreshDrawStatusBar();
 
+    // データ状況サマリーを更新
+    this._refreshDataSummary();
+
     // エントリー済み種目を取得
     const allEntries = EntryStore.getAll();
-    const entryEventCodes = [...new Set(allEntries.map(e => e.eventCode))];
+    const entryEventCodes = this._getSortedEventCodes([...new Set(allEntries.map(e => e.eventCode))]);
 
-    // 種目フィルターを動的に構築（エントリーがある種目のみ）
+    // 種目フィルターを動的に構築（エントリーがある種目のみ、ソート済み）
     const filterSelect = document.getElementById('entry-event-filter');
     if (filterSelect) {
       const prevValue = filterSelect.value;
@@ -1541,7 +1680,6 @@ window.App = {
         opt.textContent = (evt ? evt.name : code) + ' (' + count + ')' + (isConfirmed ? ' [確定済]' : '');
         filterSelect.appendChild(opt);
       }
-      // エントリーが1種目だけならその種目を自動選択
       if (entryEventCodes.length === 1) {
         filterSelect.value = entryEventCodes[0];
       } else if (prevValue && entryEventCodes.includes(prevValue)) {
@@ -1553,13 +1691,26 @@ window.App = {
     const entryEventSelect = document.getElementById('entry-event');
     if (entryEventSelect) {
       entryEventSelect.innerHTML = '<option value="">選択してください</option>';
-      for (const evt of AppConfig.EVENTS) {
+      // 大会の試合種目でフィルタ＆ソート
+      const tournEvts = this._selectedTournamentEvents || '';
+      const hasSingles = !tournEvts || /シングルス/i.test(tournEvts);
+      const hasDoubles = !tournEvts || /ダブルス/i.test(tournEvts);
+      const sortedEvents = [...AppConfig.EVENTS].sort((a, b) => {
+        const ga = a.code.startsWith('m') ? 0 : 1;
+        const gb = b.code.startsWith('m') ? 0 : 1;
+        if (ga !== gb) return ga - gb;
+        return AppConfig.EVENTS.indexOf(a) - AppConfig.EVENTS.indexOf(b);
+      });
+      for (const evt of sortedEvents) {
+        const isSingles = evt.category === 'singles';
+        const isDoubles = evt.category === 'doubles';
+        if (tournEvts && !hasSingles && isSingles) continue;
+        if (tournEvts && !hasDoubles && isDoubles) continue;
         const opt = document.createElement('option');
         opt.value = evt.code;
         opt.textContent = evt.name;
         entryEventSelect.appendChild(opt);
       }
-      // 1種目のみの場合は自動選択
       if (entryEventCodes.length === 1) {
         entryEventSelect.value = entryEventCodes[0];
       }

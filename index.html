@@ -320,6 +320,36 @@
       </div>
       </div><!-- /.ranking-sticky-filter -->
 
+      <!-- 大会設定 -->
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title">大会設定</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;">
+          <div class="form-group" style="margin-bottom:0;flex:2;min-width:250px;">
+            <label for="tournament-select" class="form-label">大会選択</label>
+            <select id="tournament-select" class="form-select">
+              <option value="">-- 大会を選択 --</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;min-width:140px;">
+            <label for="tournament-date-input" class="form-label">開催日</label>
+            <input type="text" id="tournament-date-input" class="form-input" placeholder="例: 令和7年11月9日（日）">
+          </div>
+          <div class="form-group" style="margin-bottom:0;min-width:200px;">
+            <label for="tournament-venue-input" class="form-label">会場</label>
+            <select id="tournament-venue-input" class="form-select">
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;width:100%;">
+            <label for="tournament-format-input" class="form-label">ゲームルール</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <select id="tournament-format-select" class="form-select" style="flex:1;min-width:200px;">
+              </select>
+              <input type="text" id="tournament-format-custom" class="form-input" placeholder="またはルールを直接入力" style="flex:1;min-width:200px;">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ランキングテーブル -->
       <div class="table-wrapper">
         <table class="data-table ranking-auto-width" id="ranking-table">
@@ -385,36 +415,6 @@
     <!-- 画面3: エントリーリスト（旧：エントリー） -->
     <section id="screen-entry" class="screen">
       <h2 class="screen-title">エントリーリスト</h2>
-
-      <!-- 大会設定 -->
-      <div class="card" style="margin-bottom:16px;">
-        <h3 class="card-title">大会設定</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;">
-          <div class="form-group" style="margin-bottom:0;flex:2;min-width:250px;">
-            <label for="tournament-select" class="form-label">大会選択</label>
-            <select id="tournament-select" class="form-select">
-              <option value="">-- 大会を選択 --</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:0;min-width:140px;">
-            <label for="tournament-date-input" class="form-label">開催日</label>
-            <input type="text" id="tournament-date-input" class="form-input" placeholder="例: 令和7年11月9日（日）">
-          </div>
-          <div class="form-group" style="margin-bottom:0;min-width:200px;">
-            <label for="tournament-venue-input" class="form-label">会場</label>
-            <select id="tournament-venue-input" class="form-select">
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:0;width:100%;">
-            <label for="tournament-format-input" class="form-label">ゲームルール</label>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <select id="tournament-format-select" class="form-select" style="flex:1;min-width:200px;">
-              </select>
-              <input type="text" id="tournament-format-custom" class="form-input" placeholder="またはルールを直接入力" style="flex:1;min-width:200px;">
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- フィルター＆操作 -->
       <div class="toolbar">

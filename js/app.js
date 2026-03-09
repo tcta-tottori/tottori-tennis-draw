@@ -821,24 +821,28 @@ window.App = {
       });
       RankingLoader.addToFuriganaMap(player.name, furigana);
 
-      // スムーズにフェードアウトして消える
+      // 黄色ハイライト後に上下から潰れて消える
       tr.style.transition = 'background-color 0.3s';
-      tr.style.backgroundColor = '#c8e6c9';
+      tr.style.backgroundColor = '#fff3b0';
       btn.textContent = '登録済';
       btn.disabled = true;
       btn.style.opacity = '0.6';
 
       if (this._hideEnteredPlayers) {
-        // 非表示モード: フェードアウトしてから行を非表示に
+        // 非表示モード: 黄色ハイライト後に上下から潰れて消える
         setTimeout(() => {
+          tr.style.transformOrigin = 'center center';
+          tr.style.overflow = 'hidden';
           tr.classList.add('row-fade-out');
           setTimeout(() => {
             tr.classList.add('row-entered');
             tr.classList.remove('row-fade-out');
+            tr.style.transform = '';
+            tr.style.overflow = '';
             // 行の色を再計算
             this._resetRowColors();
-          }, 450);
-        }, 500);
+          }, 550);
+        }, 600);
       } else {
         setTimeout(() => {
           tr.classList.add('row-entered');

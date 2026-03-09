@@ -6,6 +6,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#2b7ec6">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
   <title>鳥取市テニス協会 ドロー会議システム</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/print.css">
@@ -975,5 +978,27 @@
   <script src="js/draw-engine.js"></script>
   <script src="js/draw-renderer.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    // Service Worker登録（オフライン対応）
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          // 新バージョン検出時に通知
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                if (typeof App !== 'undefined' && App.showMessage) {
+                  App.showMessage('新しいバージョンが利用可能です。ページを再読み込みしてください。', 'info');
+                }
+              }
+            });
+          });
+        }).catch((err) => {
+          console.log('SW registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>

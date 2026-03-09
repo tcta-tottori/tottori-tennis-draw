@@ -389,14 +389,17 @@ body {
   animation: rowSlideIn 0.3s ease-out both;
 }
 
-/* エントリー済み行のフェードアウトアニメーション */
-.row-fade-out {
-  animation: rowFadeOut 0.4s ease-out forwards;
+/* エントリー済み行の上下潰れアニメーション */
+.row-fade-out td {
+  transition: padding 0.4s ease-in, line-height 0.4s ease-in;
 }
-@keyframes rowFadeOut {
-  0% { opacity: 1; transform: translateX(0); max-height: 60px; }
-  60% { opacity: 0; transform: translateX(30px); max-height: 60px; }
-  100% { opacity: 0; transform: translateX(30px); max-height: 0; padding: 0; overflow: hidden; }
+.row-fade-out {
+  animation: rowCrush 0.5s ease-in forwards;
+}
+@keyframes rowCrush {
+  0% { opacity: 1; max-height: 60px; transform: scaleY(1); }
+  50% { opacity: 0.5; max-height: 30px; transform: scaleY(0.5); }
+  100% { opacity: 0; max-height: 0; transform: scaleY(0); line-height: 0; overflow: hidden; }
 }
 
 @keyframes rowSlideIn {

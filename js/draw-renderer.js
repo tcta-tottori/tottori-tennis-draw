@@ -41,12 +41,41 @@ window.DrawRenderer = {
     const rounds = Math.log2(drawSize);
     const halfSize = drawSize / 2;
     const halfRounds = rounds - 1; // 各山内のラウンド数（決勝を除く）
+    const isConfirmed = options && options.confirmed;
 
     // ドローサイズに応じてslotHeightを動的に調整
     const vScale = options.scale || 1.0;
     let hScale = options.hScale || 1.0;
     const baseSlotHeight = drawSize <= 16 ? 28 : drawSize <= 32 ? 22 : drawSize <= 64 ? 16 : 12;
     P.slotHeight = Math.round(baseSlotHeight * vScale);
+
+    // 確定済みモード: BYE数を数えて高さを圧縮
+    if (isConfirmed) {
+      const leftDraw = draw.slice(0, halfSize);
+      const rightDraw = draw.slice(halfSize);
+      // 両方BYEのペアはスロット丸ごと省略、片方BYEペアは1スロット分圧縮
+      let leftSaved = 0, rightSaved = 0;
+      for (let i = 0; i < halfSize; i += 2) {
+        const topBye = leftDraw[i] && leftDraw[i].isBye;
+        const bottomBye = leftDraw[i + 1] && leftDraw[i + 1].isBye;
+        if (topBye && bottomBye) leftSaved += 2;
+        else if (topBye || bottomBye) leftSaved += 1;
+      }
+      for (let i = 0; i < halfSize; i += 2) {
+        const topBye = rightDraw[i] && rightDraw[i].isBye;
+        const bottomBye = rightDraw[i + 1] && rightDraw[i + 1].isBye;
+        if (topBye && bottomBye) rightSaved += 2;
+        else if (topBye || bottomBye) rightSaved += 1;
+      }
+      // 圧縮後のslotHeight = 使用スロット数に合わせて拡大
+      const maxSaved = Math.min(leftSaved, rightSaved);
+      if (maxSaved > 0 && halfSize > maxSaved) {
+        const originalSlots = halfSize * 2;
+        const compressedSlots = (halfSize - maxSaved) * 2;
+        const expandRatio = originalSlots / compressedSlots;
+        P.slotHeight = Math.round(P.slotHeight * Math.min(expandRatio, 1.6));
+      }
+    }
 
     // 文字サイズは常に固定
     P.nameAreaWidth = 200;
@@ -195,20 +224,29 @@ window.DrawRenderer = {
     defs.appendChild(clipPath);
     svg.appendChild(defs);
 
-    // --- 所属の開始X座標を統一するため、最長名前を計算 ---
-    let maxNameLen = 0;
+    // --- 所属の開始X座標を統一するため、最長名前の実測幅を計算 ---
+    // 全角文字は約1em、半角は約0.55emとして推定
+    const estimateTextWidth = (text, fontSize) => {
+      let w = 0;
+      for (const ch of text) {
+        w += ch.charCodeAt(0) > 0x7F ? fontSize : fontSize * 0.55;
+      }
+      return w;
+    };
+    let maxNameWidth = 0;
     for (let i = 0; i < halfSize; i++) {
       const entry = halfDraw[i];
       if (entry.isBye || entry.isEmpty) continue;
       const isDoublesEntry = entry.name && entry.name.includes(' / ');
+      const fs = isDoublesEntry ? P.fontSize.playerName - 1 : P.fontSize.playerName;
       if (isDoublesEntry) {
         const players = entry.name.split(' / ');
-        maxNameLen = Math.max(maxNameLen, (players[0] || '').length, (players[1] || '').length);
+        maxNameWidth = Math.max(maxNameWidth, estimateTextWidth(players[0] || '', fs), estimateTextWidth(players[1] || '', fs));
       } else {
-        maxNameLen = Math.max(maxNameLen, (entry.name || '').length);
+        maxNameWidth = Math.max(maxNameWidth, estimateTextWidth(entry.name || '', fs));
       }
     }
-    const affiliationX_offset = Math.min(P.nameAreaWidth * 0.55, Math.max(70, maxNameLen * (P.fontSize.playerName) * 0.6 + 4));
+    const affiliationX_offset = Math.min(P.nameAreaWidth * 0.65, Math.max(70, maxNameWidth + 8));
 
     // --- 選手描画 ---
     for (let i = 0; i < halfSize; i++) {
@@ -477,6 +515,7 @@ window.DrawRenderer = {
     const halfRounds = rounds - 1;
     const eventName = drawData.eventName || 'ドロー表';
     const isDoubles = drawData.isDoubles || false;
+    const isConfirmed = drawData.confirmed || false;
     const wb = XLSX.utils.book_new();
     const wsData = [];
 
@@ -529,52 +568,75 @@ window.DrawRenderer = {
     // シングルスの2行結合セル情報を収集
     const singlesMerges = []; // { row, side: 'left'|'right' }
 
+    // 確定済み: BYEをスキップするマッピング (元index → Excel行)
+    // drawIndexToRow[i] = wsData上の行番号 (BYEはスキップ)
+    const leftRowMap = {};  // leftDraw index → wsData row
+    const rightRowMap = {}; // rightDraw index → wsData row
+
     for (let i = 0; i < halfSize; i++) {
       const left = leftDraw[i];
       const right = rightDraw[i];
+
+      // 確定済みモード: 両方BYEならスキップ
+      if (isConfirmed && left.isBye && right.isBye) continue;
+
       const leftIsDoublesEntry = isDoubles && !left.isBye && left.name && left.name.includes(' / ');
       const rightIsDoublesEntry = isDoubles && !right.isBye && right.name && right.name.includes(' / ');
 
+      // 確定済みモード: BYEは空欄として出力
+      const leftIsBye = left.isBye;
+      const rightIsBye = right.isBye;
+      const showLeftBye = leftIsBye && !isConfirmed;
+      const showRightBye = rightIsBye && !isConfirmed;
+
+      leftRowMap[i] = wsData.length;
+      rightRowMap[i] = wsData.length;
+
       if (leftIsDoublesEntry || rightIsDoublesEntry) {
         // ダブルス: 2行で表示（選手1 + 選手2）
-        const leftPlayers = leftIsDoublesEntry ? left.name.split(' / ') : [left.isBye ? 'bye' : left.name, ''];
-        const leftAffils = leftIsDoublesEntry ? (left.affiliation || '').split(' / ') : [left.isBye ? '' : (left.affiliation || ''), ''];
-        const rightPlayers = rightIsDoublesEntry ? right.name.split(' / ') : [right.isBye ? 'bye' : right.name, ''];
-        const rightAffils = rightIsDoublesEntry ? (right.affiliation || '').split(' / ') : [right.isBye ? '' : (right.affiliation || ''), ''];
+        const leftPlayers = leftIsDoublesEntry ? left.name.split(' / ') : [showLeftBye ? 'bye' : (leftIsBye ? '' : left.name), ''];
+        const leftAffils = leftIsDoublesEntry ? (left.affiliation || '').split(' / ') : [leftIsBye ? '' : (left.affiliation || ''), ''];
+        const rightPlayers = rightIsDoublesEntry ? right.name.split(' / ') : [showRightBye ? 'bye' : (rightIsBye ? '' : right.name), ''];
+        const rightAffils = rightIsDoublesEntry ? (right.affiliation || '').split(' / ') : [rightIsBye ? '' : (right.affiliation || ''), ''];
 
         // 1行目
         const row1 = new Array(totalCols).fill('');
-        row1[1] = left.isBye ? '' : left.position;
-        row1[2] = left.isBye ? 'bye' : leftPlayers[0];
-        row1[3] = left.isBye ? '' : (leftAffils[0] || '');
-        row1[rightStartCol + 1] = right.isBye ? '' : right.position;
-        row1[rightStartCol + 2] = right.isBye ? 'bye' : rightPlayers[0];
-        row1[rightStartCol + 3] = right.isBye ? '' : (rightAffils[0] || '');
+        row1[1] = leftIsBye ? '' : left.position;
+        row1[2] = leftPlayers[0];
+        row1[3] = leftAffils[0] || '';
+        row1[rightStartCol + 1] = rightIsBye ? '' : right.position;
+        row1[rightStartCol + 2] = rightPlayers[0];
+        row1[rightStartCol + 3] = rightAffils[0] || '';
         wsData.push(row1);
         // 2行目
         const row2 = new Array(totalCols).fill('');
-        row2[2] = left.isBye ? '' : (leftPlayers[1] || '');
-        row2[3] = left.isBye ? '' : (leftAffils[1] || leftAffils[0] || '');
-        row2[rightStartCol + 2] = right.isBye ? '' : (rightPlayers[1] || '');
-        row2[rightStartCol + 3] = right.isBye ? '' : (rightAffils[1] || rightAffils[0] || '');
+        row2[2] = leftIsBye ? '' : (leftPlayers[1] || '');
+        row2[3] = leftIsBye ? '' : (leftAffils[1] || leftAffils[0] || '');
+        row2[rightStartCol + 2] = rightIsBye ? '' : (rightPlayers[1] || '');
+        row2[rightStartCol + 3] = rightIsBye ? '' : (rightAffils[1] || rightAffils[0] || '');
         wsData.push(row2);
+
+        // ダブルス: ペア間に空白行を追加
+        if (isDoubles) {
+          wsData.push(new Array(totalCols).fill(''));
+        }
       } else {
-        // シングルスまたはBYE同士: 2行使って結合セル
+        // シングルスまたはBYE: 2行使って結合セル
         const currentRow = wsData.length;
         const row1 = new Array(totalCols).fill('');
-        row1[1] = left.isBye ? '' : left.position;
-        row1[2] = left.isBye ? 'bye' : left.name;
-        row1[3] = left.isBye ? '' : (left.affiliation || '');
-        row1[rightStartCol + 1] = right.isBye ? '' : right.position;
-        row1[rightStartCol + 2] = right.isBye ? 'bye' : right.name;
-        row1[rightStartCol + 3] = right.isBye ? '' : (right.affiliation || '');
+        row1[1] = leftIsBye ? '' : left.position;
+        row1[2] = showLeftBye ? 'bye' : (leftIsBye ? '' : left.name);
+        row1[3] = leftIsBye ? '' : (left.affiliation || '');
+        row1[rightStartCol + 1] = rightIsBye ? '' : right.position;
+        row1[rightStartCol + 2] = showRightBye ? 'bye' : (rightIsBye ? '' : right.name);
+        row1[rightStartCol + 3] = rightIsBye ? '' : (right.affiliation || '');
         wsData.push(row1);
         wsData.push(new Array(totalCols).fill(''));
 
         // シングルス（非ダブルス）の場合、2行結合で名前の中央にブラケット線を合わせる
         if (!isDoubles) {
-          singlesMerges.push({ row: currentRow, side: 'left' });
-          singlesMerges.push({ row: currentRow, side: 'right' });
+          if (!leftIsBye || !isConfirmed) singlesMerges.push({ row: currentRow, side: 'left' });
+          if (!rightIsBye || !isConfirmed) singlesMerges.push({ row: currentRow, side: 'right' });
         }
       }
     }
@@ -662,6 +724,13 @@ window.DrawRenderer = {
           bottomRow = headerRows + (blockStart + prevPairSize) * 2 + (prevPairSize - 1);
         }
 
+        // 確定済み: BYEペアの罫線はスキップ
+        if (isConfirmed && round === 0) {
+          const topEntry = leftDraw[blockStart];
+          const bottomEntry = leftDraw[blockStart + 1];
+          if (topEntry && topEntry.isBye && bottomEntry && bottomEntry.isBye) continue;
+        }
+
         const cellTop = ensureCell(topRow, bracketCol);
         cellTop.s.border.bottom = border();
         const cellBottom = ensureCell(bottomRow, bracketCol);
@@ -692,6 +761,13 @@ window.DrawRenderer = {
           bottomRow = headerRows + (blockStart + prevPairSize) * 2 + (prevPairSize - 1);
         }
 
+        // 確定済み: BYEペアの罫線はスキップ
+        if (isConfirmed && round === 0) {
+          const topEntry = rightDraw[blockStart];
+          const bottomEntry = rightDraw[blockStart + 1];
+          if (topEntry && topEntry.isBye && bottomEntry && bottomEntry.isBye) continue;
+        }
+
         const cellTop = ensureCell(topRow, bracketCol);
         cellTop.s.border.bottom = border();
         const cellBottom = ensureCell(bottomRow, bracketCol);
@@ -705,17 +781,22 @@ window.DrawRenderer = {
 
     // --- 選手名行の区切り線 ---
     for (let i = 0; i < halfSize; i++) {
-      const row = headerRows + i * 2;
+      // 確定済みで両方BYEならスキップ
+      if (isConfirmed && leftDraw[i].isBye && rightDraw[i].isBye) continue;
+
+      const row = leftRowMap[i] !== undefined ? leftRowMap[i] : headerRows + i * 2;
       // 2行目（row+1）の下に区切り線（シングルス・ダブルス共通）
       const borderRow = row + 1;
+      // ダブルスの場合は3行目の下（空白行含めて）
+      const actualBorderRow = isDoubles ? row + 2 : borderRow;
       // 左側: No, 名前, 所属の3列
       for (let c = 1; c < leftDataCols - 1; c++) {
-        const cell = ensureCell(borderRow, c);
+        const cell = ensureCell(actualBorderRow, c);
         cell.s.border.bottom = border('hair');
       }
       // 右側: No, 名前, 所属の3列
       for (let c = rightStartCol + 1; c < rightStartCol + rightDataCols; c++) {
-        const cell = ensureCell(borderRow, c);
+        const cell = ensureCell(actualBorderRow, c);
         cell.s.border.bottom = border('hair');
       }
     }

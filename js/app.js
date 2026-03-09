@@ -3190,6 +3190,7 @@ window.App = {
     const result = this.drawResults[select.value];
     if (!result) { this.showMessage('ドローが生成されていません', 'error'); return; }
     const evtDef = AppConfig.EVENTS.find(e => e.code === select.value);
+    const isConfirmed = this.confirmedEvents && this.confirmedEvents[select.value];
     DrawRenderer.exportToExcel({
       ...result,
       tournamentName: AppConfig.TOURNAMENT_NAME || '',
@@ -3197,6 +3198,7 @@ window.App = {
       venue: AppConfig.TOURNAMENT_VENUE || '',
       matchFormat: AppConfig.MATCH_FORMAT || '',
       isDoubles: evtDef ? evtDef.category === 'doubles' : false,
+      confirmed: !!isConfirmed,
     });
     this.showMessage('Excelファイルをダウンロードしました', 'success');
   },

@@ -1180,16 +1180,20 @@ window.App = {
     const tournamentSelect = document.getElementById('tournament-select');
     const dateInput = document.getElementById('tournament-date-input');
     const venueSelect = document.getElementById('tournament-venue-input');
-    const formatSelect = document.getElementById('tournament-format-select');
-    const formatCustom = document.getElementById('tournament-format-custom');
+    const btnConfirm = document.getElementById('btn-tournament-confirm');
+    const btnChange = document.getElementById('btn-tournament-change');
+    const selectMode = document.getElementById('tournament-select-mode');
+    const confirmedMode = document.getElementById('tournament-confirmed-mode');
+    const confirmedName = document.getElementById('tournament-confirmed-name');
 
     // 大会プルダウンを構築
     this._refreshTournamentSelect();
 
-    // 大会選択時に情報を自動セット
+    // 大会選択時に情報を自動セット＆確定ボタン有効化
     if (tournamentSelect) {
       tournamentSelect.addEventListener('change', () => {
         const id = parseInt(tournamentSelect.value);
+        if (btnConfirm) btnConfirm.disabled = !id;
         if (!id) {
           this._selectedTournamentEvents = null;
           this._updateCategoryToggle();
@@ -1206,7 +1210,33 @@ window.App = {
         // 試合種目から利用可能な種目を判定
         this._selectedTournamentEvents = t.events || '';
         this._updateCategoryToggle();
-        updateConfig();
+        this._updateConfig();
+      });
+    }
+
+    // 確定ボタン
+    if (btnConfirm) {
+      btnConfirm.addEventListener('click', () => {
+        const id = parseInt(tournamentSelect.value);
+        if (!id) return;
+        const t = TournamentStore.getById(id);
+        if (!t) return;
+        this._confirmedTournamentId = id;
+        // 表示を切替
+        if (selectMode) selectMode.style.display = 'none';
+        if (confirmedMode) confirmedMode.style.display = '';
+        const dateStr = t.date ? (t.date + (t.dayOfWeek || '')) : '';
+        if (confirmedName) confirmedName.textContent = t.name + (dateStr ? '　' + dateStr : '');
+        this.showMessage(t.name + ' でエントリーを開始します', 'success');
+      });
+    }
+
+    // 大会変更ボタン
+    if (btnChange) {
+      btnChange.addEventListener('click', () => {
+        this._confirmedTournamentId = null;
+        if (selectMode) selectMode.style.display = '';
+        if (confirmedMode) confirmedMode.style.display = 'none';
       });
     }
 
@@ -1222,42 +1252,18 @@ window.App = {
       venueSelect.value = AppConfig.TOURNAMENT_VENUE || '';
     }
 
-    // ゲームルール選択肢を構築
-    if (formatSelect) {
-      formatSelect.innerHTML = '<option value="">-- 選択 --</option>';
-      (AppConfig.MATCH_FORMAT_OPTIONS || []).forEach(f => {
-        const opt = document.createElement('option');
-        opt.value = f;
-        opt.textContent = f;
-        formatSelect.appendChild(opt);
-      });
-      const defaultFormat = AppConfig.MATCH_FORMAT || '';
-      if ((AppConfig.MATCH_FORMAT_OPTIONS || []).includes(defaultFormat)) {
-        formatSelect.value = defaultFormat;
-      }
-    }
-
     // 初期値セット
     if (dateInput) dateInput.value = AppConfig.TOURNAMENT_DATE || '';
 
-    // 変更時にAppConfigに反映
-    const updateConfig = () => {
-      if (dateInput) AppConfig.TOURNAMENT_DATE = dateInput.value.trim();
-      if (venueSelect) AppConfig.TOURNAMENT_VENUE = venueSelect.value;
-      if (formatCustom && formatCustom.value.trim()) {
-        AppConfig.MATCH_FORMAT = formatCustom.value.trim();
-      } else if (formatSelect && formatSelect.value) {
-        AppConfig.MATCH_FORMAT = formatSelect.value;
-      }
-    };
+    if (dateInput) dateInput.addEventListener('change', () => this._updateConfig());
+    if (venueSelect) venueSelect.addEventListener('change', () => this._updateConfig());
+  },
 
-    if (dateInput) dateInput.addEventListener('change', updateConfig);
-    if (venueSelect) venueSelect.addEventListener('change', updateConfig);
-    if (formatSelect) formatSelect.addEventListener('change', () => {
-      if (formatCustom && formatSelect.value) formatCustom.value = '';
-      updateConfig();
-    });
-    if (formatCustom) formatCustom.addEventListener('input', updateConfig);
+  _updateConfig() {
+    const dateInput = document.getElementById('tournament-date-input');
+    const venueSelect = document.getElementById('tournament-venue-input');
+    if (dateInput) AppConfig.TOURNAMENT_DATE = dateInput.value.trim();
+    if (venueSelect) AppConfig.TOURNAMENT_VENUE = venueSelect.value;
   },
 
   _refreshTournamentSelect() {
@@ -2247,6 +2253,9 @@ window.App = {
       eventSelect.addEventListener('change', () => this._onDrawEventChange());
     }
 
+    // ゲームルール選択肢を構築（抽選画面）
+    this._initDrawFormatSelect();
+
     // ドロー確定・リセット
     const btnConfirm = document.getElementById('btn-draw-confirm');
     if (btnConfirm) {
@@ -3115,6 +3124,49 @@ window.App = {
     this._renderManualPlacement();
   },
 
+  _initDrawFormatSelect() {
+    const formatSelect = document.getElementById('draw-format-select');
+    const formatCustom = document.getElementById('draw-format-custom');
+    if (formatSelect) {
+      formatSelect.innerHTML = '<option value="">-- 選択 --</option>';
+      (AppConfig.MATCH_FORMAT_OPTIONS || []).forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = f;
+        formatSelect.appendChild(opt);
+      });
+      // あとで設定する
+      const laterOpt = document.createElement('option');
+      laterOpt.value = '__later__';
+      laterOpt.textContent = 'あとで設定する';
+      formatSelect.appendChild(laterOpt);
+      // デフォルト値
+      const defaultFormat = AppConfig.MATCH_FORMAT || '';
+      if ((AppConfig.MATCH_FORMAT_OPTIONS || []).includes(defaultFormat)) {
+        formatSelect.value = defaultFormat;
+      }
+      formatSelect.addEventListener('change', () => {
+        if (formatCustom && formatSelect.value && formatSelect.value !== '__later__') formatCustom.value = '';
+        this._updateDrawFormat();
+      });
+    }
+    if (formatCustom) {
+      formatCustom.addEventListener('input', () => this._updateDrawFormat());
+    }
+  },
+
+  _updateDrawFormat() {
+    const formatSelect = document.getElementById('draw-format-select');
+    const formatCustom = document.getElementById('draw-format-custom');
+    if (formatCustom && formatCustom.value.trim()) {
+      AppConfig.MATCH_FORMAT = formatCustom.value.trim();
+    } else if (formatSelect && formatSelect.value && formatSelect.value !== '__later__') {
+      AppConfig.MATCH_FORMAT = formatSelect.value;
+    } else if (formatSelect && formatSelect.value === '__later__') {
+      AppConfig.MATCH_FORMAT = '';
+    }
+  },
+
   _confirmDraw() {
     if (!this._manualDraw || !this._currentDrawData) return;
 
@@ -3126,6 +3178,9 @@ window.App = {
       this.showMessage('未配置のBYEが ' + this._unplacedByes + '個 あります。配置してください。', 'error');
       return;
     }
+
+    // ゲームルールを確定時に反映
+    this._updateDrawFormat();
 
     const eventCode = this._currentDrawData.eventCode;
     const evt = AppConfig.EVENTS.find(e => e.code === eventCode);

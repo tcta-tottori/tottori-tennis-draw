@@ -27,8 +27,8 @@
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
       <div class="header-version">
-        <span class="version-number">Ver.1.4</span>
-        <span class="version-date">2026.3.9</span>
+        <span class="version-number">Ver.1.5</span>
+        <span class="version-date">2026.3.10</span>
       </div>
     </div>
   </header>
@@ -312,40 +312,45 @@
     <section id="screen-ranking" class="screen">
       <h2 class="screen-title">エントリー</h2>
 
-      <!-- 大会設定 -->
-      <div class="card" style="margin-bottom:16px;">
-        <h3 class="card-title">大会設定</h3>
-        <div class="form-group" style="margin-bottom:8px;">
-          <label for="tournament-select" class="form-label">大会選択</label>
-          <select id="tournament-select" class="form-select" style="width:100%;">
-            <option value="">-- 大会を選択 --</option>
-          </select>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:8px;">
-          <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
-            <label for="tournament-date-input" class="form-label">開催日</label>
-            <input type="text" id="tournament-date-input" class="form-input tournament-auto-field" placeholder="自動入力" readonly>
-          </div>
-          <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
-            <label for="tournament-venue-input" class="form-label">会場</label>
-            <select id="tournament-venue-input" class="form-select">
-            </select>
-          </div>
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="tournament-format-input" class="form-label">ゲームルール</label>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <select id="tournament-format-select" class="form-select" style="flex:1;min-width:120px;">
-            </select>
-            <input type="text" id="tournament-format-custom" class="form-input" placeholder="またはルールを直接入力" style="flex:1;min-width:120px;">
-          </div>
-        </div>
-      </div>
-
       <!-- データ状況サマリー -->
       <div id="entry-data-summary" class="card" style="margin-bottom:16px;display:none;">
         <h3 class="card-title" style="font-size:13px;margin-bottom:8px;">データ状況</h3>
         <div id="entry-data-summary-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+
+      <!-- 大会設定 -->
+      <div class="card" style="margin-bottom:16px;" id="tournament-settings-card">
+        <!-- 選択モード -->
+        <div id="tournament-select-mode">
+          <h3 class="card-title">大会設定</h3>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label for="tournament-select" class="form-label">大会選択</label>
+            <select id="tournament-select" class="form-select" style="width:100%;">
+              <option value="">-- 大会を選択 --</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:8px;">
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
+              <label for="tournament-date-input" class="form-label">開催日</label>
+              <input type="text" id="tournament-date-input" class="form-input tournament-auto-field" placeholder="自動入力" readonly>
+            </div>
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
+              <label for="tournament-venue-input" class="form-label">会場</label>
+              <select id="tournament-venue-input" class="form-select">
+              </select>
+            </div>
+          </div>
+          <div style="text-align:right;margin-top:8px;">
+            <button id="btn-tournament-confirm" class="btn btn-primary" disabled>この大会でエントリーを開始</button>
+          </div>
+        </div>
+        <!-- 確定表示モード -->
+        <div id="tournament-confirmed-mode" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div style="font-size:15px;font-weight:700;color:var(--color-text);" id="tournament-confirmed-name"></div>
+            <button id="btn-tournament-change" class="btn btn-secondary btn-sm">大会を変更</button>
+          </div>
+        </div>
       </div>
 
       <!-- スティッキーフィルターエリア -->
@@ -626,6 +631,16 @@
               </div>
             </details>
           </div>
+          <!-- ゲームルール設定 -->
+          <div style="margin-top:12px;padding:10px 14px;background:#f0f7ff;border:1px solid #d0e3f5;border-radius:8px;">
+            <label style="font-size:13px;font-weight:600;margin-bottom:6px;display:block;">ゲームルール</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <select id="draw-format-select" class="form-select" style="flex:1;min-width:140px;font-size:13px;">
+              </select>
+              <input type="text" id="draw-format-custom" class="form-input" placeholder="またはルールを直接入力" style="flex:1;min-width:140px;font-size:13px;">
+            </div>
+          </div>
+
           <div class="action-bar" style="margin-top:12px;">
             <button id="btn-draw-auto-place" class="btn btn-secondary">全自動配置</button>
             <button id="btn-draw-confirm" class="btn btn-primary">ドロー確定</button>

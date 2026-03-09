@@ -1567,6 +1567,19 @@ tr.row-entered td strong {
     top: var(--space-6);
     right: var(--space-6);
   }
+
+  /* PC時: エントリーテーブルを中央寄せ */
+  #screen-ranking .table-wrapper,
+  #screen-entry .table-wrapper {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  #screen-ranking .ranking-sticky-filter {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 /* ============================================

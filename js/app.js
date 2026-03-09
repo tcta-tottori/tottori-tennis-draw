@@ -10,6 +10,7 @@ window.App = {
   drawResults: {},      // 種目別ドロー結果 { eventCode: drawResult }
   confirmedEvents: {}, // 確定済み種目 { eventCode: true }
   _editingEntryId: null, // 編集中エントリーID
+  _isDataLoading: false, // データ読込中フラグ
 
   /**
    * アプリケーション初期化
@@ -122,8 +123,13 @@ window.App = {
     }
 
     // バックアップがない場合はスプレッドシートから読み込み
-    await this._loadRankingFromGS();
-    await this._loadFuriganaFromGS();
+    this._showLoadingOverlay('選手データを読込中...');
+    try {
+      await this._loadRankingFromGS();
+      await this._loadFuriganaFromGS();
+    } finally {
+      this._hideLoadingOverlay();
+    }
   },
 
   async _silentRefreshFromSpreadsheets() {
@@ -179,7 +185,12 @@ window.App = {
     }
 
     // 画面切り替え時のリフレッシュ
-    if (screenId === 'screen-ranking') this.refreshRankingTable();
+    if (screenId === 'screen-ranking') {
+      if (this._isDataLoading) {
+        this._showLoadingOverlay('選手データを読込中...');
+      }
+      this.refreshRankingTable();
+    }
     if (screenId === 'screen-entry') this.refreshEntryTable();
     if (screenId === 'screen-draw') this._refreshDrawEventSelect();
     if (screenId === 'screen-bracket') this._refreshBracketEventSelect();
@@ -1429,14 +1440,17 @@ window.App = {
 
     // テーブルヘッダーを切り替え
     const thead = document.getElementById('entry-table-head');
+    const entryTable = document.getElementById('entry-table');
     // 男女判定（種目コードで色分け）
     const isMaleEvent = targetCode && targetCode.startsWith('m');
     const isFemaleEvent = targetCode && targetCode.startsWith('l');
     if (thead) {
       if (isDoubles) {
         thead.innerHTML = '<tr><th>P</th><th>氏名</th><th>所属</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
+        if (entryTable) entryTable.classList.add('entry-doubles');
       } else {
         thead.innerHTML = '<tr><th>No.</th><th>氏名</th><th>所属</th><th>ポイント</th><th>操作</th></tr>';
+        if (entryTable) entryTable.classList.remove('entry-doubles');
       }
       // 男女別ヘッダー色
       if (isMaleEvent) {
@@ -3774,6 +3788,42 @@ window.App = {
   // ================================================================
   // 共通ユーティリティ
   // ================================================================
+
+  /**
+   * データ読込中オーバーレイの表示/非表示
+   */
+  _showLoadingOverlay(message) {
+    this._isDataLoading = true;
+    let overlay = document.getElementById('data-loading-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'data-loading-overlay';
+      overlay.className = 'loading-overlay';
+      overlay.innerHTML =
+        '<div class="loading-card">' +
+        '<div class="loading-spinner"></div>' +
+        '<div class="loading-text">' + (message || 'データ読込中...') + '</div>' +
+        '<div class="loading-sub">しばらくお待ちください</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+    } else {
+      overlay.style.display = 'flex';
+      const textEl = overlay.querySelector('.loading-text');
+      if (textEl) textEl.textContent = message || 'データ読込中...';
+    }
+  },
+
+  _hideLoadingOverlay() {
+    this._isDataLoading = false;
+    const overlay = document.getElementById('data-loading-overlay');
+    if (overlay) {
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.3s';
+      setTimeout(() => {
+        if (overlay.parentNode) overlay.remove();
+      }, 300);
+    }
+  },
 
   /**
    * 通知メッセージ表示（トースト）

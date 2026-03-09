@@ -1104,14 +1104,43 @@ body {
   color: var(--color-text-secondary);
 }
 
+/* --- 所属重複トグル --- */
+.collision-toggle {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+}
+.collision-btn {
+  border: none;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+.collision-btn.active.collision-ng {
+  background: #dc2626;
+  color: #fff;
+}
+.collision-btn.active.collision-ok {
+  background: #2563eb;
+  color: #fff;
+}
+.collision-btn:not(.active):hover {
+  background: #e5e7eb;
+}
+
 /* --- ドロー表 --- */
 .bracket-container {
   background-color: var(--color-bg-white);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--space-4);
+  padding: var(--space-2) var(--space-4);
   margin-bottom: var(--space-4);
-  min-height: 300px;
+  min-height: 200px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -1119,6 +1148,31 @@ body {
 .bracket-svg-wrapper {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* --- トーナメント表全画面表示 --- */
+.bracket-fullscreen-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 10000;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.bracket-fullscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+.bracket-fullscreen-body {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px;
 }
 
 #bracket-svg {
@@ -1749,7 +1803,7 @@ tr.row-entered td strong {
 
   /* ランキングテーブル: スマホ時の列幅 (4列: 氏名/所属/ポイント/操作) */
   .ranking-auto-width th:nth-child(1),
-  .ranking-auto-width td:nth-child(1) { width: 28%; padding-left: 8px; }
+  .ranking-auto-width td:nth-child(1) { width: 28%; padding-left: 12px; }
   .ranking-auto-width th:nth-child(2),
   .ranking-auto-width td:nth-child(2) { width: 22%; }
   .ranking-auto-width th.col-points,
@@ -1761,6 +1815,9 @@ tr.row-entered td strong {
   .ranking-auto-width td {
     padding: 6px 3px;
     font-size: 11px;
+  }
+  .ranking-auto-width th {
+    text-align: center;
   }
 
   .entered-badge {

@@ -27,7 +27,7 @@
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
       <div class="header-version">
-        <span class="version-number">Ver.1.5</span>
+        <span class="version-number">Ver.1.6</span>
         <span class="version-date">2026.3.10</span>
       </div>
     </div>
@@ -330,11 +330,11 @@
             </select>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:8px;">
-            <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
+            <div class="form-group" style="margin-bottom:0;flex:0 0 auto;min-width:0;">
               <label for="tournament-date-input" class="form-label">開催日</label>
-              <input type="text" id="tournament-date-input" class="form-input tournament-auto-field" placeholder="自動入力" readonly>
+              <input type="text" id="tournament-date-input" class="form-input tournament-auto-field" placeholder="自動入力" readonly style="width:11em;">
             </div>
-            <div class="form-group" style="margin-bottom:0;flex:1;min-width:0;">
+            <div class="form-group" style="margin-bottom:0;flex:1 1 0;min-width:12em;max-width:20em;">
               <label for="tournament-venue-input" class="form-label">会場</label>
               <select id="tournament-venue-input" class="form-select">
               </select>
@@ -561,12 +561,11 @@
         <!-- 所属重複設定 -->
         <div style="margin-bottom:12px;padding:8px 12px;background:#f0f4ff;border-radius:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <label style="font-size:13px;font-weight:600;">所属重複:</label>
-          <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;">
-            <input type="radio" name="affiliation-collision" value="avoid" checked> 同所属を避ける
-          </label>
-          <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;">
-            <input type="radio" name="affiliation-collision" value="allow"> 同所属OK
-          </label>
+          <div class="collision-toggle" id="collision-toggle">
+            <button class="collision-btn collision-ng active" data-value="avoid">重複NG</button>
+            <button class="collision-btn collision-ok" data-value="allow">重複OK</button>
+          </div>
+          <input type="hidden" name="affiliation-collision" value="avoid">
         </div>
 
         <!-- シード位置選択（3,4 / 5-8 の抽選） -->
@@ -682,11 +681,22 @@
       </div>
 
       <!-- トーナメント表SVG -->
-      <div class="bracket-container" id="bracket-container">
+      <div class="bracket-container" id="bracket-container" style="cursor:pointer;" title="クリックで全画面表示">
         <div class="bracket-svg-wrapper">
           <svg id="bracket-svg" xmlns="http://www.w3.org/2000/svg"></svg>
         </div>
         <p class="empty-message" id="bracket-empty-msg">種目を選択してドロー表を表示してください。</p>
+      </div>
+
+      <!-- トーナメント表全画面オーバーレイ -->
+      <div id="bracket-fullscreen-overlay" class="bracket-fullscreen-overlay" style="display:none;">
+        <div class="bracket-fullscreen-header">
+          <span id="bracket-fullscreen-title" style="font-weight:700;font-size:16px;"></span>
+          <button id="btn-bracket-fullscreen-close" class="btn btn-secondary btn-sm">閉じる</button>
+        </div>
+        <div class="bracket-fullscreen-body" id="bracket-fullscreen-body">
+          <svg id="bracket-fullscreen-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
       </div>
 
       <!-- エントリーリスト -->
@@ -780,6 +790,7 @@
         <button class="btn btn-secondary manual-tab-btn active" data-manual-tab="tab-flow">操作フロー</button>
         <button class="btn btn-secondary manual-tab-btn" data-manual-tab="tab-jta">JTAシードルール</button>
         <button class="btn btn-secondary manual-tab-btn" data-manual-tab="tab-trouble">トラブルシューティング</button>
+        <button class="btn btn-secondary manual-tab-btn" data-manual-tab="tab-version">バージョン情報</button>
       </div>
 
       <!-- 操作フロー -->
@@ -964,6 +975,29 @@
               <li>用紙サイズ: A3横推奨（32ドロー以上）。</li>
               <li>印刷プレビューで確認してから印刷してください。</li>
             </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- バージョン情報 -->
+      <div class="manual-content" id="tab-version">
+        <div class="card">
+          <h3 class="card-title">バージョン情報</h3>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr><th style="width:80px;">Ver.</th><th style="width:100px;">日付</th><th>更新内容</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1.6</td><td>2026.3.10</td><td>未手配所属表示改善、所属重複トグル化、トーナメント表全画面表示、バージョン情報シート追加、スマホ表示改善</td></tr>
+                <tr><td>1.5</td><td>2026.3.10</td><td>大会設定の確定モード化、ゲームルールを抽選画面に移動、PC画面テーブル中央寄せ</td></tr>
+                <tr><td>1.4</td><td>2026.3.9</td><td>エントリーページ大幅改善、大会2行レイアウト、種目フィルタリング、データ状況サマリー追加</td></tr>
+                <tr><td>1.3</td><td>2026.3.9</td><td>抽選アニメーション改善、未手配表示変更、ダブルス名前均等配置</td></tr>
+                <tr><td>1.2</td><td>2026.3.8</td><td>大会バックアップ保存・復元、スプレッドシート一括読込</td></tr>
+                <tr><td>1.1</td><td>2026.3.8</td><td>PWA対応（オフライン動作）、エントリーアニメーション改善</td></tr>
+                <tr><td>1.0</td><td>2026.3.7</td><td>初期リリース: データ読込、エントリー管理、抽選、ドロー表出力</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

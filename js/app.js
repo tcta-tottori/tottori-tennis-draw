@@ -54,6 +54,9 @@ window.App = {
     // スクロール時のフェードインを初期化
     this._initScrollReveal();
 
+    // 初期データ状況サマリーを更新
+    this._refreshDataSummary();
+
     // デフォルトURLをセットして自動読み込み
     this._autoLoadSpreadsheets();
   },
@@ -193,6 +196,7 @@ window.App = {
         this._showLoadingOverlay('選手データを読込中...');
       }
       this.refreshRankingTable();
+      this._refreshDataSummary();
     }
     if (screenId === 'screen-entry') this.refreshEntryTable();
     if (screenId === 'screen-draw') this._refreshDrawEventSelect();
@@ -2291,6 +2295,19 @@ window.App = {
         }
       });
     }
+
+    // 所属重複トグルボタン
+    const collisionToggle = document.getElementById('collision-toggle');
+    if (collisionToggle) {
+      collisionToggle.querySelectorAll('.collision-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          collisionToggle.querySelectorAll('.collision-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const hiddenInput = document.querySelector('input[name="affiliation-collision"]');
+          if (hiddenInput) hiddenInput.value = btn.dataset.value;
+        });
+      });
+    }
   },
 
   // 手動配置用の一時データ
@@ -2807,11 +2824,11 @@ window.App = {
             chipLabel = chipLabel.split(' / ').map(n => n.split(/[\s\u3000]+/)[0]).join('/');
             // ダブルスは2人の所属を表示
             const affs = (p.affiliation || '').split(' / ');
-            chipAff = ' ' + affs.map(a => (a || '').substring(0, 3)).join('/');
+            chipAff = '(' + affs.map(a => (a || '').substring(0, 3)).join('/') + ')';
           } else {
-            chipAff = p.affiliation ? ' ' + p.affiliation : '';
+            chipAff = p.affiliation ? '(' + p.affiliation + ')' : '';
           }
-          chip.textContent = chipLabel + chipAff;
+          chip.textContent = chipLabel + (chipAff ? ' ' + chipAff : '');
           chip.addEventListener('click', () => {
             this._selectedPlayer = (this._selectedPlayer === idx) ? null : idx;
             this._renderManualPlacement();
@@ -3010,8 +3027,8 @@ window.App = {
    * ダブルスでは片方でも同所属メンバーがいれば衝突とみなす
    */
   _checkAffiliationCollision(drawIndex, player) {
-    const avoidCollision = document.querySelector('input[name="affiliation-collision"]:checked');
-    const shouldAvoid = !avoidCollision || avoidCollision.value === 'avoid';
+    const collisionInput = document.querySelector('input[name="affiliation-collision"]');
+    const shouldAvoid = !collisionInput || collisionInput.value === 'avoid';
     if (!shouldAvoid) return false;
 
     // 1回戦の対戦相手インデックスを算出（偶数→+1、奇数→-1）
@@ -3258,8 +3275,8 @@ window.App = {
       this._unplacedPlayers = nonSeedPlayers;
     }
 
-    const avoidCollision = document.querySelector('input[name="affiliation-collision"]:checked');
-    const shouldAvoid = !avoidCollision || avoidCollision.value === 'avoid';
+    const collisionInput = document.querySelector('input[name="affiliation-collision"]');
+    const shouldAvoid = !collisionInput || collisionInput.value === 'avoid';
 
     // 空きスロットを取得
     const emptySlots = [];
@@ -3585,6 +3602,79 @@ window.App = {
         this.switchScreen('screen-draw');
       });
     }
+
+    // トーナメント表クリックで全画面表示
+    const bracketContainer = document.getElementById('bracket-container');
+    if (bracketContainer) {
+      bracketContainer.addEventListener('click', (e) => {
+        if (e.target.closest('.empty-message')) return;
+        const eventCode = select ? select.value : '';
+        if (!eventCode || !this.drawResults[eventCode]) return;
+        this._openBracketFullscreen(eventCode);
+      });
+    }
+
+    // 全画面閉じるボタン
+    const btnFsClose = document.getElementById('btn-bracket-fullscreen-close');
+    if (btnFsClose) {
+      btnFsClose.addEventListener('click', () => this._closeBracketFullscreen());
+    }
+    // ESCキーで閉じる
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this._closeBracketFullscreen();
+    });
+  },
+
+  _openBracketFullscreen(eventCode) {
+    const overlay = document.getElementById('bracket-fullscreen-overlay');
+    const titleEl = document.getElementById('bracket-fullscreen-title');
+    const body = document.getElementById('bracket-fullscreen-body');
+    if (!overlay || !body) return;
+
+    const result = this.drawResults[eventCode];
+    if (!result) return;
+
+    const evtDef = AppConfig.EVENTS.find(e => e.code === eventCode);
+    if (titleEl) titleEl.textContent = result.eventName || eventCode;
+
+    // SVGを全画面用に描画
+    const fsContainer = document.createElement('div');
+    fsContainer.className = 'bracket-container';
+    fsContainer.style.cssText = 'border:none;margin:0;padding:8px;min-height:auto;';
+    const fsWrapper = document.createElement('div');
+    fsWrapper.className = 'bracket-svg-wrapper';
+    const fsSvg = document.createElement('svg');
+    fsSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    fsSvg.id = 'bracket-fullscreen-svg';
+    fsWrapper.appendChild(fsSvg);
+    fsContainer.appendChild(fsWrapper);
+
+    body.innerHTML = '';
+    body.appendChild(fsContainer);
+
+    DrawRenderer.render(fsContainer, {
+      draw: result.draw,
+      drawSize: result.drawSize,
+      eventName: result.eventName,
+      tournamentName: AppConfig.TOURNAMENT_NAME || '',
+      date: AppConfig.TOURNAMENT_DATE || '',
+      venue: AppConfig.TOURNAMENT_VENUE || '',
+      matchFormat: AppConfig.MATCH_FORMAT || '',
+      entries: result.entries,
+      seeds: result.seeds,
+      entryCount: result.entryCount,
+      isDoubles: evtDef ? evtDef.category === 'doubles' : false,
+    }, { confirmed: true });
+
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  },
+
+  _closeBracketFullscreen() {
+    const overlay = document.getElementById('bracket-fullscreen-overlay');
+    if (!overlay || overlay.style.display === 'none') return;
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
   },
 
   _exportDrawExcel() {

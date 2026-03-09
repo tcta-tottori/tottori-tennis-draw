@@ -673,13 +673,14 @@ window.App = {
       const isEntered = p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false;
       if (isEntered) tr.classList.add('row-entered');
 
-      const furiganaHtml = furigana ? '<span style="display:block;font-size:8px;color:#9ca3af;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + this._esc(furigana) + '</span>' : '';
+      const furiganaInlineHtml = furigana ? '<span class="furigana-inline" style="display:block;font-size:8px;color:#9ca3af;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + this._esc(furigana) + '</span>' : '';
       tr.innerHTML =
         '<td class="text-center">' + (p.rank === '-' ? '<span style="color:#9ca3af;">-</span>' : p.rank) + '</td>' +
-        '<td style="min-width:100px;">' + furiganaHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
+        '<td style="min-width:100px;">' + furiganaInlineHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
+        '<td class="col-furigana">' + this._esc(furigana) + '</td>' +
         '<td style="white-space:nowrap;">' + this._esc(p.affiliation || '') + '</td>' +
-        '<td class="text-center">' + (p.points || '-') + '</td>' +
-        '<td class="action-cell"></td>';
+        '<td class="text-center col-points">' + (p.points || '-') + '</td>' +
+        '<td class="action-cell" style="padding-right:8px;"></td>';
 
       const actionCell = tr.querySelector('.action-cell');
 
@@ -1303,6 +1304,61 @@ window.App = {
     if (existing) existing.remove();
   },
 
+  _refreshDrawStatusBar() {
+    const container = document.getElementById('entry-draw-status');
+    const chips = document.getElementById('entry-draw-status-chips');
+    if (!container || !chips) return;
+
+    chips.innerHTML = '';
+    let hasAny = false;
+
+    for (const code of Object.keys(this.drawResults || {})) {
+      const result = this.drawResults[code];
+      if (!result) continue;
+      hasAny = true;
+      const evt = AppConfig.EVENTS.find(e => e.code === code);
+      const evtName = evt ? evt.shortName || evt.name : code;
+      const isConfirmed = this.confirmedEvents && this.confirmedEvents[code];
+
+      const chip = document.createElement('span');
+      chip.className = 'draw-status-chip ' + (isConfirmed ? 'status-confirmed' : 'status-lottery');
+      chip.innerHTML = (isConfirmed ? '[確定] ' : '[抽選中] ') + this._esc(evtName);
+
+      // クリックで該当ページへ
+      chip.style.cursor = 'pointer';
+      chip.addEventListener('click', () => {
+        if (isConfirmed) {
+          this.switchScreen('screen-bracket');
+          const sel = document.getElementById('bracket-event-select');
+          if (sel) { sel.value = code; sel.dispatchEvent(new Event('change')); }
+        } else {
+          this.switchScreen('screen-draw');
+          const sel = document.getElementById('draw-event-select');
+          if (sel) { sel.value = code; sel.dispatchEvent(new Event('change')); }
+        }
+      });
+
+      // クリアボタン
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'chip-clear';
+      clearBtn.textContent = '\u00d7';
+      clearBtn.title = 'クリア';
+      clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(evtName + ' のドローをクリアしますか？')) {
+          delete this.drawResults[code];
+          if (this.confirmedEvents) delete this.confirmedEvents[code];
+          this._saveDrawResults();
+          this._refreshDrawStatusBar();
+        }
+      });
+      chip.appendChild(clearBtn);
+      chips.appendChild(chip);
+    }
+
+    container.style.display = hasAny ? '' : 'none';
+  },
+
   refreshEntryTable() {
     const tbody = document.getElementById('entry-table-body');
     const totalCount = document.getElementById('entry-total-count');
@@ -1310,6 +1366,9 @@ window.App = {
 
     // 大会プルダウンを更新
     this._refreshTournamentSelect();
+
+    // 抽選・確定ステータスバーを更新
+    this._refreshDrawStatusBar();
 
     // エントリー済み種目を取得
     const allEntries = EntryStore.getAll();
@@ -1676,7 +1735,7 @@ window.App = {
         '<td>' + (idx + 1) + '</td>' +
         '<td>' + this._esc(t.name) + '</td>' +
         '<td>' + this._esc(t.events || '') + '</td>' +
-        '<td>' + this._esc(t.date + (t.dayOfWeek ? ' ' + t.dayOfWeek : '')) + '</td>' +
+        '<td>' + this._esc(this._formatTournamentDate(t.date, t.dayOfWeek)) + '</td>' +
         '<td>' + this._esc(t.venue || '') + '</td>' +
         '<td>' + this._esc(t.reserveDate || '') + '</td>' +
         '<td>' + this._esc(t.reserveVenue || '') + '</td>' +
@@ -3196,7 +3255,7 @@ window.App = {
         seeds: result.seeds,
         entryCount: result.entryCount,
         isDoubles: evtInfo ? evtInfo.category === 'doubles' : false,
-      });
+      }, { confirmed: true });
     }
 
     // クリア・やり直しボタン表示
@@ -3708,6 +3767,21 @@ window.App = {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  },
+
+  /**
+   * 大会日程を "3/29(日)" 形式に変換
+   */
+  _formatTournamentDate(dateStr, dayOfWeek) {
+    if (!dateStr) return '';
+    // "3月22日" → "3/22", "12/27～2/23" はそのまま
+    let d = dateStr.replace(/(\d+)月(\d+)日/g, '$1/$2');
+    if (dayOfWeek) {
+      // "（日）" → "(日)"
+      const dow = dayOfWeek.replace(/（/g, '(').replace(/）/g, ')');
+      d += dow;
+    }
+    return d;
   },
 
   /**

@@ -13,7 +13,7 @@
 <body>
   <!-- ヘッダー -->
   <header class="app-header">
-    <!-- 砂丘風紋装飾（右側） -->
+    <!-- 砂丘風紋装飾（全体） -->
     <div class="header-fumon"></div>
     <div class="header-top">
       <div class="header-logo">
@@ -327,8 +327,9 @@
             <tr>
               <th>順位</th>
               <th>氏名</th>
+              <th class="col-furigana">ふりがな</th>
               <th>所属</th>
-              <th>ポイント</th>
+              <th class="col-points">ポイント</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -434,6 +435,12 @@
           </button>
           <button id="btn-entry-clear" class="btn btn-danger">全クリア</button>
         </div>
+      </div>
+
+      <!-- 抽選・確定ステータス -->
+      <div id="entry-draw-status" class="draw-status-bar" style="display:none;">
+        <h4>抽選・確定ステータス</h4>
+        <div id="entry-draw-status-chips" class="draw-status-chips"></div>
       </div>
 
       <!-- シード・ドロー情報 -->
@@ -874,7 +881,9 @@
           <h4 style="margin-top:20px;">BYE配置ルール</h4>
           <ol>
             <li>シード順位が高い選手の対戦相手位置にBYEを優先配置</li>
-            <li>残りのBYEはドロー表の端（上端・下端交互）から配置</li>
+            <li>残りのBYEは4つの山（左上・左下・右上・右下）に均等分散配置</li>
+            <li>端数が出る場合はシード順位が高い選手のいる山から順にBYEを割り当て</li>
+            <li>同じ山の中ではBYE同士が1回戦で対戦しないよう考慮</li>
             <li>BYEの対戦相手は1回戦不戦勝（自動的に2回戦進出）</li>
           </ol>
         </div>

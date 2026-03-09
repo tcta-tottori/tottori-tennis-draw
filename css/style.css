@@ -112,12 +112,12 @@ body {
   overflow: hidden;
 }
 
-/* 砂丘風紋装飾（右側） */
+/* 砂丘風紋装飾（ヘッダー全体） */
 .header-fumon {
   position: absolute;
-  right: 0;
+  left: 0;
   top: 0;
-  width: 40%;
+  width: 100%;
   height: 100%;
   pointer-events: none;
   overflow: hidden;
@@ -126,46 +126,64 @@ body {
 .header-fumon::before {
   content: '';
   position: absolute;
-  right: -10%;
+  left: 0;
   top: -20%;
-  width: 120%;
+  width: 100%;
   height: 140%;
   background:
-    repeating-radial-gradient(ellipse 200% 60% at 90% 60%,
+    repeating-radial-gradient(ellipse 300% 60% at 50% 60%,
       transparent 0px,
       transparent 8px,
-      rgba(255,255,255,0.06) 9px,
-      rgba(255,255,255,0.06) 10px,
+      rgba(255,255,255,0.05) 9px,
+      rgba(255,255,255,0.05) 10px,
       transparent 11px,
       transparent 20px
     ),
-    repeating-radial-gradient(ellipse 180% 50% at 80% 40%,
+    repeating-radial-gradient(ellipse 250% 50% at 30% 40%,
       transparent 0px,
       transparent 12px,
       rgba(255,255,255,0.04) 13px,
       rgba(255,255,255,0.04) 14px,
       transparent 15px,
       transparent 26px
+    ),
+    repeating-radial-gradient(ellipse 200% 55% at 70% 55%,
+      transparent 0px,
+      transparent 10px,
+      rgba(255,255,255,0.03) 11px,
+      rgba(255,255,255,0.03) 12px,
+      transparent 13px,
+      transparent 22px
     );
 }
 
 .header-fumon::after {
   content: '';
   position: absolute;
-  right: 0;
+  left: 0;
   top: 0;
   width: 100%;
   height: 100%;
   background:
     repeating-linear-gradient(
-      5deg,
+      175deg,
       transparent 0px,
       transparent 14px,
-      rgba(255,255,255,0.05) 15px,
-      rgba(255,255,255,0.08) 16px,
-      rgba(255,255,255,0.05) 17px,
+      rgba(255,255,255,0.04) 15px,
+      rgba(255,255,255,0.07) 16px,
+      rgba(255,255,255,0.04) 17px,
       transparent 18px,
       transparent 32px
+    ),
+    repeating-linear-gradient(
+      10deg,
+      transparent 0px,
+      transparent 20px,
+      rgba(255,255,255,0.03) 21px,
+      rgba(255,255,255,0.05) 22px,
+      rgba(255,255,255,0.03) 23px,
+      transparent 24px,
+      transparent 40px
     );
 }
 
@@ -246,7 +264,7 @@ body {
   }
 }
 
-/* --- タブバーメニュー（テニスボール風背景） --- */
+/* --- タブバーメニュー（ヘッダー色合わせ） --- */
 .tab-bar {
   position: sticky;
   top: 58px;
@@ -254,12 +272,9 @@ body {
   display: flex;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  background:
-    radial-gradient(ellipse 120% 200% at 50% -40%, rgba(255,255,255,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 80% 150% at 30% 120%, rgba(255,255,255,0.08) 0%, transparent 50%),
-    linear-gradient(135deg, #c8d842 0%, #a8bc2a 25%, #8fa522 50%, #7a9118 75%, #6a8010 100%);
-  border-bottom: 2px solid #5a7008;
-  box-shadow: 0 2px 6px rgba(90,112,8,0.25);
+  background: linear-gradient(135deg, #1a7cb8 0%, #1568a0 40%, #125a8a 100%);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 2px 8px rgba(21, 104, 160, 0.3);
   scrollbar-width: none;
 }
 
@@ -268,14 +283,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      -30deg,
-      transparent 0px,
-      transparent 6px,
-      rgba(255,255,255,0.04) 6px,
-      rgba(255,255,255,0.04) 7px
-    );
+  background: none;
 }
 
 .tab-bar::-webkit-scrollbar {
@@ -1672,8 +1680,12 @@ tr.row-entered td strong {
 
 /* --- エントリーテーブル自動幅調整 --- */
 .ranking-auto-width {
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
+}
+
+.ranking-auto-width th {
+  text-align: center;
 }
 
 .ranking-auto-width th,
@@ -1689,25 +1701,41 @@ tr.row-entered td strong {
   text-align: center;
 }
 
-.ranking-auto-width th:nth-child(2),
+/* 氏名・ふりがな列 */
 .ranking-auto-width td:nth-child(2) {
-  width: auto;
+  white-space: nowrap;
 }
 
-.ranking-auto-width th:nth-child(3),
-.ranking-auto-width td:nth-child(3) {
-  width: auto;
+/* PC横画面: ふりがな列を表示 */
+.ranking-auto-width .col-furigana {
+  display: none;
 }
 
+@media (min-width: 769px) and (orientation: landscape) {
+  .ranking-auto-width .col-furigana {
+    display: table-cell;
+    font-size: 12px;
+    color: #9ca3af;
+  }
+  .ranking-auto-width .furigana-inline {
+    display: none;
+  }
+}
+
+/* ポイント列 */
 .ranking-auto-width th:nth-child(4),
-.ranking-auto-width td:nth-child(4) {
+.ranking-auto-width td:nth-child(4),
+.ranking-auto-width th.col-points,
+.ranking-auto-width td.col-points {
   width: 50px;
   text-align: center;
 }
 
-.ranking-auto-width th:nth-child(5),
-.ranking-auto-width td:nth-child(5) {
+/* 操作列 */
+.ranking-auto-width th:last-child,
+.ranking-auto-width td:last-child {
   width: 80px;
+  padding-right: 8px;
 }
 
 /* --- 折りたたみセクション --- */
@@ -1766,9 +1794,92 @@ details[open] > .collapsible-toggle::before {
   white-space: normal;
 }
 
+/* マニュアルol/liの枠はみ出し防止 */
+.manual-content ol {
+  padding-left: 1.5em;
+  margin-left: 0;
+}
+
+.manual-content .card ol {
+  padding-left: 1.5em;
+}
+
+@media (max-width: 480px) {
+  .manual-content ol {
+    padding-left: 1.2em;
+  }
+  .manual-content .card {
+    padding: var(--space-3);
+  }
+}
+
 /* --- エントリーリスト操作ボタン横並び --- */
 .action-cell {
   white-space: nowrap;
+}
+
+/* --- 抽選・確定ステータスバー --- */
+.draw-status-bar {
+  background: #f0f7ff;
+  border: 1px solid #d0e3f5;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.draw-status-bar h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-text);
+}
+.draw-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.draw-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.draw-status-chip:hover {
+  transform: scale(1.05);
+}
+.draw-status-chip.status-lottery {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+.draw-status-chip.status-confirmed {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+.draw-status-chip .chip-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.1);
+  color: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+.draw-status-chip .chip-clear:hover {
+  background: rgba(0,0,0,0.25);
 }
 
 /* --- ふりがな1行収まり --- */

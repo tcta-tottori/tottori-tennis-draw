@@ -175,28 +175,102 @@ window.DrawEngine = {
       }
     }
 
-    // 2. 残りは上端・下端交互に配置（シード位置と既にBYEにした位置を除く）
-    let top = 0;
-    let bottom = drawSize - 1;
-    let fromBottom = true;
-    while (byePositions.length < byeCount) {
-      if (fromBottom) {
-        while (bottom >= 0 && (seedPositions.has(bottom) || isUsed.has(bottom))) bottom--;
-        if (bottom >= 0) {
-          byePositions.push(bottom);
-          isUsed.add(bottom);
-          bottom--;
+    // 2. 残りのBYEを4つの山に均等分散配置
+    const remainingByes = byeCount - byePositions.length;
+    if (remainingByes > 0) {
+      const halfSize = drawSize / 2;
+      const quarterSize = halfSize / 2;
+      // 4つの山: 左上(0~q-1), 左下(q~h-1), 右上(h~h+q-1), 右下(h+q~end)
+      const quarters = [
+        { start: 0, end: quarterSize },
+        { start: quarterSize, end: halfSize },
+        { start: halfSize, end: halfSize + quarterSize },
+        { start: halfSize + quarterSize, end: drawSize },
+      ];
+
+      // 各山の空き位置を収集
+      const quarterSlots = quarters.map(q => {
+        const slots = [];
+        for (let i = q.start; i < q.end; i++) {
+          if (!seedPositions.has(i) && !isUsed.has(i)) slots.push(i);
         }
-      } else {
-        while (top < drawSize && (seedPositions.has(top) || isUsed.has(top))) top++;
-        if (top < drawSize) {
-          byePositions.push(top);
-          isUsed.add(top);
-          top++;
+        return slots;
+      });
+
+      // 各山に既に配置済みのBYE数を計算
+      const quarterByeCount = quarters.map((q, qi) => {
+        let count = 0;
+        for (const pos of byePositions) {
+          if (pos >= q.start && pos < q.end) count++;
+        }
+        return count;
+      });
+
+      // 各山のシード優先度を決定（最小シード番号を持つ山が優先）
+      const quarterSeedPriority = quarters.map((q, qi) => {
+        let minSeed = 999;
+        for (const se of seedEntries) {
+          if (se.index >= q.start && se.index < q.end) {
+            minSeed = Math.min(minSeed, se.seed);
+          }
+        }
+        return minSeed;
+      });
+
+      // 均等配分: 残りのBYEを各山に分配
+      const totalByePerQuarter = quarters.map((_, qi) => quarterByeCount[qi]);
+      const baseBye = Math.floor(remainingByes / 4);
+      let extra = remainingByes % 4;
+
+      // 各山の追加BYE数を計算
+      const additionalByes = [0, 0, 0, 0];
+      for (let qi = 0; qi < 4; qi++) additionalByes[qi] = baseBye;
+
+      // 端数をシード優先度の高い山から割り当て
+      const sortedQuarters = [0, 1, 2, 3].sort((a, b) => quarterSeedPriority[a] - quarterSeedPriority[b]);
+      for (let i = 0; i < extra; i++) {
+        additionalByes[sortedQuarters[i]]++;
+      }
+
+      // 各山にBYEを配置（BYE同士が1回戦で対戦しないよう考慮）
+      for (let qi = 0; qi < 4; qi++) {
+        let count = additionalByes[qi];
+        const slots = quarterSlots[qi];
+        if (count <= 0 || slots.length === 0) continue;
+
+        // BYE同士の1回戦対戦を避ける: ペア(0,1),(2,3)...で片方ずつにBYEを配置
+        // 空きスロットをペア単位で管理
+        const pairSlots = [];
+        for (const s of slots) {
+          const pairStart = Math.floor(s / 2) * 2;
+          const opponent = s % 2 === 0 ? s + 1 : s - 1;
+          const opponentAlreadyBye = isUsed.has(opponent);
+          pairSlots.push({ pos: s, pairStart, opponentAlreadyBye });
+        }
+
+        // 対戦相手がまだBYEでないスロットを優先
+        pairSlots.sort((a, b) => {
+          if (a.opponentAlreadyBye !== b.opponentAlreadyBye) return a.opponentAlreadyBye ? 1 : -1;
+          return a.pos - b.pos;
+        });
+
+        // 端（上端・下端交互）から配置して分散
+        const fromTop = pairSlots.filter(s => !s.opponentAlreadyBye);
+        const fromBoth = fromTop.length > 0 ? fromTop : pairSlots;
+        let tIdx = 0, bIdx = fromBoth.length - 1;
+        let fromBottom = true;
+        let placed = 0;
+        const usedInRound = new Set();
+        while (placed < count && tIdx <= bIdx) {
+          const slot = fromBottom ? fromBoth[bIdx--] : fromBoth[tIdx++];
+          if (!isUsed.has(slot.pos)) {
+            byePositions.push(slot.pos);
+            isUsed.add(slot.pos);
+            placed++;
+          }
+          fromBottom = !fromBottom;
         }
       }
-      fromBottom = !fromBottom;
-      if (top >= drawSize && bottom < 0) break;
     }
 
     return byePositions.slice(0, byeCount);

@@ -119,9 +119,9 @@ window.DrawRenderer = {
     const rightDraw = draw.slice(halfSize);
 
     // 左の山（→右方向に進行）
-    this._drawHalf(svg, leftDraw, halfSize, halfRounds, bodyTop, 0, 'left');
+    this._drawHalf(svg, leftDraw, halfSize, halfRounds, bodyTop, 0, 'left', options);
     // 右の山（←左方向に進行、右端に選手名）
-    this._drawHalf(svg, rightDraw, halfSize, halfRounds, bodyTop, halfWidth + P.centerGap, 'right');
+    this._drawHalf(svg, rightDraw, halfSize, halfRounds, bodyTop, halfWidth + P.centerGap, 'right', options);
     // 決勝
     this._drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth);
     // シード情報
@@ -165,7 +165,7 @@ window.DrawRenderer = {
    * Excel参考: 各選手は1行、間に罫線行がある
    * スロット番号: 偶数=選手行(i*2)、奇数=間の行(i*2+1)
    */
-  _drawHalf(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction) {
+  _drawHalf(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction, options) {
     const P = this.PARAMS;
     const isLeft = direction === 'left';
 
@@ -227,14 +227,19 @@ window.DrawRenderer = {
       const hasSeed = entry.seed > 0;
 
       if (entry.isBye) {
-        const byeEl = this._text(svg, nameX, cy, 'BYE', {
-          fontSize: P.fontSize.bye, fill: P.colors.bye, fontStyle: 'italic',
-        });
-        byeEl.setAttribute('dominant-baseline', 'central');
-        const byeNum = this._text(svg, numX, cy, String(entry.position), {
-          fontSize: P.fontSize.drawNum, fill: P.colors.bye, textAnchor: 'middle',
-        });
-        byeNum.setAttribute('dominant-baseline', 'central');
+        // 確定済ドロー表ではBYEを非表示に
+        if (options && options.confirmed) {
+          // BYEは描画しない（線も省略）
+        } else {
+          const byeEl = this._text(svg, nameX, cy, 'BYE', {
+            fontSize: P.fontSize.bye, fill: P.colors.bye, fontStyle: 'italic',
+          });
+          byeEl.setAttribute('dominant-baseline', 'central');
+          const byeNum = this._text(svg, numX, cy, String(entry.position), {
+            fontSize: P.fontSize.drawNum, fill: P.colors.bye, textAnchor: 'middle',
+          });
+          byeNum.setAttribute('dominant-baseline', 'central');
+        }
       } else if (entry.isEmpty) {
         const emptyEl = this._text(svg, nameX, cy, '---', {
           fontSize: P.fontSize.playerName, fill: P.colors.emptySlot,
@@ -258,27 +263,35 @@ window.DrawRenderer = {
         if (isDoublesEntry) {
           const players = entry.name.split(' / ');
           const affiliations = (entry.affiliation || '').split(' / ');
+          // ダブルス: 2行表示のY座標計算（重ならないように調整）
+          const lineGap = Math.max(P.slotHeight * 0.45, 12);
+          const y1 = cy - lineGap / 2;
+          const y2 = cy + lineGap / 2;
           // 1行目
-          const el1 = this._text(svg, nameX, cy - 2, players[0] || '', {
+          const el1 = this._text(svg, nameX, y1, players[0] || '', {
             fontSize: P.fontSize.playerName - 1, fill: P.colors.text,
             fontWeight: 'bold',
           });
+          el1.setAttribute('dominant-baseline', 'central');
           el1.setAttribute('clip-path', 'url(#' + clipId + ')');
           // 所属1
-          const af1 = this._text(svg, affilX, cy - 2, affiliations[0] || '', {
+          const af1 = this._text(svg, affilX, y1, affiliations[0] || '', {
             fontSize: P.fontSize.affiliation, fill: P.colors.subText,
           });
+          af1.setAttribute('dominant-baseline', 'central');
           af1.setAttribute('clip-path', 'url(#' + clipId + ')');
           // 2行目
-          const el2 = this._text(svg, nameX, cy + P.slotHeight / 2 - 2, players[1] || '', {
+          const el2 = this._text(svg, nameX, y2, players[1] || '', {
             fontSize: P.fontSize.playerName - 1, fill: P.colors.text,
             fontWeight: 'bold',
           });
+          el2.setAttribute('dominant-baseline', 'central');
           el2.setAttribute('clip-path', 'url(#' + clipId + ')');
           // 所属2
-          const af2 = this._text(svg, affilX, cy + P.slotHeight / 2 - 2, affiliations[1] || affiliations[0] || '', {
+          const af2 = this._text(svg, affilX, y2, affiliations[1] || affiliations[0] || '', {
             fontSize: P.fontSize.affiliation, fill: P.colors.subText,
           });
+          af2.setAttribute('dominant-baseline', 'central');
           af2.setAttribute('clip-path', 'url(#' + clipId + ')');
         } else {
           const nameEl = this._text(svg, nameX, cy, entry.name, {
@@ -297,21 +310,42 @@ window.DrawRenderer = {
         }
       }
 
-      // 選手の下に区切り線
-      if (isLeft) {
-        const lineStartX = offsetX + P.drawNumWidth;
-        const lineEndX = offsetX + P.drawNumWidth + P.nameAreaWidth;
-        this._line(svg, lineStartX, cy + P.slotHeight / 2, lineEndX, cy + P.slotHeight / 2, '#ddd', 0.5);
-      } else {
-        const lineStartX = offsetX + rounds * P.roundWidth;
-        const lineEndX = lineStartX + P.drawNumWidth + P.nameAreaWidth;
-        this._line(svg, lineStartX, cy + P.slotHeight / 2, lineEndX, cy + P.slotHeight / 2, '#ddd', 0.5);
+      // 選手の下に区切り線（確定済みBYEの場合は省略）
+      const skipLine = entry.isBye && options && options.confirmed;
+      if (!skipLine) {
+        if (isLeft) {
+          const lineStartX = offsetX + P.drawNumWidth;
+          const lineEndX = offsetX + P.drawNumWidth + P.nameAreaWidth;
+          this._line(svg, lineStartX, cy + P.slotHeight / 2, lineEndX, cy + P.slotHeight / 2, '#ddd', 0.5);
+        } else {
+          const lineStartX = offsetX + rounds * P.roundWidth;
+          const lineEndX = lineStartX + P.drawNumWidth + P.nameAreaWidth;
+          this._line(svg, lineStartX, cy + P.slotHeight / 2, lineEndX, cy + P.slotHeight / 2, '#ddd', 0.5);
+        }
       }
     }
 
     // --- ブラケット罫線 ---
+    const isConfirmed = options && options.confirmed;
+
+    // 確定済みモード: 1回戦BYEペアの出力Yを記録（2回戦以降の線がBYE勝者に直結するように）
+    const byePassY = {}; // byePassY[blockStart] = 実際の出口Y（1回戦ペアごと）
+    if (isConfirmed) {
+      for (let i = 0; i < halfSize; i += 2) {
+        const topEntry = halfDraw[i];
+        const bottomEntry = halfDraw[i + 1];
+        const topIsBye = topEntry && topEntry.isBye;
+        const bottomIsBye = bottomEntry && bottomEntry.isBye;
+        if (topIsBye && !bottomIsBye) {
+          byePassY[i] = playerY(i + 1); // 下の選手のY
+        } else if (!topIsBye && bottomIsBye) {
+          byePassY[i] = playerY(i); // 上の選手のY
+        }
+      }
+    }
+
     for (let round = 0; round < rounds; round++) {
-      const pairSize = Math.pow(2, round + 1); // このラウンドで1ブロックの選手数
+      const pairSize = Math.pow(2, round + 1);
       const matchCount = halfSize / pairSize;
 
       for (let match = 0; match < matchCount; match++) {
@@ -322,10 +356,20 @@ window.DrawRenderer = {
           topY = playerY(blockStart);
           bottomY = playerY(blockStart + 1);
         } else {
-          // 前ラウンドの各ブロック中間
           const prevPairSize = pairSize / 2;
+          // 通常の中間Y計算
           topY = (playerY(blockStart) + playerY(blockStart + prevPairSize - 1)) / 2;
           bottomY = (playerY(blockStart + prevPairSize) + playerY(blockStart + pairSize - 1)) / 2;
+
+          // 確定済みモード: BYEパスの出力Yを反映
+          if (isConfirmed && round === 1) {
+            // 上半分のペア出口
+            const topPairStart = blockStart;
+            if (byePassY[topPairStart] !== undefined) topY = byePassY[topPairStart];
+            // 下半分のペア出口
+            const bottomPairStart = blockStart + prevPairSize;
+            if (byePassY[bottomPairStart] !== undefined) bottomY = byePassY[bottomPairStart];
+          }
         }
 
         let lineX, nextX;
@@ -335,6 +379,23 @@ window.DrawRenderer = {
         } else {
           lineX = offsetX + (rounds - 1 - round) * P.roundWidth + P.roundWidth;
           nextX = lineX - P.roundWidth;
+        }
+
+        // 確定済みで1回戦のBYEペアの場合
+        if (isConfirmed && round === 0) {
+          const topEntry = halfDraw[blockStart];
+          const bottomEntry = halfDraw[blockStart + 1];
+          const topIsBye = topEntry && topEntry.isBye;
+          const bottomIsBye = bottomEntry && bottomEntry.isBye;
+
+          if (topIsBye && bottomIsBye) {
+            continue;
+          } else if (topIsBye || bottomIsBye) {
+            // BYEペア: 非BYE選手から横線のみ（縦線なし、次ラウンドへ直結）
+            const passY = topIsBye ? bottomY : topY;
+            this._line(svg, lineX, passY, isLeft ? nextX : nextX, passY, P.colors.line);
+            continue;
+          }
         }
 
         // 横線（上・下）
@@ -382,11 +443,13 @@ window.DrawRenderer = {
       }
       return s.seed + '.' + displayName;
     };
+    // シード間の区切りを全角スペースに
+    const seedSep = '\u3000';
     if (seeds.length > 8) {
       // 2行表示: 前半と後半に分割
       const half = Math.ceil(seeds.length / 2);
-      const line1 = 'シード  ' + seeds.slice(0, half).map(formatSeed).join('   ');
-      const line2 = seeds.slice(half).map(formatSeed).join('   ');
+      const line1 = 'シード  ' + seeds.slice(0, half).map(formatSeed).join(seedSep);
+      const line2 = seeds.slice(half).map(formatSeed).join(seedSep);
       this._text(svg, totalWidth / 2, y, line1, {
         fontSize: P.fontSize.seed, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'middle',
       });
@@ -394,7 +457,7 @@ window.DrawRenderer = {
         fontSize: P.fontSize.seed, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'middle',
       });
     } else {
-      const seedText = 'シード  ' + seeds.map(formatSeed).join('   ');
+      const seedText = 'シード  ' + seeds.map(formatSeed).join(seedSep);
       this._text(svg, totalWidth / 2, y, seedText, {
         fontSize: P.fontSize.seed, fontWeight: 'bold', fill: P.colors.text, textAnchor: 'middle',
       });

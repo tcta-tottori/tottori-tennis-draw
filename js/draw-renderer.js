@@ -301,14 +301,17 @@ window.DrawRenderer = {
 
       if (item.type === 'match') {
         // 通常対戦: 2人描画
+        const topIsDbl = item.top.name && item.top.name.includes(' / ');
+        const btmIsDbl = item.bottom.name && item.bottom.name.includes(' / ');
         this._drawPlayerEntry(svg, item.top, iy.topY, nameX, numX, posCounter++, clipId, affiliationX_offset);
-        this._drawSeparatorLine(svg, iy.topY, offsetX, rounds, isLeft);
+        this._drawSeparatorLine(svg, iy.topY, offsetX, rounds, isLeft, topIsDbl);
         this._drawPlayerEntry(svg, item.bottom, iy.bottomY, nameX, numX, posCounter++, clipId, affiliationX_offset);
-        this._drawSeparatorLine(svg, iy.bottomY, offsetX, rounds, isLeft);
+        this._drawSeparatorLine(svg, iy.bottomY, offsetX, rounds, isLeft, btmIsDbl);
       } else if (item.type === 'bye-pass') {
         // BYE不戦勝: 1人だけ描画
+        const entryIsDbl = item.entry.name && item.entry.name.includes(' / ');
         this._drawPlayerEntry(svg, item.entry, iy.midY, nameX, numX, posCounter++, clipId, affiliationX_offset);
-        this._drawSeparatorLine(svg, iy.midY, offsetX, rounds, isLeft);
+        this._drawSeparatorLine(svg, iy.midY, offsetX, rounds, isLeft, entryIsDbl);
       }
     }
 
@@ -452,9 +455,9 @@ window.DrawRenderer = {
   /**
    * 選手名の下の区切り線
    */
-  _drawSeparatorLine(svg, cy, offsetX, rounds, isLeft) {
+  _drawSeparatorLine(svg, cy, offsetX, rounds, isLeft, isDoubles) {
     const P = this.PARAMS;
-    const lineY = cy + P.slotHeight / 2;
+    const lineY = cy + P.slotHeight / 2 + (isDoubles ? 3 : 0);
     if (isLeft) {
       const x1 = offsetX + P.drawNumWidth;
       const x2 = offsetX + P.drawNumWidth + P.nameAreaWidth;
@@ -512,7 +515,8 @@ window.DrawRenderer = {
 
       // 区切り線
       if (!entry.isBye || !isConfirmed) {
-        this._drawSeparatorLine(svg, cy, offsetX, rounds, isLeft);
+        const entIsDbl = entry.name && entry.name.includes(' / ');
+        this._drawSeparatorLine(svg, cy, offsetX, rounds, isLeft, entIsDbl);
       }
     }
   },

@@ -729,7 +729,6 @@ window.App = {
 
       const furiganaInlineHtml = furigana ? '<span class="furigana-inline" style="display:block;font-size:8px;color:#374151;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + this._esc(furigana) + '</span>' : '';
       tr.innerHTML =
-        '<td class="text-center">' + (p.rank === '-' ? '<span style="color:#9ca3af;">-</span>' : p.rank) + '</td>' +
         '<td style="min-width:100px;">' + furiganaInlineHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
         '<td class="col-furigana">' + this._esc(furigana) + '</td>' +
         '<td style="white-space:nowrap;">' + this._esc(p.affiliation || '') + '</td>' +
@@ -823,7 +822,7 @@ window.App = {
 
       // 黄色ハイライト後に上下から潰れて消える
       tr.style.transition = 'background-color 0.3s';
-      tr.style.backgroundColor = '#fff3b0';
+      tr.style.backgroundColor = '#ffe066';
       btn.textContent = '登録済';
       btn.disabled = true;
       btn.style.opacity = '0.6';
@@ -1567,10 +1566,10 @@ window.App = {
     const isFemaleEvent = targetCode && targetCode.startsWith('l');
     if (thead) {
       if (isDoubles) {
-        thead.innerHTML = '<tr><th>P</th><th>氏名</th><th>所属</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
+        thead.innerHTML = '<tr><th>氏名</th><th>所属</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
         if (entryTable) entryTable.classList.add('entry-doubles');
       } else {
-        thead.innerHTML = '<tr><th>No.</th><th>氏名</th><th>所属</th><th>ポイント</th><th>操作</th></tr>';
+        thead.innerHTML = '<tr><th>氏名</th><th>所属</th><th>ポイント</th><th>操作</th></tr>';
         if (entryTable) entryTable.classList.remove('entry-doubles');
       }
       // 男女別ヘッダー色
@@ -1640,7 +1639,6 @@ window.App = {
         const entryFuriganaHtml = entry.furigana ? '<span class="furigana-fit">' + this._esc(entry.furigana) + '</span>' : '';
 
         tr.innerHTML =
-          '<td>' + (idx + 1) + '</td>' +
           '<td>' + entryFuriganaHtml + this._esc(entry.name) + '</td>' +
           '<td>' + this._esc(entry.affiliation || '') + '</td>' +
           '<td>' + (entry.points || 0) + '</td>' +
@@ -1743,17 +1741,13 @@ window.App = {
           tr.style.outline = '2px solid #1976d2';
         }
 
-        // ペア番号・合計ptは最初の行にのみ表示
-        const pairLabel = entryIdx === 0
-          ? '<span style="font-weight:bold;color:#1a56db;">P' + (pairIdx + 1) + '</span>'
-          : '';
+        // 合計ptは最初の行にのみ表示
         const combinedPtsLabel = entryIdx === 0
           ? '<span style="font-weight:bold;color:#1a56db;">' + pair.points + '</span>'
           : '';
 
         const dblFuriganaHtml = entry.furigana ? '<span class="furigana-fit">' + this._esc(entry.furigana) + '</span>' : '';
         tr.innerHTML =
-          '<td class="text-center">' + pairLabel + '</td>' +
           '<td class="doubles-swap-cell" style="cursor:pointer;">' + dblFuriganaHtml + this._esc(entry.name) + '</td>' +
           '<td>' + this._esc(entry.affiliation || '') + '</td>' +
           '<td>' + (entry.points || 0) + '</td>' +
@@ -1809,7 +1803,7 @@ window.App = {
       // ペア間の区切り線
       if (pairIdx < pairs.length - 1) {
         const separatorTr = document.createElement('tr');
-        separatorTr.innerHTML = '<td colspan="6" style="padding:0;height:2px;background:#cbd5e1;"></td>';
+        separatorTr.innerHTML = '<td colspan="5" style="padding:0;height:2px;background:#cbd5e1;"></td>';
         tbody.appendChild(separatorTr);
       }
     });

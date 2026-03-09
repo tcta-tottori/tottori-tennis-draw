@@ -396,25 +396,25 @@ body {
 }
 .row-fade-out td {
   transition: padding-top 0.45s ease-in-out, padding-bottom 0.45s ease-in-out,
-              border-color 0.3s ease-in-out, opacity 0.3s ease-in-out;
+              border-color 0.3s ease-in-out, line-height 0.45s ease-in-out,
+              font-size 0.45s ease-in-out;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   border-color: transparent !important;
-  opacity: 0;
+  line-height: 0;
+  font-size: 0;
 }
 .row-fade-out td > * {
-  transition: max-height 0.45s ease-in-out, opacity 0.25s ease-in-out, margin 0.45s ease-in-out;
+  transition: max-height 0.45s ease-in-out, margin 0.45s ease-in-out,
+              line-height 0.45s ease-in-out, font-size 0.45s ease-in-out;
   max-height: 0 !important;
-  opacity: 0;
   overflow: hidden;
   margin: 0 !important;
+  line-height: 0;
+  font-size: 0;
 }
 .row-fade-out td .furigana-inline {
   max-height: 0 !important;
-  opacity: 0;
-}
-/* line-height collapse */
-.row-fade-out td {
   line-height: 0;
   font-size: 0;
 }
@@ -1595,7 +1595,7 @@ tr.row-entered td strong {
     font-size: 12px;
   }
 
-  /* エントリーテーブル: モバイル時の列幅調整 */
+  /* エントリーテーブル: モバイル時の列幅調整 (4列: 氏名/所属/ポイント/操作) */
   #entry-table th,
   #entry-table td {
     padding: 6px 4px;
@@ -1603,15 +1603,11 @@ tr.row-entered td strong {
   }
   #entry-table th:nth-child(1),
   #entry-table td:nth-child(1) {
-    width: 6%;
+    width: 28%;
   }
   #entry-table th:nth-child(2),
   #entry-table td:nth-child(2) {
-    width: 24%;
-  }
-  #entry-table th:nth-child(3),
-  #entry-table td:nth-child(3) {
-    width: 20%;
+    width: 22%;
   }
   #entry-table .btn-sm {
     padding: 2px 6px;
@@ -1721,17 +1717,15 @@ tr.row-entered td strong {
     min-height: 28px;
   }
 
-  /* ランキングテーブル: スマホ時の列幅 */
+  /* ランキングテーブル: スマホ時の列幅 (4列: 氏名/所属/ポイント/操作) */
   .ranking-auto-width th:nth-child(1),
-  .ranking-auto-width td:nth-child(1) { width: 6%; }
+  .ranking-auto-width td:nth-child(1) { width: 30%; }
   .ranking-auto-width th:nth-child(2),
-  .ranking-auto-width td:nth-child(2) { width: 28%; }
-  .ranking-auto-width th:nth-child(3),
-  .ranking-auto-width td:nth-child(3) { width: 22%; }
+  .ranking-auto-width td:nth-child(2) { width: 22%; }
   .ranking-auto-width th.col-points,
-  .ranking-auto-width td.col-points { width: 14%; }
+  .ranking-auto-width td.col-points { width: 16%; }
   .ranking-auto-width th:last-child,
-  .ranking-auto-width td:last-child { width: 30%; padding-right: 2px; }
+  .ranking-auto-width td:last-child { width: 32%; padding-right: 2px; }
 
   .ranking-auto-width th,
   .ranking-auto-width td {
@@ -1805,24 +1799,17 @@ tr.row-entered td strong {
   text-overflow: ellipsis;
 }
 
-/* 順位列 */
+/* 氏名列 */
 .ranking-auto-width th:nth-child(1),
 .ranking-auto-width td:nth-child(1) {
-  width: 6%;
-  text-align: center;
-}
-
-/* 氏名列 */
-.ranking-auto-width th:nth-child(2),
-.ranking-auto-width td:nth-child(2) {
-  width: 30%;
+  width: 34%;
   white-space: nowrap;
 }
 
 /* 所属列 */
-.ranking-auto-width th:nth-child(3),
-.ranking-auto-width td:nth-child(3) {
-  width: 24%;
+.ranking-auto-width th:nth-child(2),
+.ranking-auto-width td:nth-child(2) {
+  width: 26%;
 }
 
 /* PC横画面: ふりがな列を表示 */
@@ -1831,20 +1818,18 @@ tr.row-entered td strong {
 }
 
 @media (min-width: 769px) and (orientation: landscape) {
-  /* 6列モード: 順位/氏名/ふりがな/所属/ポイント/操作 */
+  /* 5列モード: 氏名/ふりがな/所属/ポイント/操作 */
   .ranking-auto-width th:nth-child(1),
-  .ranking-auto-width td:nth-child(1) { width: 7%; }
-  .ranking-auto-width th:nth-child(2),
-  .ranking-auto-width td:nth-child(2) { width: 22%; }
+  .ranking-auto-width td:nth-child(1) { width: 25%; }
   .ranking-auto-width .col-furigana {
     display: table-cell;
     font-size: 12px;
     color: #6b7280;
-    width: 22%;
+    width: 25%;
   }
-  /* 所属（4列目）*/
-  .ranking-auto-width th:nth-child(4),
-  .ranking-auto-width td:nth-child(4) { width: 22%; }
+  /* 所属（3列目）*/
+  .ranking-auto-width th:nth-child(3),
+  .ranking-auto-width td:nth-child(3) { width: 22%; }
   .ranking-auto-width .furigana-inline {
     display: none;
   }
@@ -1887,31 +1872,26 @@ tr.row-entered td strong {
   white-space: nowrap;
 }
 
-/* シングルス: 5列 (No./氏名/所属/ポイント/操作) */
+/* シングルス: 4列 (氏名/所属/ポイント/操作) */
 #entry-table th:nth-child(1),
 #entry-table td:nth-child(1) {
-  width: 6%;
-  text-align: center;
+  width: 30%;
 }
-#entry-table th:nth-child(2),
-#entry-table td:nth-child(2) {
-  width: 26%;
-}
-#entry-table td:nth-child(2) {
+#entry-table td:nth-child(1) {
   white-space: normal;
   word-break: break-all;
 }
-#entry-table th:nth-child(3),
-#entry-table td:nth-child(3) {
-  width: 22%;
+#entry-table th:nth-child(2),
+#entry-table td:nth-child(2) {
+  width: 24%;
 }
-#entry-table td:nth-child(3) {
+#entry-table td:nth-child(2) {
   white-space: normal;
   word-break: break-all;
 }
 /* ポイント列 */
-#entry-table th:nth-child(4),
-#entry-table td:nth-child(4) {
+#entry-table th:nth-child(3),
+#entry-table td:nth-child(3) {
   width: 12%;
   text-align: center;
 }
@@ -1928,19 +1908,19 @@ tr.row-entered td strong {
   overflow: visible;
 }
 
-/* ダブルス: 6列 (P/氏名/所属/個人pt/合計pt/操作) */
+/* ダブルス: 5列 (氏名/所属/個人pt/合計pt/操作) */
 #entry-table.entry-doubles th:nth-child(1),
 #entry-table.entry-doubles td:nth-child(1) {
-  width: 5%;
-  text-align: center;
+  width: 28%;
 }
 #entry-table.entry-doubles th:nth-child(2),
 #entry-table.entry-doubles td:nth-child(2) {
-  width: 24%;
+  width: 20%;
 }
 #entry-table.entry-doubles th:nth-child(3),
 #entry-table.entry-doubles td:nth-child(3) {
-  width: 18%;
+  width: 10%;
+  text-align: center;
 }
 #entry-table.entry-doubles th:nth-child(4),
 #entry-table.entry-doubles td:nth-child(4) {
@@ -1949,11 +1929,6 @@ tr.row-entered td strong {
 }
 #entry-table.entry-doubles th:nth-child(5),
 #entry-table.entry-doubles td:nth-child(5) {
-  width: 10%;
-  text-align: center;
-}
-#entry-table.entry-doubles th:nth-child(6),
-#entry-table.entry-doubles td:nth-child(6) {
   width: 33%;
   text-align: center;
 }

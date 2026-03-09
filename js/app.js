@@ -125,8 +125,11 @@ window.App = {
     // バックアップがない場合はスプレッドシートから読み込み
     this._showLoadingOverlay('選手データを読込中...');
     try {
-      await this._loadRankingFromGS();
-      await this._loadFuriganaFromGS();
+      this._updateLoadingProgress(5, 'ランキングデータを取得中...');
+      await this._loadRankingFromGS(true);
+      this._updateLoadingProgress(70, 'ふりがなデータを取得中...');
+      await this._loadFuriganaFromGS(true);
+      this._updateLoadingProgress(95, 'データ整理中...');
     } finally {
       this._hideLoadingOverlay();
     }
@@ -279,7 +282,7 @@ window.App = {
     }
   },
 
-  async _loadRankingFromGS() {
+  async _loadRankingFromGS(useGlobalOverlay) {
     const urlInput = document.getElementById('gs-ranking-url');
     const statusEl = document.getElementById('gs-ranking-status');
     const btnEl = document.getElementById('btn-gs-ranking');
@@ -287,14 +290,20 @@ window.App = {
     const progressBar = document.getElementById('gs-ranking-progress-bar');
     const progressText = document.getElementById('gs-ranking-progress-text');
     if (!urlInput || !urlInput.value.trim()) {
-      this.showMessage('スプレッドシートのURLまたはIDを入力してください', 'error');
+      if (!useGlobalOverlay) this.showMessage('スプレッドシートのURLまたはIDを入力してください', 'error');
       return;
     }
 
     try { localStorage.setItem('drawSystem_gsRankingUrl', urlInput.value.trim()); } catch (e) {}
     this._updateGSLinkButtons();
 
-    // プログレスバー表示
+    // 個別ボタンからの呼び出し時はオーバーレイ表示
+    if (!useGlobalOverlay) {
+      this._showLoadingOverlay('ランキングデータを読込中...');
+      this._updateLoadingProgress(10, 'ランキングデータを取得中...');
+    }
+
+    // セクション内プログレスバー表示
     if (progressEl) progressEl.style.display = '';
     if (progressBar) progressBar.style.width = '20%';
     if (progressText) progressText.textContent = 'ランキングデータ読込中...';
@@ -303,15 +312,19 @@ window.App = {
 
     try {
       if (progressBar) progressBar.style.width = '50%';
+      if (useGlobalOverlay) this._updateLoadingProgress(20, 'ランキングデータを取得中...');
+      else this._updateLoadingProgress(40, 'ランキングデータを取得中...');
       const status = await RankingLoader.loadRankingFromSpreadsheet(urlInput.value.trim());
       if (progressBar) progressBar.style.width = '100%';
+      if (useGlobalOverlay) this._updateLoadingProgress(60, 'ランキングデータ読込完了');
+      else this._updateLoadingProgress(90, 'ランキングデータ読込完了');
       this._updateRankingStatus(status);
       const now = new Date().toLocaleString('ja-JP');
       if (statusEl) {
         statusEl.style.display = '';
         statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + status.total + '名 (' + now + ')</span>';
       }
-      this.showMessage('ランキングデータを読み込みました (' + status.total + '名)', 'success');
+      if (!useGlobalOverlay) this.showMessage('ランキングデータを読み込みました (' + status.total + '名)', 'success');
     } catch (err) {
       console.error(err);
       if (statusEl) {
@@ -322,10 +335,11 @@ window.App = {
     } finally {
       if (btnEl) btnEl.disabled = false;
       setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 500);
+      if (!useGlobalOverlay) this._hideLoadingOverlay();
     }
   },
 
-  async _loadFuriganaFromGS() {
+  async _loadFuriganaFromGS(useGlobalOverlay) {
     const urlInput = document.getElementById('gs-furigana-url');
     const statusEl = document.getElementById('gs-furigana-status');
     const btnEl = document.getElementById('btn-gs-furigana');
@@ -333,12 +347,17 @@ window.App = {
     const progressBar = document.getElementById('gs-furigana-progress-bar');
     const progressText = document.getElementById('gs-furigana-progress-text');
     if (!urlInput || !urlInput.value.trim()) {
-      this.showMessage('スプレッドシートのURLまたはIDを入力してください', 'error');
+      if (!useGlobalOverlay) this.showMessage('スプレッドシートのURLまたはIDを入力してください', 'error');
       return;
     }
 
     try { localStorage.setItem('drawSystem_gsFuriganaUrl', urlInput.value.trim()); } catch (e) {}
     this._updateGSLinkButtons();
+
+    if (!useGlobalOverlay) {
+      this._showLoadingOverlay('ふりがなデータを読込中...');
+      this._updateLoadingProgress(10, 'ふりがなデータを取得中...');
+    }
 
     if (progressEl) progressEl.style.display = '';
     if (progressBar) progressBar.style.width = '20%';
@@ -348,15 +367,19 @@ window.App = {
 
     try {
       if (progressBar) progressBar.style.width = '50%';
+      if (useGlobalOverlay) this._updateLoadingProgress(80, 'ふりがなデータを取得中...');
+      else this._updateLoadingProgress(50, 'ふりがなデータを取得中...');
       await RankingLoader.loadFuriganaFromSpreadsheet(urlInput.value.trim());
       if (progressBar) progressBar.style.width = '100%';
+      if (useGlobalOverlay) this._updateLoadingProgress(95, 'ふりがなデータ読込完了');
+      else this._updateLoadingProgress(90, 'ふりがなデータ読込完了');
       const count = Object.keys(RankingLoader.furiganaMap).length;
       const now = new Date().toLocaleString('ja-JP');
       if (statusEl) {
         statusEl.style.display = '';
         statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + count + '件 (' + now + ')</span>';
       }
-      this.showMessage('ふりがなデータを読み込みました (' + count + '件)', 'success');
+      if (!useGlobalOverlay) this.showMessage('ふりがなデータを読み込みました (' + count + '件)', 'success');
     } catch (err) {
       console.error(err);
       if (statusEl) {
@@ -367,6 +390,7 @@ window.App = {
     } finally {
       if (btnEl) btnEl.disabled = false;
       setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 500);
+      if (!useGlobalOverlay) this._hideLoadingOverlay();
     }
   },
 
@@ -400,19 +424,29 @@ window.App = {
   },
 
   async _loadRankingFile(file) {
+    this._showLoadingOverlay('ランキングデータを読込中...');
+    this._updateLoadingProgress(10, 'ファイルを解析中...');
     try {
+      this._updateLoadingProgress(30, 'ランキングデータを読込中...');
       const status = await RankingLoader.loadRankingFile(file);
+      this._updateLoadingProgress(90, 'データ整理中...');
       this._updateRankingStatus(status);
       this.showMessage('ランキングデータを読み込みました', 'success');
     } catch (err) {
       console.error(err);
       this.showMessage('ランキングデータの読み込みに失敗しました: ' + err.message, 'error');
+    } finally {
+      this._hideLoadingOverlay();
     }
   },
 
   async _loadFuriganaFile(file) {
+    this._showLoadingOverlay('ふりがなデータを読込中...');
+    this._updateLoadingProgress(10, 'ファイルを解析中...');
     try {
+      this._updateLoadingProgress(30, 'ふりがなデータを読込中...');
       await RankingLoader.loadFuriganaFile(file);
+      this._updateLoadingProgress(90, 'データ整理中...');
       const statusEl = document.getElementById('status-furigana');
       if (statusEl) {
         const count = Object.keys(RankingLoader.furiganaMap).length;
@@ -424,6 +458,8 @@ window.App = {
     } catch (err) {
       console.error(err);
       this.showMessage('ふりがなデータの読み込みに失敗しました: ' + err.message, 'error');
+    } finally {
+      this._hideLoadingOverlay();
     }
   },
 
@@ -691,7 +727,7 @@ window.App = {
       const isEntered = p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false;
       if (isEntered) tr.classList.add('row-entered');
 
-      const furiganaInlineHtml = furigana ? '<span class="furigana-inline" style="display:block;font-size:8px;color:#9ca3af;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + this._esc(furigana) + '</span>' : '';
+      const furiganaInlineHtml = furigana ? '<span class="furigana-inline" style="display:block;font-size:8px;color:#374151;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + this._esc(furigana) + '</span>' : '';
       tr.innerHTML =
         '<td class="text-center">' + (p.rank === '-' ? '<span style="color:#9ca3af;">-</span>' : p.rank) + '</td>' +
         '<td style="min-width:100px;">' + furiganaInlineHtml + '<strong style="white-space:nowrap;">' + this._esc(p.name) + '</strong></td>' +
@@ -3903,26 +3939,48 @@ window.App = {
         '<div class="loading-card">' +
         '<div class="loading-spinner"></div>' +
         '<div class="loading-text">' + (message || 'データ読込中...') + '</div>' +
+        '<div class="loading-progress-bar-container">' +
+        '<div class="loading-progress-bar" id="loading-progress-bar"></div>' +
+        '</div>' +
+        '<div class="loading-percent" id="loading-percent">0%</div>' +
         '<div class="loading-sub">しばらくお待ちください</div>' +
         '</div>';
       document.body.appendChild(overlay);
     } else {
       overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
       const textEl = overlay.querySelector('.loading-text');
       if (textEl) textEl.textContent = message || 'データ読込中...';
+      const bar = overlay.querySelector('#loading-progress-bar');
+      if (bar) bar.style.width = '0%';
+      const pct = overlay.querySelector('#loading-percent');
+      if (pct) pct.textContent = '0%';
     }
+  },
+
+  _updateLoadingProgress(percent, message) {
+    const bar = document.getElementById('loading-progress-bar');
+    const pct = document.getElementById('loading-percent');
+    const textEl = document.querySelector('#data-loading-overlay .loading-text');
+    if (bar) bar.style.width = percent + '%';
+    if (pct) pct.textContent = Math.round(percent) + '%';
+    if (message && textEl) textEl.textContent = message;
   },
 
   _hideLoadingOverlay() {
     this._isDataLoading = false;
-    const overlay = document.getElementById('data-loading-overlay');
-    if (overlay) {
-      overlay.style.opacity = '0';
-      overlay.style.transition = 'opacity 0.3s';
-      setTimeout(() => {
-        if (overlay.parentNode) overlay.remove();
-      }, 300);
-    }
+    // 100%にしてから閉じる
+    this._updateLoadingProgress(100);
+    setTimeout(() => {
+      const overlay = document.getElementById('data-loading-overlay');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.4s';
+        setTimeout(() => {
+          if (overlay.parentNode) overlay.remove();
+        }, 400);
+      }
+    }, 300);
   },
 
   /**

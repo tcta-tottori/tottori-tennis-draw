@@ -1568,6 +1568,13 @@ tr.row-entered td strong {
     top: 94px;
   }
 
+  /* ランキングテーブル: タブレット時の列幅調整 */
+  .ranking-auto-width th,
+  .ranking-auto-width td {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+
   /* エントリーテーブル: モバイル時の列幅調整 */
   #entry-table th,
   #entry-table td {
@@ -1694,6 +1701,24 @@ tr.row-entered td strong {
     min-height: 28px;
   }
 
+  /* ランキングテーブル: スマホ時の列幅 */
+  .ranking-auto-width th:nth-child(1),
+  .ranking-auto-width td:nth-child(1) { width: 6%; }
+  .ranking-auto-width th:nth-child(2),
+  .ranking-auto-width td:nth-child(2) { width: 28%; }
+  .ranking-auto-width th:nth-child(3),
+  .ranking-auto-width td:nth-child(3) { width: 22%; }
+  .ranking-auto-width th.col-points,
+  .ranking-auto-width td.col-points { width: 14%; }
+  .ranking-auto-width th:last-child,
+  .ranking-auto-width td:last-child { width: 30%; padding-right: 2px; }
+
+  .ranking-auto-width th,
+  .ranking-auto-width td {
+    padding: 6px 3px;
+    font-size: 11px;
+  }
+
   .entered-badge {
     font-size: 10px;
     padding: 2px 8px;
@@ -1763,21 +1788,21 @@ tr.row-entered td strong {
 /* 順位列 */
 .ranking-auto-width th:nth-child(1),
 .ranking-auto-width td:nth-child(1) {
-  width: 8%;
+  width: 6%;
   text-align: center;
 }
 
 /* 氏名列 */
 .ranking-auto-width th:nth-child(2),
 .ranking-auto-width td:nth-child(2) {
-  width: auto;
+  width: 30%;
   white-space: nowrap;
 }
 
 /* 所属列 */
 .ranking-auto-width th:nth-child(3),
 .ranking-auto-width td:nth-child(3) {
-  width: auto;
+  width: 24%;
 }
 
 /* PC横画面: ふりがな列を表示 */
@@ -1808,15 +1833,15 @@ tr.row-entered td strong {
 /* ポイント列 */
 .ranking-auto-width th.col-points,
 .ranking-auto-width td.col-points {
-  width: 10%;
+  width: 14%;
   text-align: center;
 }
 
 /* 操作列 */
 .ranking-auto-width th:last-child,
 .ranking-auto-width td:last-child {
-  width: 12%;
-  padding-right: 8px;
+  width: 26%;
+  padding-right: 4px;
 }
 
 /* --- 大会一覧テーブル nowrap --- */
@@ -2252,6 +2277,27 @@ details[open] > .collapsible-toggle::before {
   font-weight: 600;
   color: var(--color-text);
 }
+.loading-progress-bar-container {
+  width: 220px;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  margin: 16px auto 8px;
+  overflow: hidden;
+}
+.loading-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--color-primary), #60a5fa);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.loading-percent {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
 .loading-overlay .loading-sub {
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -2262,7 +2308,7 @@ details[open] > .collapsible-toggle::before {
 .furigana-fit {
   display: block;
   font-size: 10px;
-  color: #4b5563;
+  color: var(--color-text);
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;

@@ -2792,16 +2792,17 @@ window.App = {
         this._unplacedPlayers.forEach((p, idx) => {
           const chip = document.createElement('button');
           chip.className = 'unplaced-chip' + (this._selectedPlayer === idx ? ' selected' : '');
-          // ダブルスは苗字のみ・所属3文字
           let chipLabel = p.name;
+          let chipAff = '';
           if (drawIsDoubles && chipLabel && chipLabel.includes(' / ')) {
             chipLabel = chipLabel.split(' / ').map(n => n.split(/[\s\u3000]+/)[0]).join('/');
+            // ダブルスは2人の所属を表示
+            const affs = (p.affiliation || '').split(' / ');
+            chipAff = ' ' + affs.map(a => (a || '').substring(0, 3)).join('/');
+          } else {
+            chipAff = p.affiliation ? ' ' + p.affiliation : '';
           }
-          let chipAff = '';
-          if (drawIsDoubles && p.affiliation) {
-            chipAff = ' ' + p.affiliation.substring(0, 3);
-          }
-          chip.textContent = chipLabel + chipAff + (p.points ? ' (' + p.points + 'pt)' : '');
+          chip.textContent = chipLabel + chipAff;
           chip.addEventListener('click', () => {
             this._selectedPlayer = (this._selectedPlayer === idx) ? null : idx;
             this._renderManualPlacement();
@@ -3330,16 +3331,15 @@ window.App = {
 
       popup.innerHTML =
         '<div class="roulette-title">' + group.label + ' の位置抽選</div>' +
-        '<div class="roulette-number-display" id="roulette-number">--</div>' +
+        '<div class="roulette-number-display"><span class="roulette-no-label">No.</span><span id="roulette-number">--</span></div>' +
         '<div class="roulette-hint">タップまたはEnterで確定</div>';
 
       const numDisplay = document.getElementById('roulette-number');
       let idx = 0;
 
-      // アニメーション: 最初は速く、だんだん遅くはしない（手動停止なので一定速度）
       rouletteTimer = setInterval(() => {
         idx = (idx + 1) % group.positions.length;
-        if (numDisplay) numDisplay.textContent = 'No.' + group.positions[idx];
+        if (numDisplay) numDisplay.textContent = group.positions[idx];
       }, 70);
 
       const stopRoulette = () => {
@@ -3367,7 +3367,7 @@ window.App = {
 
         if (numDisplay) {
           numDisplay.classList.add('decided');
-          numDisplay.textContent = result.map(p => 'No.' + p).join(' / ');
+          numDisplay.textContent = result.map(p => p).join(' / ');
         }
         popup.innerHTML = html;
 
@@ -3377,10 +3377,8 @@ window.App = {
         } else {
           setTimeout(() => {
             popup.innerHTML =
-              '<div class="roulette-complete">抽選完了！</div>' +
-              '<p style="font-size:13px;color:#666;margin-top:8px;">「シード位置を確定して配置」を押してください</p>' +
-              '<button class="roulette-close-btn" id="roulette-close">閉じる</button>';
-            document.getElementById('roulette-close').addEventListener('click', () => this._closeRoulettePopup(overlay));
+              '<div class="roulette-complete">配置完了</div>';
+            setTimeout(() => this._closeRoulettePopup(overlay), 1000);
           }, 1800);
         }
       };
@@ -3419,13 +3417,13 @@ window.App = {
     popup.innerHTML =
       '<div class="roulette-title">配置位置の抽選</div>' +
       '<div class="roulette-player-name">' + this._esc(player.name) + '</div>' +
-      '<div class="roulette-number-display" id="individual-roulette-num">--</div>' +
+      '<div class="roulette-number-display"><span class="roulette-no-label">No.</span><span id="individual-roulette-num">--</span></div>' +
       '<div class="roulette-hint">タップまたはEnterで確定</div>';
 
     const numDisplay = document.getElementById('individual-roulette-num');
     let timer = setInterval(() => {
       const randSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
-      if (numDisplay) numDisplay.textContent = 'No.' + (randSlot + 1);
+      if (numDisplay) numDisplay.textContent = (randSlot + 1);
     }, 70);
 
     const stop = () => {
@@ -3435,7 +3433,7 @@ window.App = {
 
       const targetSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
       if (numDisplay) {
-        numDisplay.textContent = 'No.' + (targetSlot + 1);
+        numDisplay.textContent = (targetSlot + 1);
         numDisplay.classList.add('decided');
       }
 
@@ -3446,14 +3444,13 @@ window.App = {
 
       setTimeout(() => {
         popup.innerHTML =
-          '<div class="roulette-title">配置完了</div>' +
+          '<div class="roulette-complete">配置完了</div>' +
           '<div class="roulette-player-name">' + this._esc(player.name) + '</div>' +
-          '<div class="roulette-result-row"><span class="position-label" style="font-size:24px;">No.' + (targetSlot + 1) + ' に配置</span></div>' +
-          '<button class="roulette-close-btn" id="roulette-close">閉じる</button>';
-        document.getElementById('roulette-close').addEventListener('click', () => {
+          '<div class="roulette-result-row"><span class="position-label" style="font-size:24px;">No.' + (targetSlot + 1) + '</span></div>';
+        setTimeout(() => {
           this._closeRoulettePopup(overlay);
           this._renderManualPlacement();
-        });
+        }, 1000);
       }, 800);
     };
 

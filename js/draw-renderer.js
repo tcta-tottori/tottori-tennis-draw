@@ -413,10 +413,13 @@ window.DrawRenderer = {
     if (isDoublesEntry) {
       const players = entry.name.split(' / ');
       const affiliations = (entry.affiliation || '').split(' / ');
-      const lineGap = Math.max(P.slotHeight * 0.40, 11);
+      const lineGap = Math.max(P.slotHeight * 0.45, 13);
       const y1 = cy - lineGap / 2;
       const y2 = cy + lineGap / 2;
-      const el1 = this._text(svg, nameX, y1, players[0] || '', {
+      // 名前の均等配置
+      const formattedName1 = this._formatDoublesName(players[0] || '');
+      const formattedName2 = this._formatDoublesName(players[1] || '');
+      const el1 = this._text(svg, nameX, y1, formattedName1, {
         fontSize: P.fontSize.playerName - 1, fill: P.colors.text, fontWeight: 'bold',
       });
       el1.setAttribute('dominant-baseline', 'central');
@@ -426,7 +429,7 @@ window.DrawRenderer = {
       });
       af1.setAttribute('dominant-baseline', 'central');
       af1.setAttribute('clip-path', 'url(#' + clipId + ')');
-      const el2 = this._text(svg, nameX, y2, players[1] || '', {
+      const el2 = this._text(svg, nameX, y2, formattedName2, {
         fontSize: P.fontSize.playerName - 1, fill: P.colors.text, fontWeight: 'bold',
       });
       el2.setAttribute('dominant-baseline', 'central');
@@ -457,7 +460,7 @@ window.DrawRenderer = {
    */
   _drawSeparatorLine(svg, cy, offsetX, rounds, isLeft, isDoubles) {
     const P = this.PARAMS;
-    const lineY = cy + P.slotHeight / 2 + (isDoubles ? 3 : 0);
+    const lineY = cy + P.slotHeight / 2 + (isDoubles ? 4 : 0);
     if (isLeft) {
       const x1 = offsetX + P.drawNumWidth;
       const x2 = offsetX + P.drawNumWidth + P.nameAreaWidth;
@@ -1214,6 +1217,32 @@ window.DrawRenderer = {
     a.download = eventName.replace(/[\\/:*?"<>|]/g, '_') + '_ドロー表.csv';
     a.click();
     URL.revokeObjectURL(url);
+  },
+
+  /**
+   * ダブルス名前の均等配置フォーマット
+   * 苗字と名前の開始・終了位置を揃えるためにスペースを調整
+   * 目標: 全角5文字分（苗字3文字+名前2文字程度）に収まるよう調整
+   */
+  _formatDoublesName(name) {
+    if (!name) return '';
+    // 苗字と名前に分割
+    const parts = name.split(/[\s\u3000]+/).filter(Boolean);
+    if (parts.length < 2) return name;
+    const family = parts[0];
+    const given = parts.slice(1).join('');
+    // 苗字+名前の合計文字数に応じてスペース調整
+    const totalLen = family.length + given.length;
+    if (totalLen <= 3) {
+      // 短い名前: 苗字と名前の間に全角スペース
+      return family + '\u3000' + given;
+    } else if (totalLen <= 4) {
+      // 中程度: 半角スペース
+      return family + ' ' + given;
+    } else {
+      // 長い名前: スペースなし
+      return family + given;
+    }
   },
 
   // --- SVG ヘルパー ---

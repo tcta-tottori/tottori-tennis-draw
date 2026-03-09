@@ -295,31 +295,6 @@
     <section id="screen-ranking" class="screen">
       <h2 class="screen-title">エントリー</h2>
 
-      <!-- スティッキーフィルターエリア -->
-      <div class="ranking-sticky-filter">
-        <!-- カテゴリ切替（シングルス/ダブルス） -->
-        <div class="ranking-category-toggle" id="ranking-category-toggle">
-          <button class="category-btn active" data-category="singles">シングルス</button>
-          <button class="category-btn" data-category="doubles">ダブルス</button>
-        </div>
-
-        <!-- 検索＆フィルター -->
-        <div class="toolbar">
-        <div class="toolbar-left" style="flex:1;gap:12px;display:flex;align-items:center;flex-wrap:wrap;">
-          <div class="ranking-event-tabs" id="ranking-event-tabs"></div>
-          <div style="position:relative;min-width:240px;flex:1;max-width:360px;">
-            <input type="text" id="ranking-search" class="form-input" placeholder="氏名・ふりがな・所属で検索..." style="padding-left:36px;">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          </div>
-        </div>
-        <div class="toolbar-right">
-          <span id="ranking-count" style="font-size:13px;color:#6b7280;"></span>
-        </div>
-      </div>
-      </div><!-- /.ranking-sticky-filter -->
-
       <!-- 大会設定 -->
       <div class="card" style="margin-bottom:16px;">
         <h3 class="card-title">大会設定</h3>
@@ -349,6 +324,31 @@
           </div>
         </div>
       </div>
+
+      <!-- スティッキーフィルターエリア -->
+      <div class="ranking-sticky-filter">
+        <!-- カテゴリ切替（シングルス/ダブルス） -->
+        <div class="ranking-category-toggle" id="ranking-category-toggle">
+          <button class="category-btn active" data-category="singles">シングルス</button>
+          <button class="category-btn" data-category="doubles">ダブルス</button>
+        </div>
+
+        <!-- 検索＆フィルター -->
+        <div class="toolbar">
+        <div class="toolbar-left" style="flex:1;gap:12px;display:flex;align-items:center;flex-wrap:wrap;">
+          <div class="ranking-event-tabs" id="ranking-event-tabs"></div>
+          <div style="position:relative;min-width:240px;flex:1;max-width:360px;">
+            <input type="text" id="ranking-search" class="form-input" placeholder="氏名・ふりがな・所属で検索..." style="padding-left:36px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+        </div>
+        <div class="toolbar-right">
+          <span id="ranking-count" style="font-size:13px;color:#6b7280;"></span>
+        </div>
+      </div>
+      </div><!-- /.ranking-sticky-filter -->
 
       <!-- ランキングテーブル -->
       <div class="table-wrapper">

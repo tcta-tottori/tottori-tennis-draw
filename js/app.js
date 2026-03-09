@@ -1848,6 +1848,14 @@ window.App = {
     const btnAdd = document.getElementById('btn-tournament-add');
     if (btnAdd) btnAdd.addEventListener('click', () => this._showTournamentModal());
 
+    const btnBackupSave = document.getElementById('btn-tournament-backup-save');
+    if (btnBackupSave) btnBackupSave.addEventListener('click', () => {
+      const data = localStorage.getItem('drawSystem_tournaments');
+      if (!data) { this.showMessage('大会データがありません', 'error'); return; }
+      this._downloadJSON(data, 'tournament_backup.json');
+      this.showMessage('大会一覧をバックアップファイルに保存しました', 'success');
+    });
+
     const btnClear = document.getElementById('btn-tournament-clear');
     if (btnClear) btnClear.addEventListener('click', () => {
       if (confirm('全大会データを削除しますか？')) {

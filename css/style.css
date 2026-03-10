@@ -2563,3 +2563,123 @@ details[open] > .collapsible-toggle::before {
   outline-offset: -2px;
   box-shadow: 0 0 8px rgba(21,101,192,0.4);
 }
+
+/* --- マニュアル v2 スタイル --- */
+.manual-guide-section {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.manual-guide-section:last-child {
+  border-bottom: none;
+}
+.manual-guide-section h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+  padding-left: 12px;
+  border-left: 4px solid #2b7ec6;
+}
+.manual-diagram {
+  background: #f8f9fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.manual-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.manual-steps {
+  counter-reset: manual-step;
+  padding-left: 0;
+  list-style: none;
+}
+.manual-steps li {
+  counter-increment: manual-step;
+  padding: 8px 0 8px 36px;
+  position: relative;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.manual-steps li::before {
+  content: counter(manual-step);
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #2b7ec6;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.manual-tip {
+  background: #fff8e1;
+  border-left: 4px solid #ff9800;
+  padding: 12px 16px;
+  margin: 12px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.manual-tip strong {
+  color: #e65100;
+}
+.manual-warning {
+  background: #ffeef0;
+  border-left: 4px solid #dc3545;
+  padding: 12px 16px;
+  margin: 12px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.manual-warning strong {
+  color: #dc3545;
+}
+.manual-faq-item {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+.manual-faq-item .faq-q {
+  font-weight: 700;
+  color: #2b7ec6;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.manual-faq-item .faq-q::before {
+  content: "Q. ";
+  font-weight: 800;
+}
+.manual-faq-item .faq-a {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #333;
+}
+.manual-faq-item .faq-a::before {
+  content: "A. ";
+  font-weight: 700;
+  color: #28a745;
+}
+.manual-faq-category {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2b7ec6;
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e5e7eb;
+}
+.manual-faq-category:first-child {
+  margin-top: 0;
+}

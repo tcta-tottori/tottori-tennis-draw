@@ -11,9 +11,9 @@ window.DrawRenderer = {
     roundWidth: 100,          // ラウンドごとの幅
     nameAreaWidth: 200,       // 選手名+所属エリア幅（切り詰め）
     drawNumWidth: 24,         // ドロー番号列幅（切り詰め）
-    headerHeight: 50,         // ヘッダー高さ（圧縮）
-    footerHeight: 30,         // フッター高さ（圧縮・シード1行時）
-    footerHeight2Row: 48,     // フッター高さ（シード2行時）
+    headerHeight: 42,         // ヘッダー高さ（圧縮）
+    footerHeight: 24,         // フッター高さ（圧縮・シード1行時）
+    footerHeight2Row: 40,     // フッター高さ（シード2行時）
     centerGap: 60,            // 左右の山の中央間隔（圧縮）
     fontSize: {
       title: 18, eventName: 15, meta: 12,

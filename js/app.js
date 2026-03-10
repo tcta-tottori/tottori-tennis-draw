@@ -3652,22 +3652,25 @@ window.App = {
     body.innerHTML = '';
     body.appendChild(fsContainer);
 
-    DrawRenderer.render(fsContainer, {
-      draw: result.draw,
-      drawSize: result.drawSize,
-      eventName: result.eventName,
-      tournamentName: AppConfig.TOURNAMENT_NAME || '',
-      date: AppConfig.TOURNAMENT_DATE || '',
-      venue: AppConfig.TOURNAMENT_VENUE || '',
-      matchFormat: AppConfig.MATCH_FORMAT || '',
-      entries: result.entries,
-      seeds: result.seeds,
-      entryCount: result.entryCount,
-      isDoubles: evtDef ? evtDef.category === 'doubles' : false,
-    }, { confirmed: true });
-
+    // オーバーレイを先に表示してからレンダリング（clientWidthを取得するため）
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+
+    requestAnimationFrame(() => {
+      DrawRenderer.render(fsContainer, {
+        draw: result.draw,
+        drawSize: result.drawSize,
+        eventName: result.eventName,
+        tournamentName: AppConfig.TOURNAMENT_NAME || '',
+        date: AppConfig.TOURNAMENT_DATE || '',
+        venue: AppConfig.TOURNAMENT_VENUE || '',
+        matchFormat: AppConfig.MATCH_FORMAT || '',
+        entries: result.entries,
+        seeds: result.seeds,
+        entryCount: result.entryCount,
+        isDoubles: evtDef ? evtDef.category === 'doubles' : false,
+      }, { confirmed: true });
+    });
   },
 
   _closeBracketFullscreen() {

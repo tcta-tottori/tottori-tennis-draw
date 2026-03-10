@@ -2,7 +2,7 @@
  * Service Worker - オフライン対応
  * 一度読み込んだリソースをキャッシュし、オフラインでも動作可能にする
  */
-const CACHE_NAME = 'draw-system-v1.6';
+const CACHE_NAME = 'draw-system-v1.6.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

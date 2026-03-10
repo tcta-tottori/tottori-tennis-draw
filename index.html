@@ -443,6 +443,12 @@
     <section id="screen-entry" class="screen">
       <h2 class="screen-title">エントリーリスト</h2>
 
+      <!-- 抽選・確定ステータス -->
+      <div id="entry-draw-status" class="draw-status-bar" style="display:none;">
+        <h4>抽選・確定ステータス</h4>
+        <div id="entry-draw-status-chips" class="draw-status-chips"></div>
+      </div>
+
       <!-- フィルター＆操作 -->
       <div class="toolbar">
         <div class="toolbar-left">
@@ -462,12 +468,6 @@
           </button>
           <button id="btn-entry-clear" class="btn btn-danger">全クリア</button>
         </div>
-      </div>
-
-      <!-- 抽選・確定ステータス -->
-      <div id="entry-draw-status" class="draw-status-bar" style="display:none;">
-        <h4>抽選・確定ステータス</h4>
-        <div id="entry-draw-status-chips" class="draw-status-chips"></div>
       </div>
 
       <!-- シード・ドロー情報 -->
@@ -664,8 +664,8 @@
         <div class="toolbar-right" style="gap:8px;display:flex;flex-wrap:wrap;">
           <button id="btn-bracket-clear" class="btn btn-danger" style="display:none;">クリア</button>
           <button id="btn-bracket-redo" class="btn btn-secondary" style="display:none;">やり直し</button>
-          <button id="btn-export-excel" class="btn btn-secondary">Excel出力</button>
-          <button id="btn-export-csv" class="btn btn-secondary">CSV出力</button>
+          <button id="btn-export-excel" class="btn btn-success">Excel出力</button>
+          <button id="btn-export-csv" class="btn btn-success">CSV出力</button>
           <button id="btn-print" class="btn btn-primary">印刷</button>
         </div>
       </div>

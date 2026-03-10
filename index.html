@@ -27,7 +27,7 @@
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
       <div class="header-version">
-        <span class="version-number">Ver.1.7</span>
+        <span class="version-number">Ver.1.8</span>
         <span class="version-date">2026.3.10</span>
       </div>
     </div>
@@ -40,6 +40,7 @@
     <button class="tab-btn" data-screen="screen-entry">エントリーリスト</button>
     <button class="tab-btn" data-screen="screen-draw">抽選</button>
     <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
+    <button class="tab-btn" data-screen="screen-schedule">時間割</button>
     <button class="tab-btn" data-screen="screen-backup">バックアップ</button>
     <button class="tab-btn" data-screen="screen-manual">マニュアル</button>
   </nav>
@@ -744,6 +745,61 @@
       </div>
     </section>
 
+    <!-- 画面: 時間割 -->
+    <section id="screen-schedule" class="screen">
+      <h2 class="screen-title">時間割</h2>
+
+      <!-- 設定パネル -->
+      <div class="card" id="schedule-config-panel">
+        <h3 class="card-title">スケジュール設定</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="schedule-court-count" class="form-label">コート数</label>
+            <input type="number" id="schedule-court-count" class="form-input" min="1" max="16" value="6">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="schedule-court-names" class="form-label">コート番号（カンマ区切り）</label>
+            <input type="text" id="schedule-court-names" class="form-input" value="1,2,3,4,5,6" placeholder="1,2,3,4,5,6">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="schedule-match-duration" class="form-label">1試合の時間（分）</label>
+            <input type="number" id="schedule-match-duration" class="form-input" min="20" max="120" value="40">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="schedule-start-time" class="form-label">開始時刻</label>
+            <input type="time" id="schedule-start-time" class="form-input" value="09:00">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btn-generate-schedule" class="btn btn-primary">時間割を自動生成</button>
+          <button id="btn-clear-schedule" class="btn btn-danger" style="display:none;">クリア</button>
+        </div>
+        <p id="schedule-status-msg" style="margin-top:8px;font-size:13px;color:#666;"></p>
+      </div>
+
+      <!-- タイムテーブル -->
+      <div class="card" id="schedule-grid-panel" style="display:none;margin-top:16px;">
+        <h3 class="card-title">タイムテーブル</h3>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+          <table class="data-table schedule-grid" id="schedule-grid-table">
+            <thead id="schedule-grid-head"></thead>
+            <tbody id="schedule-grid-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 種目別スケジュール -->
+      <div class="card" id="schedule-event-panel" style="display:none;margin-top:16px;">
+        <h3 class="card-title">種目別スケジュール</h3>
+        <div id="schedule-event-lists"></div>
+      </div>
+
+      <!-- エクスポート -->
+      <div id="schedule-export-panel" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
+        <button id="btn-schedule-print" class="btn btn-primary" style="display:none;">時間割を印刷</button>
+      </div>
+    </section>
+
     <!-- 画面: バックアップ -->
     <section id="screen-backup" class="screen">
       <h2 class="screen-title">バックアップデータ管理</h2>
@@ -1014,6 +1070,7 @@
                 <tr><th style="width:80px;">Ver.</th><th style="width:100px;">日付</th><th>更新内容</th></tr>
               </thead>
               <tbody>
+                <tr><td>1.8</td><td>2026.3.10</td><td>時間割自動生成機能、コート・時間枠スケジューリング、トーナメント表への時間注記表示</td></tr>
                 <tr><td>1.7</td><td>2026.3.10</td><td>シード表示順修正、名前スペース統一ルール、ドローデータ共有機能、ボール必要数算出機能</td></tr>
                 <tr><td>1.6</td><td>2026.3.10</td><td>未手配所属表示改善、所属重複トグル化、トーナメント表全画面表示、バージョン情報シート追加、スマホ表示改善</td></tr>
                 <tr><td>1.5</td><td>2026.3.10</td><td>大会設定の確定モード化、ゲームルールを抽選画面に移動、PC画面テーブル中央寄せ</td></tr>
@@ -1064,6 +1121,7 @@
   <script src="js/seed-rules.js"></script>
   <script src="js/draw-engine.js"></script>
   <script src="js/draw-renderer.js"></script>
+  <script src="js/schedule-engine.js"></script>
   <script src="js/app.js"></script>
   <script>
     // Service Worker登録（オフライン対応）

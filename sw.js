@@ -2,7 +2,7 @@
  * Service Worker - オフライン対応
  * 一度読み込んだリソースをキャッシュし、オフラインでも動作可能にする
  */
-const CACHE_NAME = 'draw-system-v1.7';
+const CACHE_NAME = 'draw-system-v1.9';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const ASSETS_TO_CACHE = [
   './js/draw-engine.js',
   './js/draw-renderer.js',
   './js/app.js',
+  './js/schedule-engine.js',
   './logo.png',
   'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
 ];

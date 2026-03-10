@@ -40,6 +40,7 @@ window.App = {
     this.initEntryScreen();
     this.initDrawScreen();
     this.initBracketScreen();
+    this.initScheduleScreen();
     this.initManualScreen();
     this.initBackupScreen();
 
@@ -201,6 +202,7 @@ window.App = {
     if (screenId === 'screen-entry') this.refreshEntryTable();
     if (screenId === 'screen-draw') this._refreshDrawEventSelect();
     if (screenId === 'screen-bracket') this._refreshBracketEventSelect();
+    if (screenId === 'screen-schedule') this._refreshScheduleScreen();
     if (screenId === 'screen-backup') this.refreshBackupTable();
   },
 
@@ -3683,7 +3685,7 @@ window.App = {
         seeds: result.seeds,
         entryCount: result.entryCount,
         isDoubles: evtDef ? evtDef.category === 'doubles' : false,
-      }, { confirmed: true });
+      }, { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode });
     });
   },
 
@@ -3973,7 +3975,7 @@ window.App = {
         seeds: result.seeds,
         entryCount: result.entryCount,
         isDoubles: evtInfo ? evtInfo.category === 'doubles' : false,
-      }, { confirmed: true });
+      }, { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode });
     }
 
     // クリア・やり直しボタン表示
@@ -4415,6 +4417,269 @@ window.App = {
     };
     reader.readAsText(file);
     e.target.value = '';
+  },
+
+  // ================================================================
+  // 時間割画面
+  // ================================================================
+
+  initScheduleScreen() {
+    this._scheduleSlots = null;
+    this._scheduleConfig = null;
+    this._restoreSchedule();
+
+    const btnGenerate = document.getElementById('btn-generate-schedule');
+    if (btnGenerate) {
+      btnGenerate.addEventListener('click', () => this._generateSchedule());
+    }
+    const btnClear = document.getElementById('btn-clear-schedule');
+    if (btnClear) {
+      btnClear.addEventListener('click', () => {
+        if (!confirm('時間割をクリアしますか？')) return;
+        this._clearSchedule();
+      });
+    }
+    const btnPrint = document.getElementById('btn-schedule-print');
+    if (btnPrint) {
+      btnPrint.addEventListener('click', () => window.print());
+    }
+  },
+
+  _refreshScheduleScreen() {
+    // 確定済み種目がなければメッセージ表示
+    const statusMsg = document.getElementById('schedule-status-msg');
+    const confirmedCodes = Object.keys(this.confirmedEvents || {}).filter(c => this.confirmedEvents[c]);
+    if (confirmedCodes.length === 0) {
+      if (statusMsg) statusMsg.textContent = '※ 確定済みのドローがありません。先にドロー抽選を行ってください。';
+      return;
+    }
+    if (statusMsg && !this._scheduleSlots) {
+      statusMsg.textContent = '確定済み種目: ' + confirmedCodes.map(c => {
+        const evt = AppConfig.EVENTS.find(e => e.code === c);
+        return evt ? evt.name : c;
+      }).join(', ');
+    }
+    // 保存済みスケジュールがあれば表示
+    if (this._scheduleSlots) {
+      this._renderScheduleGrid(this._scheduleSlots, this._scheduleConfig);
+      this._renderEventScheduleLists(this._scheduleSlots);
+    }
+  },
+
+  _generateSchedule() {
+    const confirmedCodes = Object.keys(this.confirmedEvents || {}).filter(c => this.confirmedEvents[c]);
+    if (confirmedCodes.length === 0) {
+      this.showMessage('確定済みのドローがありません', 'warning');
+      return;
+    }
+
+    // 設定値の取得
+    const courtCount = parseInt(document.getElementById('schedule-court-count').value, 10) || 6;
+    const courtNamesStr = document.getElementById('schedule-court-names').value || '';
+    const courtNames = courtNamesStr.split(',').map(s => s.trim()).filter(Boolean);
+    const matchDuration = parseInt(document.getElementById('schedule-match-duration').value, 10) || 40;
+    const startTime = document.getElementById('schedule-start-time').value || '09:00';
+
+    // コート名が不足していたら番号で補完
+    while (courtNames.length < courtCount) {
+      courtNames.push(String(courtNames.length + 1));
+    }
+
+    // 全確定種目からマッチを抽出
+    const allMatches = [];
+    for (const code of confirmedCodes) {
+      const result = this.drawResults[code];
+      if (!result) continue;
+      const matches = ScheduleEngine.extractMatchesFromDraw(result, code);
+      allMatches.push(...matches);
+    }
+
+    if (allMatches.length === 0) {
+      this.showMessage('スケジュール可能な試合がありません', 'warning');
+      return;
+    }
+
+    const config = { courtCount, courtNames, matchDuration, startTime };
+    const slots = ScheduleEngine.autoSchedule(allMatches, config);
+
+    this._scheduleSlots = slots;
+    this._scheduleConfig = config;
+    this._scheduleAllMatches = allMatches;
+    this._saveSchedule();
+
+    this._renderScheduleGrid(slots, config);
+    this._renderEventScheduleLists(slots);
+
+    const statusMsg = document.getElementById('schedule-status-msg');
+    if (statusMsg) statusMsg.textContent = '時間割を生成しました（' + slots.length + '試合）';
+    const btnClear = document.getElementById('btn-clear-schedule');
+    if (btnClear) btnClear.style.display = '';
+
+    this.showMessage('時間割を生成しました（' + slots.length + '試合）', 'success');
+  },
+
+  _renderScheduleGrid(slots, config) {
+    const gridPanel = document.getElementById('schedule-grid-panel');
+    const thead = document.getElementById('schedule-grid-head');
+    const tbody = document.getElementById('schedule-grid-body');
+    if (!gridPanel || !thead || !tbody) return;
+
+    gridPanel.style.display = '';
+
+    // 最大タイムスロットを計算
+    const maxSlot = slots.reduce((max, s) => Math.max(max, s.timeSlotIndex), 0);
+    const { courtNames, courtCount, matchDuration, startTime } = config;
+
+    // ヘッダー行: コート名 | 各時間枠
+    let headHtml = '<tr><th class="schedule-court-header">コート</th>';
+    for (let t = 0; t <= maxSlot; t++) {
+      const timeStr = ScheduleEngine.calcTimeString(startTime, t, matchDuration);
+      headHtml += '<th class="schedule-time-header">' + timeStr + '</th>';
+    }
+    headHtml += '</tr>';
+    thead.innerHTML = headHtml;
+
+    // グリッドデータ構築: grid[courtIdx][timeSlot] = slot
+    const grid = {};
+    for (const slot of slots) {
+      if (!grid[slot.courtIndex]) grid[slot.courtIndex] = {};
+      grid[slot.courtIndex][slot.timeSlotIndex] = slot;
+    }
+
+    // 種目ごとの色
+    const eventColors = {};
+    if (typeof AppConfig !== 'undefined' && AppConfig.EVENTS) {
+      const palette = ['#E3F2FD', '#FFF3E0', '#E8F5E9', '#FCE4EC', '#F3E5F5', '#E0F7FA', '#FFF9C4', '#EFEBE9'];
+      AppConfig.EVENTS.forEach((evt, i) => {
+        eventColors[evt.code] = palette[i % palette.length];
+      });
+    }
+
+    let bodyHtml = '';
+    for (let c = 0; c < courtCount; c++) {
+      bodyHtml += '<tr><td class="schedule-court-cell">' + (courtNames[c] || (c + 1)) + '</td>';
+      for (let t = 0; t <= maxSlot; t++) {
+        const slot = grid[c] && grid[c][t];
+        if (slot) {
+          const bgColor = eventColors[slot.eventCode] || '#f5f5f5';
+          const evtName = ScheduleEngine._getEventName ? ScheduleEngine._getEventName(slot.eventCode) : slot.eventCode;
+          bodyHtml += '<td class="schedule-match-cell" style="background:' + bgColor + ';">' +
+            '<div class="schedule-cell-event">' + evtName + '</div>' +
+            '<div class="schedule-cell-round">' + slot.roundLabel + '</div>' +
+            '</td>';
+        } else {
+          bodyHtml += '<td class="schedule-empty-cell"></td>';
+        }
+      }
+      bodyHtml += '</tr>';
+    }
+    tbody.innerHTML = bodyHtml;
+
+    // 印刷ボタン表示
+    const btnPrint = document.getElementById('btn-schedule-print');
+    if (btnPrint) btnPrint.style.display = '';
+  },
+
+  _renderEventScheduleLists(slots) {
+    const panel = document.getElementById('schedule-event-panel');
+    const container = document.getElementById('schedule-event-lists');
+    if (!panel || !container) return;
+
+    panel.style.display = '';
+    container.innerHTML = '';
+
+    // 種目ごとにグループ化
+    const byEvent = {};
+    for (const slot of slots) {
+      if (!byEvent[slot.eventCode]) byEvent[slot.eventCode] = [];
+      byEvent[slot.eventCode].push(slot);
+    }
+
+    // 種目別にマッチ情報を取得
+    const matchMap = {};
+    if (this._scheduleAllMatches) {
+      for (const m of this._scheduleAllMatches) {
+        matchMap[m.matchId] = m;
+      }
+    }
+
+    for (const code of Object.keys(byEvent)) {
+      const eventSlots = byEvent[code].sort((a, b) => a.timeSlotIndex - b.timeSlotIndex);
+      const evtName = ScheduleEngine._getEventName ? ScheduleEngine._getEventName(code) : code;
+
+      let html = '<div style="margin-bottom:16px;"><h4 style="margin:0 0 8px;font-size:14px;color:#333;">' + evtName + '</h4>';
+      html += '<table class="data-table" style="font-size:13px;"><thead><tr>' +
+        '<th>時間</th><th>コート</th><th>ラウンド</th><th>対戦</th></tr></thead><tbody>';
+
+      for (const slot of eventSlots) {
+        const match = matchMap[slot.matchId];
+        const playersStr = match && match.players.length > 0
+          ? match.players.filter(Boolean).join(' vs ')
+          : '（前試合勝者）';
+
+        html += '<tr>' +
+          '<td>' + slot.startTime + '</td>' +
+          '<td>' + slot.courtName + '</td>' +
+          '<td>' + slot.roundLabel + '</td>' +
+          '<td>' + playersStr + '</td>' +
+          '</tr>';
+      }
+      html += '</tbody></table></div>';
+      container.innerHTML += html;
+    }
+  },
+
+  _saveSchedule() {
+    try {
+      localStorage.setItem('drawSystem_schedule', JSON.stringify({
+        slots: this._scheduleSlots,
+        config: this._scheduleConfig,
+        savedAt: new Date().toISOString(),
+      }));
+    } catch (e) {
+      console.warn('スケジュール保存に失敗:', e);
+    }
+  },
+
+  _restoreSchedule() {
+    try {
+      const saved = localStorage.getItem('drawSystem_schedule');
+      if (!saved) return;
+      const data = JSON.parse(saved);
+      if (data.slots) this._scheduleSlots = data.slots;
+      if (data.config) this._scheduleConfig = data.config;
+    } catch (e) {
+      console.warn('スケジュール復元に失敗:', e);
+    }
+  },
+
+  _clearSchedule() {
+    this._scheduleSlots = null;
+    this._scheduleConfig = null;
+    this._scheduleAllMatches = null;
+    try { localStorage.removeItem('drawSystem_schedule'); } catch (e) { /* ignore */ }
+
+    const gridPanel = document.getElementById('schedule-grid-panel');
+    if (gridPanel) gridPanel.style.display = 'none';
+    const eventPanel = document.getElementById('schedule-event-panel');
+    if (eventPanel) eventPanel.style.display = 'none';
+    const btnClear = document.getElementById('btn-clear-schedule');
+    if (btnClear) btnClear.style.display = 'none';
+    const btnPrint = document.getElementById('btn-schedule-print');
+    if (btnPrint) btnPrint.style.display = 'none';
+    const statusMsg = document.getElementById('schedule-status-msg');
+    if (statusMsg) statusMsg.textContent = '';
+
+    this.showMessage('時間割をクリアしました', 'info');
+  },
+
+  /**
+   * スケジュールマップを取得（DrawRenderer用）
+   * @returns {object|null} matchId → { startTime, courtName }
+   */
+  _getScheduleMap() {
+    if (!this._scheduleSlots) return null;
+    return ScheduleEngine.buildScheduleMap(this._scheduleSlots);
   },
 
   initManualScreen() {

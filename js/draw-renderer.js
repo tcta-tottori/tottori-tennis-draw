@@ -160,6 +160,13 @@ window.DrawRenderer = {
     this._drawHalf(svg, rightDraw, halfSize, halfRounds, bodyTop, halfWidth + P.centerGap, 'right', options);
     this._drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth, bracketBodyHeight);
     this._drawSeedInfo(svg, drawData, bodyTop + bracketBodyHeight + 8, totalWidth);
+
+    // スケジュール注記を描画
+    if (options.scheduleMap && options.eventCode) {
+      this._drawScheduleAnnotations(svg, options.scheduleMap, options.eventCode,
+        drawSize, halfRounds, bodyTop, halfWidth, P, isConfirmed,
+        leftDraw, rightDraw, halfSize);
+    }
   },
 
   _drawHeader(svg, drawData, options, totalWidth) {
@@ -1270,6 +1277,137 @@ window.DrawRenderer = {
     svg.appendChild(el);
     return el;
   },
+  /**
+   * スケジュール注記（時間・コート番号）をブラケットSVG上に描画
+   * scheduleMap のキーは matchId: {eventCode}-R{round}-{L|R}{num} or {eventCode}-F
+   */
+  _drawScheduleAnnotations(svg, scheduleMap, eventCode, drawSize, halfRounds, bodyTop, halfWidth, P, isConfirmed, leftDraw, rightDraw, halfSize) {
+    if (!isConfirmed) return;
+
+    const totalRounds = Math.log2(drawSize);
+    const self = this;
+
+    const buildCompact = (halfDraw) => {
+      return this._buildCompactDraw(halfDraw, halfSize);
+    };
+
+    const annotateSide = (halfLabel, compact, offsetX, isLeft) => {
+      if (!compact) return;
+
+      // compact item Y位置を計算
+      let slotIdx = 0;
+      const itemYs = [];
+      for (const item of compact) {
+        if (item.type === 'match') {
+          const topY = bodyTop + slotIdx * 2 * P.slotHeight + P.slotHeight / 2;
+          const bottomY = bodyTop + (slotIdx * 2 + 2) * P.slotHeight + P.slotHeight / 2;
+          itemYs.push({ midY: (topY + bottomY) / 2, type: 'match' });
+          slotIdx += 2;
+        } else if (item.type === 'bye-pass') {
+          const cy = bodyTop + slotIdx * 2 * P.slotHeight + P.slotHeight / 2;
+          itemYs.push({ midY: cy, type: 'bye-pass' });
+          slotIdx += 1;
+        } else {
+          itemYs.push({ midY: 0, type: 'bye-pair' });
+        }
+      }
+
+      // R1注記: compact[ci]がmatchの場合にmatchIdを計算
+      // matchId = {eventCode}-R1-{halfLabel}{ci+1}
+      for (let ci = 0; ci < compact.length; ci++) {
+        if (compact[ci].type !== 'match') continue;
+        const matchId = eventCode + '-R1-' + halfLabel + (ci + 1);
+        const info = scheduleMap[matchId];
+        if (!info) continue;
+
+        const midY = itemYs[ci].midY;
+        // 注記位置: R1ブラケット線の外側
+        const lineX0 = isLeft
+          ? offsetX + P.drawNumWidth + P.nameAreaWidth
+          : offsetX + (halfRounds - 1) * P.roundWidth + P.roundWidth;
+        const nextX0 = isLeft ? lineX0 + P.roundWidth : lineX0 - P.roundWidth;
+        const annotX = isLeft ? nextX0 + 2 : nextX0 - 2;
+        const anchor = isLeft ? 'start' : 'end';
+
+        self._text(svg, annotX, midY - 4, info.startTime, {
+          fontSize: 8, fill: '#1565C0', textAnchor: anchor,
+        }).setAttribute('dominant-baseline', 'central');
+        self._text(svg, annotX, midY + 6, 'C' + info.courtName, {
+          fontSize: 7, fill: '#666', textAnchor: anchor,
+        }).setAttribute('dominant-baseline', 'central');
+      }
+
+      // R2以降: _drawHalfConfirmed と同じロジックでY位置を追跡
+      for (let round = 1; round < halfRounds; round++) {
+        const pairCount = compact.length / Math.pow(2, round);
+        const groupSize = Math.pow(2, round);
+        const globalRound = round + 1; // half-bracket round 1 = global R2
+
+        let nextRoundX;
+        if (isLeft) {
+          nextRoundX = offsetX + P.drawNumWidth + P.nameAreaWidth + (round + 1) * P.roundWidth;
+        } else {
+          nextRoundX = offsetX + (halfRounds - 1 - round) * P.roundWidth;
+        }
+
+        for (let p = 0; p < pairCount; p++) {
+          const startIdx = p * groupSize;
+          const midIdx = startIdx + groupSize / 2;
+          const endIdx = startIdx + groupSize - 1;
+
+          const topMids = [];
+          for (let k = startIdx; k < midIdx; k++) {
+            if (itemYs[k].type !== 'bye-pair') topMids.push(itemYs[k].midY);
+          }
+          const bottomMids = [];
+          for (let k = midIdx; k <= endIdx; k++) {
+            if (itemYs[k].type !== 'bye-pair') bottomMids.push(itemYs[k].midY);
+          }
+
+          const topOutY = topMids.length > 0 ? (topMids[0] + topMids[topMids.length - 1]) / 2 : 0;
+          const bottomOutY = bottomMids.length > 0 ? (bottomMids[0] + bottomMids[bottomMids.length - 1]) / 2 : 0;
+          const pairMidY = (topMids.length > 0 && bottomMids.length > 0)
+            ? (topOutY + bottomOutY) / 2
+            : (topMids.length > 0 ? topOutY : bottomOutY);
+
+          // matchId: globalRound, halfLabel, p+1
+          const matchId = eventCode + '-R' + globalRound + '-' + halfLabel + (p + 1);
+          const info = scheduleMap[matchId];
+          if (info && pairMidY > 0) {
+            const annotX = isLeft ? nextRoundX + 2 : nextRoundX - 2;
+            const anchor = isLeft ? 'start' : 'end';
+            self._text(svg, annotX, pairMidY - 4, info.startTime, {
+              fontSize: 8, fill: '#1565C0', textAnchor: anchor,
+            }).setAttribute('dominant-baseline', 'central');
+            self._text(svg, annotX, pairMidY + 6, 'C' + info.courtName, {
+              fontSize: 7, fill: '#666', textAnchor: anchor,
+            }).setAttribute('dominant-baseline', 'central');
+          }
+
+          // 次ラウンド用にmidYを更新
+          for (let k = startIdx; k <= endIdx; k++) {
+            itemYs[k].midY = pairMidY;
+          }
+        }
+      }
+    };
+
+    const leftCompact = buildCompact(leftDraw);
+    const rightCompact = buildCompact(rightDraw);
+    annotateSide('L', leftCompact, 0, true);
+    annotateSide('R', rightCompact, halfWidth + P.centerGap, false);
+
+    // 決勝の注記
+    const finalInfo = scheduleMap[eventCode + '-F'];
+    if (finalInfo) {
+      const centerX = halfWidth + P.centerGap / 2;
+      const centerY = bodyTop + 20;
+      self._text(svg, centerX, centerY, finalInfo.startTime + ' C' + finalInfo.courtName, {
+        fontSize: 9, fill: '#1565C0', textAnchor: 'middle', fontWeight: 'bold',
+      }).setAttribute('dominant-baseline', 'central');
+    }
+  },
+
   _rect(svg, x, y, width, height, fill, stroke, strokeWidth) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     el.setAttribute('x', x); el.setAttribute('y', y);

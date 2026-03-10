@@ -2499,3 +2499,65 @@ details[open] > .collapsible-toggle::before {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-secondary);
 }
+
+/* --- 時間割テーブル --- */
+.schedule-grid {
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.schedule-grid th,
+.schedule-grid td {
+  border: 1px solid #d1d5db;
+  padding: 4px 6px;
+  text-align: center;
+  white-space: nowrap;
+  min-width: 100px;
+}
+.schedule-grid th {
+  background: #f0f5fa;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.schedule-grid th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 70px;
+}
+.schedule-grid td:first-child {
+  position: sticky;
+  left: 0;
+  background: #f8fafc;
+  font-weight: 600;
+  z-index: 1;
+  min-width: 70px;
+}
+.schedule-cell {
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  line-height: 1.3;
+}
+.schedule-cell:hover {
+  opacity: 0.8;
+}
+.schedule-cell-ms { background: #dbeafe; color: #1e40af; }
+.schedule-cell-ls { background: #fce7f3; color: #9d174d; }
+.schedule-cell-m45s { background: #d1fae5; color: #065f46; }
+.schedule-cell-m55s { background: #fef3c7; color: #92400e; }
+.schedule-cell-m65s { background: #e0e7ff; color: #3730a3; }
+.schedule-cell-l45s { background: #fde68a; color: #78350f; }
+.schedule-cell-default { background: #f3f4f6; color: #374151; }
+.schedule-court-header { min-width: 70px !important; }
+.schedule-time-header { min-width: 90px !important; }
+.schedule-court-cell { font-weight: 600; background: #f8fafc; }
+.schedule-match-cell { padding: 4px 6px; }
+.schedule-empty-cell { background: #fafafa; }
+.schedule-cell-event { font-size: 11px; font-weight: 600; }
+.schedule-cell-round { font-size: 10px; color: #666; }

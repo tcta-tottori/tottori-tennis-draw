@@ -38,6 +38,7 @@
     <button class="tab-btn active" data-screen="screen-data">データ読込</button>
     <button class="tab-btn" data-screen="screen-ranking">エントリー</button>
     <button class="tab-btn" data-screen="screen-entry">エントリーリスト</button>
+    <button class="tab-btn" data-screen="screen-furigana">ふりがな</button>
     <button class="tab-btn" data-screen="screen-draw">抽選</button>
     <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
     <button class="tab-btn" data-screen="screen-schedule">時間割</button>
@@ -544,6 +545,62 @@
     </section>
 
 
+    <!-- 画面: ふりがな管理 -->
+    <section id="screen-furigana" class="screen">
+      <h2 class="screen-title">ふりがな管理</h2>
+
+      <!-- データ操作 -->
+      <div class="card">
+        <h3 class="card-title">データ操作</h3>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn btn-primary" id="btn-furigana-import">Excelから取込</button>
+          <button class="btn btn-secondary" id="btn-furigana-export">Excel出力</button>
+          <button class="btn btn-danger" id="btn-furigana-clear">全件クリア</button>
+          <input type="file" id="file-furigana-import" accept=".xlsx,.xls" style="display:none;">
+          <span id="furigana-count-display" style="margin-left:auto;font-size:14px;color:#555;font-weight:600;">登録数: 0件</span>
+        </div>
+      </div>
+
+      <!-- 新規登録 -->
+      <div class="card">
+        <h3 class="card-title">新規登録</h3>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="flex:1;min-width:140px;margin-bottom:0;">
+            <label class="form-label">氏名</label>
+            <input type="text" class="form-input" id="furigana-add-name" placeholder="例: 山田　太郎">
+          </div>
+          <div class="form-group" style="flex:1;min-width:140px;margin-bottom:0;">
+            <label class="form-label">ふりがな</label>
+            <input type="text" class="form-input" id="furigana-add-reading" placeholder="例: やまだ　たろう">
+          </div>
+          <button class="btn btn-primary" id="btn-furigana-add" style="height:38px;">追加</button>
+        </div>
+      </div>
+
+      <!-- ふりがなリスト -->
+      <div class="card">
+        <h3 class="card-title">ふりがなリスト</h3>
+        <div style="margin-bottom:12px;">
+          <input type="text" class="form-input" id="furigana-search" placeholder="氏名・ふりがなで検索..." style="max-width:360px;">
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="furigana-table">
+            <thead>
+              <tr>
+                <th style="width:40px;">#</th>
+                <th>氏名</th>
+                <th>ふりがな</th>
+                <th style="width:120px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="furigana-table-body"></tbody>
+          </table>
+        </div>
+        <div id="furigana-pagination" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;"></div>
+      </div>
+    </section>
+
+
     <!-- 画面5: 抽選 -->
     <section id="screen-draw" class="screen">
       <h2 class="screen-title">抽選</h2>
@@ -870,6 +927,114 @@
           </label>
         </div>
       </div>
+
+      <!-- クラウド共有セクション -->
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;" id="cloud-config-toggle">
+          Firebase設定
+          <span id="cloud-config-arrow" style="font-size:12px;transition:transform 0.2s;">&#9660;</span>
+        </h3>
+        <div id="cloud-config-panel" style="display:none;">
+          <p style="font-size:13px;color:#666;margin-bottom:12px;">
+            Firebaseプロジェクトの設定情報を入力してください（初回のみ）。<br>
+            設定はこのブラウザに保存されます。
+          </p>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">API Key</label>
+            <input type="text" id="cloud-config-apikey" class="form-input" placeholder="AIzaSy...">
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Auth Domain</label>
+            <input type="text" id="cloud-config-authdomain" class="form-input" placeholder="your-project.firebaseapp.com">
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Database URL</label>
+            <input type="text" id="cloud-config-dburl" class="form-input" placeholder="https://your-project-default-rtdb.firebaseio.com">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label">Project ID</label>
+            <input type="text" id="cloud-config-projectid" class="form-input" placeholder="your-project-id">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="btn-cloud-save-config" class="btn btn-primary">設定を保存</button>
+            <span id="cloud-config-status" style="font-size:13px;"></span>
+          </div>
+        </div>
+        <div id="cloud-config-status-badge" style="margin-top:8px;">
+          <!-- 接続ステータスバッジ -->
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title">共有スペース</h3>
+        <div id="cloud-space-not-joined">
+          <p style="font-size:13px;color:#666;margin-bottom:12px;">
+            共有スペースを作成するか、参加コードを入力して既存のスペースに参加してください。
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <button id="btn-cloud-create-space" class="btn btn-primary">スペース作成</button>
+            <div style="display:flex;gap:4px;align-items:flex-end;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:12px;">参加コード</label>
+                <input type="text" id="cloud-join-code" class="form-input" placeholder="ABC123" maxlength="6"
+                       style="width:100px;text-transform:uppercase;font-family:monospace;font-size:16px;letter-spacing:2px;text-align:center;">
+              </div>
+              <button id="btn-cloud-join-space" class="btn btn-secondary">参加</button>
+            </div>
+          </div>
+        </div>
+        <div id="cloud-space-joined" style="display:none;">
+          <p style="font-size:13px;color:#666;margin-bottom:8px;">
+            このコードを他のメンバーに共有してください:
+          </p>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <span id="cloud-space-code" style="font-size:32px;font-family:monospace;font-weight:bold;letter-spacing:4px;color:#2b7ec6;background:#f0f7ff;padding:8px 16px;border-radius:8px;border:2px dashed #2b7ec6;user-select:all;"></span>
+            <button id="btn-cloud-copy-code" class="btn btn-secondary" style="white-space:nowrap;">コピー</button>
+          </div>
+          <button id="btn-cloud-leave-space" class="btn btn-danger">スペースを離れる</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title">共有ファイル一覧</h3>
+        <div id="cloud-files-area">
+          <p style="font-size:13px;color:#666;margin-bottom:12px;">
+            データをアップロードして委員間で共有できます。
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <button id="btn-cloud-upload-entry" class="btn btn-secondary">エントリーデータ</button>
+            <button id="btn-cloud-upload-draw" class="btn btn-secondary">ドロー結果</button>
+            <button id="btn-cloud-upload-tournament" class="btn btn-secondary">大会データ</button>
+            <button id="btn-cloud-upload-backup" class="btn btn-primary">全データバックアップ</button>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ファイル名</th>
+                  <th>種類</th>
+                  <th>アップロード日時</th>
+                  <th>端末</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="cloud-files-body">
+                <tr><td colspan="5" style="text-align:center;color:#999;">スペースに参加するとファイルが表示されます</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title">クイック共有</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          Firebase設定なしで、Web Share APIまたはファイルダウンロードでデータを共有します。
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btn-cloud-webshare" class="btn btn-secondary">データを共有</button>
+        </div>
+      </div>
     </section>
 
     <!-- 画面: マニュアル・JTAルール -->
@@ -1119,6 +1284,8 @@
 
   <!-- 外部ライブラリ -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <!-- 自作JS -->
   <script src="js/config.js"></script>
@@ -1131,6 +1298,7 @@
   <script src="js/draw-engine.js"></script>
   <script src="js/draw-renderer.js"></script>
   <script src="js/schedule-engine.js"></script>
+  <script src="js/cloud-share.js"></script>
   <script src="js/app.js"></script>
   <script>
     // Service Worker登録（オフライン対応）

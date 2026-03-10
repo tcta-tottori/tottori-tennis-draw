@@ -38,6 +38,7 @@ window.App = {
     this.initRankingScreen();
     this.initEntryImport();
     this.initEntryScreen();
+    this.initFuriganaScreen();
     this.initDrawScreen();
     this.initBracketScreen();
     this.initScheduleScreen();
@@ -200,6 +201,7 @@ window.App = {
       this._refreshDataSummary();
     }
     if (screenId === 'screen-entry') this.refreshEntryTable();
+    if (screenId === 'screen-furigana') this._renderFuriganaTable();
     if (screenId === 'screen-draw') this._refreshDrawEventSelect();
     if (screenId === 'screen-bracket') this._refreshBracketEventSelect();
     if (screenId === 'screen-schedule') this._refreshScheduleScreen();
@@ -847,6 +849,11 @@ window.App = {
         points: player.points || 0,
       });
       RankingLoader.addToFuriganaMap(player.name, furigana);
+      // ふりがなDBにも自動登録
+      if (player.name && furigana && !this._furiganaData.find(d => d.name === player.name)) {
+        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana });
+        this._saveFuriganaData();
+      }
 
       // 黄色ハイライト後に上下から潰れて消える
       tr.style.transition = 'background-color 0.3s';
@@ -925,6 +932,11 @@ window.App = {
         points: player.points || 0,
       });
       RankingLoader.addToFuriganaMap(player.name, furigana);
+      // ふりがなDBにも自動登録
+      if (player.name && furigana && !this._furiganaData.find(d => d.name === player.name)) {
+        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana });
+        this._saveFuriganaData();
+      }
       this._renderRankingRows();
     } else {
       this._showQuickEntryModal(player);
@@ -1578,6 +1590,12 @@ window.App = {
 
     // リストにない人はふりがなマップに自動追加
     RankingLoader.addToFuriganaMap(name, furigana);
+
+    // ふりがなDBにも自動登録（未登録の場合のみ）
+    if (name && furigana && !this._furiganaData.find(d => d.name === name)) {
+      this._furiganaData.push({ id: this._furiganaNextId++, name: name, furigana: furigana });
+      this._saveFuriganaData();
+    }
 
     this._editingEntryId = null;
     const modal = document.getElementById('modal-entry-add');
@@ -4132,6 +4150,9 @@ window.App = {
     const fileBackupDraw = document.getElementById('file-backup-import-draw');
     if (fileBackupDraw) fileBackupDraw.addEventListener('change', (e) => this._importPartialBackup(e, 'draw'));
 
+    // --- クラウド共有 初期化 ---
+    this._initCloudShare();
+
     const btnClearAll = document.getElementById('btn-backup-clear-all');
     if (btnClearAll) btnClearAll.addEventListener('click', () => {
       if (confirm('全てのデータを削除しますか？この操作は取り消せません。')) {
@@ -5298,6 +5319,952 @@ window.App = {
         return JSON.stringify(entries, null, 2);
       },
     };
+  },
+
+  // ===== クラウド共有 =====
+
+  _initCloudShare() {
+    // Firebase設定パネルの折りたたみ
+    const configToggle = document.getElementById('cloud-config-toggle');
+    const configPanel = document.getElementById('cloud-config-panel');
+    const configArrow = document.getElementById('cloud-config-arrow');
+    if (configToggle && configPanel) {
+      configToggle.addEventListener('click', () => {
+        const isOpen = configPanel.style.display !== 'none';
+        configPanel.style.display = isOpen ? 'none' : 'block';
+        if (configArrow) configArrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+      });
+    }
+
+    // 保存済み設定を復元
+    const savedConfig = CloudShare.loadConfig();
+    if (savedConfig) {
+      const apiKeyInput = document.getElementById('cloud-config-apikey');
+      const authDomainInput = document.getElementById('cloud-config-authdomain');
+      const dbUrlInput = document.getElementById('cloud-config-dburl');
+      const projectIdInput = document.getElementById('cloud-config-projectid');
+      if (apiKeyInput) apiKeyInput.value = savedConfig.apiKey || '';
+      if (authDomainInput) authDomainInput.value = savedConfig.authDomain || '';
+      if (dbUrlInput) dbUrlInput.value = savedConfig.databaseURL || '';
+      if (projectIdInput) projectIdInput.value = savedConfig.projectId || '';
+
+      // 自動初期化
+      try {
+        CloudShare.init(savedConfig);
+      } catch (e) { /* ignore */ }
+    }
+
+    this._updateCloudUI();
+
+    // 設定保存ボタン
+    const btnSaveConfig = document.getElementById('btn-cloud-save-config');
+    if (btnSaveConfig) {
+      btnSaveConfig.addEventListener('click', () => {
+        const config = {
+          apiKey: (document.getElementById('cloud-config-apikey') || {}).value || '',
+          authDomain: (document.getElementById('cloud-config-authdomain') || {}).value || '',
+          databaseURL: (document.getElementById('cloud-config-dburl') || {}).value || '',
+          projectId: (document.getElementById('cloud-config-projectid') || {}).value || '',
+        };
+        if (!config.apiKey || !config.databaseURL) {
+          this.showMessage('API KeyとDatabase URLは必須です', 'error');
+          return;
+        }
+        const ok = CloudShare.init(config);
+        if (ok) {
+          this.showMessage('Firebase設定を保存しました', 'success');
+        } else {
+          this.showMessage('Firebase初期化に失敗しました', 'error');
+        }
+        this._updateCloudUI();
+      });
+    }
+
+    // スペース作成ボタン
+    const btnCreate = document.getElementById('btn-cloud-create-space');
+    if (btnCreate) {
+      btnCreate.addEventListener('click', async () => {
+        if (!CloudShare.isConnected()) {
+          this.showMessage('先にFirebase設定を行ってください', 'error');
+          return;
+        }
+        try {
+          const spaceId = await CloudShare.createSpace('ドロー会議共有');
+          this.showMessage('共有スペースを作成しました: ' + spaceId, 'success');
+          this._updateCloudUI();
+          this._startCloudFileWatch();
+        } catch (e) {
+          this.showMessage('スペース作成エラー: ' + e.message, 'error');
+        }
+      });
+    }
+
+    // スペース参加ボタン
+    const btnJoin = document.getElementById('btn-cloud-join-space');
+    if (btnJoin) {
+      btnJoin.addEventListener('click', async () => {
+        if (!CloudShare.isConnected()) {
+          this.showMessage('先にFirebase設定を行ってください', 'error');
+          return;
+        }
+        const codeInput = document.getElementById('cloud-join-code');
+        const code = (codeInput ? codeInput.value : '').toUpperCase().trim();
+        if (!code) {
+          this.showMessage('参加コードを入力してください', 'error');
+          return;
+        }
+        try {
+          await CloudShare.joinSpace(code);
+          this.showMessage('スペースに参加しました', 'success');
+          this._updateCloudUI();
+          this._startCloudFileWatch();
+        } catch (e) {
+          this.showMessage('参加エラー: ' + e.message, 'error');
+        }
+      });
+    }
+
+    // スペース離脱ボタン
+    const btnLeave = document.getElementById('btn-cloud-leave-space');
+    if (btnLeave) {
+      btnLeave.addEventListener('click', () => {
+        if (confirm('共有スペースから離れますか？')) {
+          CloudShare.leaveSpace();
+          this.showMessage('スペースから離れました', 'info');
+          this._updateCloudUI();
+        }
+      });
+    }
+
+    // コピーボタン
+    const btnCopy = document.getElementById('btn-cloud-copy-code');
+    if (btnCopy) {
+      btnCopy.addEventListener('click', () => {
+        const code = CloudShare.getSpaceId();
+        if (code) {
+          navigator.clipboard.writeText(code).then(() => {
+            this.showMessage('コードをコピーしました', 'success');
+          }).catch(() => {
+            this.showMessage('コピーに失敗しました。手動でコピーしてください。', 'error');
+          });
+        }
+      });
+    }
+
+    // アップロードボタン: エントリーデータ
+    const btnUploadEntry = document.getElementById('btn-cloud-upload-entry');
+    if (btnUploadEntry) {
+      btnUploadEntry.addEventListener('click', async () => {
+        if (!CloudShare.isInSpace()) { this.showMessage('共有スペースに参加してください', 'error'); return; }
+        try {
+          const entries = EntryStore.getAll();
+          if (entries.length === 0) { this.showMessage('エントリーデータがありません', 'error'); return; }
+          await CloudShare.uploadFile(
+            'エントリーデータ_' + new Date().toLocaleString('ja-JP'),
+            'entries',
+            entries
+          );
+          this.showMessage('エントリーデータをアップロードしました', 'success');
+        } catch (e) {
+          this.showMessage('アップロードエラー: ' + e.message, 'error');
+        }
+      });
+    }
+
+    // アップロードボタン: ドロー結果
+    const btnUploadDraw = document.getElementById('btn-cloud-upload-draw');
+    if (btnUploadDraw) {
+      btnUploadDraw.addEventListener('click', async () => {
+        if (!CloudShare.isInSpace()) { this.showMessage('共有スペースに参加してください', 'error'); return; }
+        try {
+          const drawKeys = Object.keys(this.drawResults);
+          if (drawKeys.length === 0) { this.showMessage('ドロー結果がありません', 'error'); return; }
+          await CloudShare.uploadFile(
+            'ドロー結果_' + new Date().toLocaleString('ja-JP'),
+            'draws',
+            { drawResults: this.drawResults, confirmedEvents: this.confirmedEvents }
+          );
+          this.showMessage('ドロー結果をアップロードしました', 'success');
+        } catch (e) {
+          this.showMessage('アップロードエラー: ' + e.message, 'error');
+        }
+      });
+    }
+
+    // アップロードボタン: 大会データ
+    const btnUploadTournament = document.getElementById('btn-cloud-upload-tournament');
+    if (btnUploadTournament) {
+      btnUploadTournament.addEventListener('click', async () => {
+        if (!CloudShare.isInSpace()) { this.showMessage('共有スペースに参加してください', 'error'); return; }
+        try {
+          const tournaments = TournamentStore.getAll();
+          if (tournaments.length === 0) { this.showMessage('大会データがありません', 'error'); return; }
+          await CloudShare.uploadFile(
+            '大会データ_' + new Date().toLocaleString('ja-JP'),
+            'tournament',
+            tournaments
+          );
+          this.showMessage('大会データをアップロードしました', 'success');
+        } catch (e) {
+          this.showMessage('アップロードエラー: ' + e.message, 'error');
+        }
+      });
+    }
+
+    // アップロードボタン: 全データバックアップ
+    const btnUploadBackup = document.getElementById('btn-cloud-upload-backup');
+    if (btnUploadBackup) {
+      btnUploadBackup.addEventListener('click', async () => {
+        if (!CloudShare.isInSpace()) { this.showMessage('共有スペースに参加してください', 'error'); return; }
+        try {
+          const allData = {};
+          const keys = ['drawSystem_rankingBackup', 'drawSystem_tournaments', 'drawSystem_tournamentBackup', 'drawSystem_entries'];
+          keys.forEach(k => {
+            const val = localStorage.getItem(k);
+            if (val) { try { allData[k] = JSON.parse(val); } catch (e) { allData[k] = val; } }
+          });
+          allData['drawSystem_drawResults'] = { drawResults: this.drawResults, confirmedEvents: this.confirmedEvents };
+          allData.exportedAt = new Date().toISOString();
+
+          await CloudShare.uploadFile(
+            '全データバックアップ_' + new Date().toLocaleString('ja-JP'),
+            'backup',
+            allData
+          );
+          this.showMessage('全データバックアップをアップロードしました', 'success');
+        } catch (e) {
+          this.showMessage('アップロードエラー: ' + e.message, 'error');
+        }
+      });
+    }
+
+    // クイック共有ボタン (Web Share API)
+    const btnWebShare = document.getElementById('btn-cloud-webshare');
+    if (btnWebShare) {
+      btnWebShare.addEventListener('click', async () => {
+        try {
+          const allData = {};
+          const keys = ['drawSystem_rankingBackup', 'drawSystem_tournaments', 'drawSystem_entries'];
+          keys.forEach(k => {
+            const val = localStorage.getItem(k);
+            if (val) { try { allData[k] = JSON.parse(val); } catch (e) { allData[k] = val; } }
+          });
+          allData['drawSystem_drawResults'] = { drawResults: this.drawResults, confirmedEvents: this.confirmedEvents };
+          allData.exportedAt = new Date().toISOString();
+
+          const title = 'ドロー会議データ_' + new Date().toISOString().slice(0, 10);
+          await CloudShare.webShare(title, allData);
+          this.showMessage('データを共有しました', 'success');
+        } catch (e) {
+          this.showMessage('共有エラー: ' + e.message, 'error');
+        }
+      });
+    }
+
+    // 既にスペースに参加済みならファイル監視開始
+    if (CloudShare.isInSpace()) {
+      this._startCloudFileWatch();
+    }
+  },
+
+  _updateCloudUI() {
+    const statusBadge = document.getElementById('cloud-config-status-badge');
+    const notJoined = document.getElementById('cloud-space-not-joined');
+    const joined = document.getElementById('cloud-space-joined');
+    const spaceCode = document.getElementById('cloud-space-code');
+
+    // 接続ステータスバッジ
+    if (statusBadge) {
+      if (CloudShare.isConnected()) {
+        statusBadge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;background:#d1fae5;color:#065f46;font-size:12px;font-weight:600;"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>接続済み</span>';
+      } else {
+        statusBadge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;background:#f3f4f6;color:#6b7280;font-size:12px;font-weight:600;"><span style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>未設定</span>';
+      }
+    }
+
+    // スペース表示切り替え
+    if (CloudShare.isInSpace()) {
+      if (notJoined) notJoined.style.display = 'none';
+      if (joined) joined.style.display = 'block';
+      if (spaceCode) spaceCode.textContent = CloudShare.getSpaceId();
+    } else {
+      if (notJoined) notJoined.style.display = 'block';
+      if (joined) joined.style.display = 'none';
+    }
+  },
+
+  _startCloudFileWatch() {
+    CloudShare.watchFiles((files) => {
+      this._renderCloudFiles(files);
+    });
+  },
+
+  _renderCloudFiles(files) {
+    const tbody = document.getElementById('cloud-files-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (files.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="5" style="text-align:center;color:#999;">ファイルがありません</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+
+    const typeLabels = {
+      entries: 'エントリー',
+      draws: 'ドロー結果',
+      tournament: '大会データ',
+      backup: '全データ',
+      furigana: 'ふりがな',
+    };
+
+    files.forEach(file => {
+      const tr = document.createElement('tr');
+      const dateStr = file.uploadedAt ? new Date(file.uploadedAt).toLocaleString('ja-JP') : '-';
+      const sizeKB = file.dataSize ? (file.dataSize / 1024).toFixed(1) + ' KB' : '-';
+      const typeLabel = typeLabels[file.type] || file.type;
+
+      tr.innerHTML =
+        '<td>' + this._escapeHtml(file.name) + '</td>' +
+        '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#e0f2fe;color:#0369a1;font-size:11px;font-weight:600;">' + typeLabel + '</span></td>' +
+        '<td style="font-size:12px;">' + dateStr + '</td>' +
+        '<td style="font-size:12px;">' + this._escapeHtml(file.uploadedBy || '-') + '</td>' +
+        '<td class="action-cell"></td>';
+
+      const actionCell = tr.querySelector('.action-cell');
+
+      const btnDownload = document.createElement('button');
+      btnDownload.className = 'btn btn-sm btn-primary';
+      btnDownload.textContent = '取込';
+      btnDownload.addEventListener('click', () => this._cloudDownloadAndImport(file.id, file.type));
+      actionCell.appendChild(btnDownload);
+
+      const btnDelete = document.createElement('button');
+      btnDelete.className = 'btn btn-sm btn-danger';
+      btnDelete.textContent = '削除';
+      btnDelete.style.marginLeft = '4px';
+      btnDelete.addEventListener('click', async () => {
+        if (!confirm(file.name + ' を削除しますか？')) return;
+        try {
+          await CloudShare.deleteFile(file.id);
+          this.showMessage('ファイルを削除しました', 'success');
+        } catch (e) {
+          this.showMessage('削除エラー: ' + e.message, 'error');
+        }
+      });
+      actionCell.appendChild(btnDelete);
+
+      tbody.appendChild(tr);
+    });
+  },
+
+  async _cloudDownloadAndImport(fileId, type) {
+    try {
+      const file = await CloudShare.downloadFile(fileId);
+      const data = file.data;
+
+      switch (type) {
+        case 'entries':
+          if (Array.isArray(data)) {
+            data.forEach(entry => {
+              EntryStore.add(entry);
+            });
+            this.showMessage('エントリーデータを取り込みました (' + data.length + '件)', 'success');
+          }
+          break;
+
+        case 'draws':
+          if (data.drawResults) {
+            Object.assign(this.drawResults, data.drawResults);
+            if (data.confirmedEvents) Object.assign(this.confirmedEvents, data.confirmedEvents);
+            localStorage.setItem('drawSystem_drawResults', JSON.stringify({
+              drawResults: this.drawResults,
+              confirmedEvents: this.confirmedEvents,
+              savedAt: new Date().toISOString()
+            }));
+            this.showMessage('ドロー結果を取り込みました', 'success');
+          }
+          break;
+
+        case 'tournament':
+          if (Array.isArray(data)) {
+            data.forEach(t => {
+              TournamentStore.add(t);
+            });
+            this.showMessage('大会データを取り込みました (' + data.length + '件)', 'success');
+          }
+          break;
+
+        case 'backup':
+          // 全データバックアップの復元
+          if (data['drawSystem_rankingBackup']) {
+            localStorage.setItem('drawSystem_rankingBackup', JSON.stringify(data['drawSystem_rankingBackup']));
+          }
+          if (data['drawSystem_tournaments']) {
+            localStorage.setItem('drawSystem_tournaments', JSON.stringify(data['drawSystem_tournaments']));
+          }
+          if (data['drawSystem_tournamentBackup']) {
+            localStorage.setItem('drawSystem_tournamentBackup', JSON.stringify(data['drawSystem_tournamentBackup']));
+          }
+          if (data['drawSystem_entries']) {
+            localStorage.setItem('drawSystem_entries', JSON.stringify(data['drawSystem_entries']));
+          }
+          if (data['drawSystem_drawResults']) {
+            const dr = data['drawSystem_drawResults'];
+            if (dr.drawResults) this.drawResults = dr.drawResults;
+            if (dr.confirmedEvents) this.confirmedEvents = dr.confirmedEvents;
+            localStorage.setItem('drawSystem_drawResults', JSON.stringify({
+              drawResults: this.drawResults,
+              confirmedEvents: this.confirmedEvents,
+              savedAt: new Date().toISOString()
+            }));
+          }
+          // データを再読み込み
+          RankingLoader.restoreFromBackup();
+          TournamentStore.init();
+          EntryStore.init();
+          this.showMessage('全データバックアップを取り込みました', 'success');
+          break;
+
+        default:
+          this.showMessage('不明なファイル種別です: ' + type, 'error');
+      }
+
+      this.refreshBackupTable();
+    } catch (e) {
+      this.showMessage('取込エラー: ' + e.message, 'error');
+    }
+  },
+
+  _escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+
+  // ================================================================
+  // ふりがな管理画面
+  // ================================================================
+
+  _furiganaData: [],
+  _furiganaNextId: 1,
+  _furiganaFilter: '',
+  _furiganaPage: 1,
+  _furiganaPageSize: 50,
+  _furiganaEditingId: null,
+  FURIGANA_STORAGE_KEY: 'drawSystem_furigana',
+
+  /**
+   * ふりがな管理画面の初期化
+   */
+  initFuriganaScreen() {
+    this._loadFuriganaData();
+
+    // Excelから取込
+    const btnImport = document.getElementById('btn-furigana-import');
+    const fileInput = document.getElementById('file-furigana-import');
+    if (btnImport && fileInput) {
+      btnImport.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this._importFuriganaExcel(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+    }
+
+    // Excel出力
+    const btnExport = document.getElementById('btn-furigana-export');
+    if (btnExport) {
+      btnExport.addEventListener('click', () => this._exportFuriganaExcel());
+    }
+
+    // 全件クリア
+    const btnClear = document.getElementById('btn-furigana-clear');
+    if (btnClear) {
+      btnClear.addEventListener('click', () => {
+        if (this._furiganaData.length === 0) {
+          this.showMessage('データがありません', 'info');
+          return;
+        }
+        if (confirm('ふりがなデータを全件削除します。よろしいですか？')) {
+          this._furiganaData = [];
+          this._furiganaNextId = 1;
+          this._saveFuriganaData();
+          this._syncFuriganaToRankingLoader();
+          this._renderFuriganaTable();
+          this.showMessage('ふりがなデータを全件クリアしました', 'success');
+        }
+      });
+    }
+
+    // 新規追加
+    const btnAdd = document.getElementById('btn-furigana-add');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', () => this._addFuriganaFromForm());
+    }
+    // Enterキーでも追加
+    const nameInput = document.getElementById('furigana-add-name');
+    const readingInput = document.getElementById('furigana-add-reading');
+    if (nameInput) {
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          if (readingInput) readingInput.focus();
+        }
+      });
+    }
+    if (readingInput) {
+      readingInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this._addFuriganaFromForm();
+      });
+    }
+
+    // 検索フィルター
+    const searchInput = document.getElementById('furigana-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this._furiganaFilter = e.target.value.trim();
+        this._furiganaPage = 1;
+        this._renderFuriganaTable();
+      });
+    }
+
+    this._renderFuriganaTable();
+  },
+
+  /**
+   * localStorageからふりがなデータを読み込み
+   */
+  _loadFuriganaData() {
+    try {
+      const saved = localStorage.getItem(this.FURIGANA_STORAGE_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (Array.isArray(data)) {
+          this._furiganaData = data;
+          if (data.length > 0) {
+            this._furiganaNextId = Math.max(...data.map(d => d.id || 0)) + 1;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('ふりがなデータの読み込みに失敗:', e);
+      this._furiganaData = [];
+      this._furiganaNextId = 1;
+    }
+    this._syncFuriganaToRankingLoader();
+  },
+
+  /**
+   * localStorageにふりがなデータを保存
+   */
+  _saveFuriganaData() {
+    try {
+      localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
+    } catch (e) {
+      console.error('ふりがなデータの保存に失敗:', e);
+    }
+    this._updateFuriganaCountDisplay();
+  },
+
+  /**
+   * ふりがなデータをRankingLoaderのfuriganaMapに同期
+   */
+  _syncFuriganaToRankingLoader() {
+    if (typeof RankingLoader !== 'undefined' && RankingLoader.furiganaMap) {
+      for (const entry of this._furiganaData) {
+        if (entry.name && entry.furigana) {
+          RankingLoader.furiganaMap[entry.name] = entry.furigana;
+        }
+      }
+    }
+  },
+
+  /**
+   * 登録数表示を更新
+   */
+  _updateFuriganaCountDisplay() {
+    const el = document.getElementById('furigana-count-display');
+    if (el) {
+      el.textContent = '登録数: ' + this._furiganaData.length + '件';
+    }
+  },
+
+  /**
+   * フォームからふりがなを追加
+   */
+  _addFuriganaFromForm() {
+    const nameInput = document.getElementById('furigana-add-name');
+    const readingInput = document.getElementById('furigana-add-reading');
+    if (!nameInput || !readingInput) return;
+
+    const name = nameInput.value.trim();
+    const furigana = readingInput.value.trim();
+
+    if (!name) {
+      this.showMessage('氏名を入力してください', 'error');
+      nameInput.focus();
+      return;
+    }
+    if (!furigana) {
+      this.showMessage('ふりがなを入力してください', 'error');
+      readingInput.focus();
+      return;
+    }
+
+    // 重複チェック
+    const existing = this._furiganaData.find(d => d.name === name);
+    if (existing) {
+      this.showMessage('「' + name + '」は既に登録されています', 'error');
+      return;
+    }
+
+    this._furiganaData.push({
+      id: this._furiganaNextId++,
+      name: name,
+      furigana: furigana,
+    });
+    this._saveFuriganaData();
+    this._syncFuriganaToRankingLoader();
+    this._renderFuriganaTable();
+
+    nameInput.value = '';
+    readingInput.value = '';
+    nameInput.focus();
+    this.showMessage('ふりがなを追加しました', 'success');
+  },
+
+  /**
+   * ふりがなエントリーを編集
+   */
+  _editFurigana(id, name, furigana) {
+    const entry = this._furiganaData.find(d => d.id === id);
+    if (!entry) return;
+
+    // 名前変更時の重複チェック
+    if (name !== entry.name) {
+      const dup = this._furiganaData.find(d => d.name === name && d.id !== id);
+      if (dup) {
+        this.showMessage('「' + name + '」は既に登録されています', 'error');
+        return false;
+      }
+    }
+
+    entry.name = name;
+    entry.furigana = furigana;
+    this._saveFuriganaData();
+    this._syncFuriganaToRankingLoader();
+    return true;
+  },
+
+  /**
+   * ふりがなエントリーを削除
+   */
+  _deleteFurigana(id) {
+    const index = this._furiganaData.findIndex(d => d.id === id);
+    if (index === -1) return;
+
+    const entry = this._furiganaData[index];
+    if (!confirm('「' + entry.name + '」を削除しますか？')) return;
+
+    this._furiganaData.splice(index, 1);
+    this._saveFuriganaData();
+    this._syncFuriganaToRankingLoader();
+    this._renderFuriganaTable();
+    this.showMessage('削除しました', 'success');
+  },
+
+  /**
+   * フィルタ適用済みのふりがなデータを取得
+   */
+  _getFilteredFurigana() {
+    let data = [...this._furiganaData];
+
+    // ふりがなでソート（あいうえお順）
+    data.sort((a, b) => (a.furigana || '').localeCompare(b.furigana || '', 'ja'));
+
+    // フィルター
+    if (this._furiganaFilter) {
+      const q = this._furiganaFilter.toLowerCase();
+      data = data.filter(d =>
+        d.name.toLowerCase().includes(q) ||
+        (d.furigana || '').toLowerCase().includes(q)
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * ふりがなテーブルを描画
+   */
+  _renderFuriganaTable() {
+    this._updateFuriganaCountDisplay();
+
+    const tbody = document.getElementById('furigana-table-body');
+    const paginationEl = document.getElementById('furigana-pagination');
+    if (!tbody) return;
+
+    const filtered = this._getFilteredFurigana();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / this._furiganaPageSize));
+    if (this._furiganaPage > totalPages) this._furiganaPage = totalPages;
+
+    const start = (this._furiganaPage - 1) * this._furiganaPageSize;
+    const pageData = filtered.slice(start, start + this._furiganaPageSize);
+
+    tbody.innerHTML = '';
+
+    if (pageData.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="4" style="text-align:center;color:#999;padding:24px;">データがありません</td>';
+      tbody.appendChild(tr);
+    } else {
+      pageData.forEach((entry, idx) => {
+        const tr = document.createElement('tr');
+        const rowNum = start + idx + 1;
+
+        if (this._furiganaEditingId === entry.id) {
+          // 編集モード
+          tr.innerHTML =
+            '<td>' + rowNum + '</td>' +
+            '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.name) + '" data-field="name" style="padding:4px 8px;font-size:13px;"></td>' +
+            '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.furigana) + '" data-field="furigana" style="padding:4px 8px;font-size:13px;"></td>' +
+            '<td>' +
+              '<button class="btn btn-primary btn-furigana-save" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">保存</button>' +
+              '<button class="btn btn-secondary btn-furigana-cancel" style="padding:4px 10px;font-size:12px;">取消</button>' +
+            '</td>';
+
+          // 保存ボタン
+          tr.querySelector('.btn-furigana-save').addEventListener('click', () => {
+            const nameVal = tr.querySelector('[data-field="name"]').value.trim();
+            const furiVal = tr.querySelector('[data-field="furigana"]').value.trim();
+            if (!nameVal || !furiVal) {
+              this.showMessage('氏名とふりがなは必須です', 'error');
+              return;
+            }
+            const result = this._editFurigana(entry.id, nameVal, furiVal);
+            if (result !== false) {
+              this._furiganaEditingId = null;
+              this._renderFuriganaTable();
+              this.showMessage('更新しました', 'success');
+            }
+          });
+
+          // 取消ボタン
+          tr.querySelector('.btn-furigana-cancel').addEventListener('click', () => {
+            this._furiganaEditingId = null;
+            this._renderFuriganaTable();
+          });
+
+          // Enterキーで保存
+          tr.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') {
+                tr.querySelector('.btn-furigana-save').click();
+              } else if (e.key === 'Escape') {
+                tr.querySelector('.btn-furigana-cancel').click();
+              }
+            });
+          });
+        } else {
+          // 表示モード
+          tr.innerHTML =
+            '<td>' + rowNum + '</td>' +
+            '<td>' + this._esc(entry.name) + '</td>' +
+            '<td>' + this._esc(entry.furigana) + '</td>' +
+            '<td>' +
+              '<button class="btn btn-secondary btn-furigana-edit" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">編集</button>' +
+              '<button class="btn btn-danger btn-furigana-delete" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;">削除</button>' +
+            '</td>';
+
+          // 編集ボタン
+          tr.querySelector('.btn-furigana-edit').addEventListener('click', () => {
+            this._furiganaEditingId = entry.id;
+            this._renderFuriganaTable();
+          });
+
+          // 削除ボタン
+          tr.querySelector('.btn-furigana-delete').addEventListener('click', () => {
+            this._deleteFurigana(entry.id);
+          });
+        }
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ページネーション
+    if (paginationEl) {
+      paginationEl.innerHTML = '';
+      if (totalPages > 1) {
+        // 前へ
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'btn btn-secondary';
+        prevBtn.style.cssText = 'padding:4px 12px;font-size:12px;';
+        prevBtn.textContent = '< 前へ';
+        prevBtn.disabled = this._furiganaPage <= 1;
+        prevBtn.addEventListener('click', () => {
+          this._furiganaPage--;
+          this._renderFuriganaTable();
+        });
+        paginationEl.appendChild(prevBtn);
+
+        // ページ情報
+        const info = document.createElement('span');
+        info.style.cssText = 'font-size:13px;color:#555;';
+        info.textContent = this._furiganaPage + ' / ' + totalPages + ' ページ（' + filtered.length + '件）';
+        paginationEl.appendChild(info);
+
+        // 次へ
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'btn btn-secondary';
+        nextBtn.style.cssText = 'padding:4px 12px;font-size:12px;';
+        nextBtn.textContent = '次へ >';
+        nextBtn.disabled = this._furiganaPage >= totalPages;
+        nextBtn.addEventListener('click', () => {
+          this._furiganaPage++;
+          this._renderFuriganaTable();
+        });
+        paginationEl.appendChild(nextBtn);
+      } else if (filtered.length > 0) {
+        const info = document.createElement('span');
+        info.style.cssText = 'font-size:13px;color:#555;';
+        info.textContent = filtered.length + '件';
+        paginationEl.appendChild(info);
+      }
+    }
+  },
+
+  /**
+   * Excelからふりがなデータを取込
+   */
+  async _importFuriganaExcel(file) {
+    if (typeof XLSX === 'undefined') {
+      this.showMessage('SheetJSが読み込まれていません', 'error');
+      return;
+    }
+
+    this._showLoadingOverlay('ふりがなデータを取込中...');
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        if (rows.length === 0) continue;
+
+        // ヘッダー行を自動検出
+        let nameCol = -1;
+        let furiganaCol = -1;
+        let headerRowIdx = -1;
+
+        for (let r = 0; r < Math.min(rows.length, 10); r++) {
+          const row = rows[r];
+          for (let c = 0; c < row.length; c++) {
+            const val = String(row[c] || '').trim();
+            if (/^(名前|氏名|name)$/i.test(val) && nameCol === -1) {
+              nameCol = c;
+              headerRowIdx = r;
+            }
+            if (/^(ふりがな|フリガナ|furigana|ﾌﾘｶﾞﾅ|よみがな)$/i.test(val) && furiganaCol === -1) {
+              furiganaCol = c;
+              headerRowIdx = r;
+            }
+          }
+          if (nameCol >= 0 && furiganaCol >= 0) break;
+        }
+
+        // ヘッダーが見つからない場合、最初の2列を名前・ふりがなと仮定
+        if (nameCol === -1 && furiganaCol === -1 && rows.length > 1) {
+          nameCol = 0;
+          furiganaCol = 1;
+          headerRowIdx = 0;
+        }
+
+        if (nameCol === -1 || furiganaCol === -1) continue;
+
+        // データ行を読み込み
+        for (let r = headerRowIdx + 1; r < rows.length; r++) {
+          const row = rows[r];
+          const name = String(row[nameCol] || '').trim();
+          const furigana = String(row[furiganaCol] || '').trim();
+
+          if (!name || !furigana) continue;
+
+          // 重複チェック（名前で判定）
+          const existing = this._furiganaData.find(d => d.name === name);
+          if (existing) {
+            skipped++;
+            continue;
+          }
+
+          this._furiganaData.push({
+            id: this._furiganaNextId++,
+            name: name,
+            furigana: furigana,
+          });
+          imported++;
+        }
+      }
+
+      this._saveFuriganaData();
+      this._syncFuriganaToRankingLoader();
+      this._renderFuriganaTable();
+
+      let msg = imported + '件を取り込みました';
+      if (skipped > 0) msg += '（重複スキップ: ' + skipped + '件）';
+      this.showMessage(msg, 'success');
+    } catch (err) {
+      console.error('ふりがなExcel取込エラー:', err);
+      this.showMessage('取込に失敗しました: ' + err.message, 'error');
+    } finally {
+      this._hideLoadingOverlay();
+    }
+  },
+
+  /**
+   * ふりがなデータをExcel出力
+   */
+  _exportFuriganaExcel() {
+    if (typeof XLSX === 'undefined') {
+      this.showMessage('SheetJSが読み込まれていません', 'error');
+      return;
+    }
+    if (this._furiganaData.length === 0) {
+      this.showMessage('エクスポートするデータがありません', 'info');
+      return;
+    }
+
+    const sorted = [...this._furiganaData].sort((a, b) =>
+      (a.furigana || '').localeCompare(b.furigana || '', 'ja')
+    );
+
+    const aoa = [['氏名', 'ふりがな']];
+    for (const entry of sorted) {
+      aoa.push([entry.name, entry.furigana]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 20 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ふりがな');
+    XLSX.writeFile(wb, 'ふりがなデータ.xlsx');
+    this.showMessage('Excelファイルを出力しました', 'success');
+  },
+
+  /**
+   * ふりがなDBから名前を検索（外部から利用可能）
+   * @param {string} name - 検索する名前
+   * @returns {string|null} ふりがな、見つからなければnull
+   */
+  lookupFurigana(name) {
+    if (!name) return null;
+    const entry = this._furiganaData.find(d => d.name === name);
+    return entry ? entry.furigana : null;
   },
 };
 

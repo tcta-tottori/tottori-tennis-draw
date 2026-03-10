@@ -251,11 +251,12 @@ window.ScheduleEngine = {
 
   /**
    * 試合一覧をコート×時間枠のグリッドに自動配置する
+   * 照明制約・コート集約ロジック付き
    *
    * @param {Array<object>} matches - Match オブジェクト配列（複数種目を含む）
    * @param {object} config - スケジュール設定
    *   { courtCount: number,
-   *     courtNames: string[],    // 例: ['1', '2', '3', 'A']
+   *     courtNames: string[],    // 例: ['1', '2', ..., '16']
    *     matchDuration: number,   // 分単位（例: 40）
    *     startTime: string }      // 'HH:MM' 形式
    * @returns {Array<object>} ScheduleSlot 配列
@@ -267,36 +268,85 @@ window.ScheduleEngine = {
     //  ソート: ラウンド昇順 → ドローサイズ降順 → 種目順
     // -----------------------------------------------------------------
     const sorted = [...matches].sort((a, b) => {
-      // ラウンド昇順（早いラウンドを先に）
       if (a.round !== b.round) return a.round - b.round;
-      // 同ラウンドではドローサイズが大きい種目を優先
       if (a.drawSize !== b.drawSize) return b.drawSize - a.drawSize;
-      // 種目の表示順
       return this._getEventOrder(a.eventCode) - this._getEventOrder(b.eventCode);
     });
 
     // -----------------------------------------------------------------
+    //  最大ラウンドを算出（後半判定に使用）
+    // -----------------------------------------------------------------
+    const maxRound = Math.max(...sorted.map(m => m.round), 1);
+
+    // -----------------------------------------------------------------
     //  グリッドとスケジュール管理
     // -----------------------------------------------------------------
-
-    // grid[courtIdx][timeSlotIdx] = matchId | null
-    const maxSlots = 200; // 十分大きな上限
+    const maxSlots = 200;
     const grid = [];
     for (let c = 0; c < courtCount; c++) {
       grid.push(new Array(maxSlots).fill(null));
     }
 
-    // 各試合の完了スロット記録
-    const completionSlot = {}; // matchId -> timeSlotIndex（その試合が行われるスロット）
-
-    // 各スロットでプレー中の選手を管理（選手名衝突チェック用）
-    // slotPlayers[timeSlotIdx] = Set<playerName>
+    const completionSlot = {};
     const slotPlayers = {};
-
     const result = [];
 
+    // -----------------------------------------------------------------
+    //  照明制約チェック: コート番号(数値)と時刻から使用可否を判定
+    // -----------------------------------------------------------------
+    const _isCourtAvailable = (courtNum, slotIdx) => {
+      const totalMinutes = this._calcTotalMinutes(startTime, slotIdx, matchDuration);
+      const hour = totalMinutes / 60;
+      if (courtNum >= 1 && courtNum <= 8) {
+        // 照明なし: 18:00以降は使用不可
+        return hour < 18;
+      }
+      if (courtNum >= 9 && courtNum <= 16) {
+        // 最大21:00まで
+        return hour < 21;
+      }
+      return true;
+    };
+
+    // -----------------------------------------------------------------
+    //  コート優先順序を決定する
+    //  - 後半（準決勝以降 or ラウンドが全体の60%超）: 5-8, 9-12を優先、特に5,9を最優先
+    //  - 前半: 全コートを均等に使用（番号順）
+    // -----------------------------------------------------------------
+    const _getCourtOrder = (match) => {
+      const isLateRound = match.round >= maxRound - 1 || match.round / maxRound > 0.6;
+      const indices = [];
+
+      if (isLateRound) {
+        // 後半: 本部近く（5, 9）を最優先、次に5-8, 9-12ブロック、最後に1-4, 13-16
+        const preferred = [];
+        const secondary = [];
+        const tertiary = [];
+
+        for (let i = 0; i < courtCount; i++) {
+          const num = parseInt(courtNames[i], 10);
+          if (num === 5 || num === 9) {
+            preferred.push(i);
+          } else if ((num >= 6 && num <= 8) || (num >= 10 && num <= 12)) {
+            secondary.push(i);
+          } else {
+            tertiary.push(i);
+          }
+        }
+        indices.push(...preferred, ...secondary, ...tertiary);
+      } else {
+        // 前半: 番号順にすべて使用
+        for (let i = 0; i < courtCount; i++) {
+          indices.push(i);
+        }
+      }
+      return indices;
+    };
+
+    // -----------------------------------------------------------------
+    //  試合配置ループ
+    // -----------------------------------------------------------------
     for (const match of sorted) {
-      // 依存関係から最小スロットを計算
       let minSlot = 0;
       for (const depId of match.dependsOn) {
         if (completionSlot[depId] !== undefined) {
@@ -304,37 +354,40 @@ window.ScheduleEngine = {
         }
       }
 
-      // 最も早い空きスロット・コートを探索
       let assigned = false;
+      const courtOrder = _getCourtOrder(match);
 
       for (let slot = minSlot; slot < maxSlots; slot++) {
-        // この時間枠で当該選手がすでにプレー中か確認
         if (this._hasPlayerConflict(match, slot, slotPlayers)) {
           continue;
         }
 
-        for (let court = 0; court < courtCount; court++) {
-          if (grid[court][slot] === null) {
-            // 配置決定
-            grid[court][slot] = match.matchId;
+        for (const courtIdx of courtOrder) {
+          const courtNum = parseInt(courtNames[courtIdx], 10);
+
+          // 照明制約チェック
+          if (!_isCourtAvailable(courtNum, slot)) {
+            continue;
+          }
+
+          if (grid[courtIdx][slot] === null) {
+            grid[courtIdx][slot] = match.matchId;
             completionSlot[match.matchId] = slot;
 
-            // 選手の衝突マップを更新
             if (!slotPlayers[slot]) slotPlayers[slot] = new Set();
             for (const player of match.players) {
               if (player) slotPlayers[slot].add(player);
             }
 
-            const scheduleSlot = {
+            result.push({
               matchId: match.matchId,
-              courtIndex: court,
-              courtName: courtNames[court] || String(court + 1),
+              courtIndex: courtIdx,
+              courtName: courtNames[courtIdx] || String(courtIdx + 1),
               timeSlotIndex: slot,
               startTime: this.calcTimeString(startTime, slot, matchDuration),
               eventCode: match.eventCode,
               roundLabel: match.roundLabel,
-            };
-            result.push(scheduleSlot);
+            });
             assigned = true;
             break;
           }
@@ -348,6 +401,16 @@ window.ScheduleEngine = {
     }
 
     return result;
+  },
+
+  /**
+   * 開始時刻とスロットインデックスから総分数を計算する（内部用）
+   */
+  _calcTotalMinutes(startTime, slotIndex, durationMinutes) {
+    const parts = startTime.split(':');
+    const startHour = parseInt(parts[0], 10);
+    const startMin = parseInt(parts[1], 10);
+    return startHour * 60 + startMin + slotIndex * durationMinutes;
   },
 
   /**

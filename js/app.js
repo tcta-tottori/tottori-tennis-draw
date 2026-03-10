@@ -4447,30 +4447,28 @@ window.App = {
     this._scheduleConfig = null;
     this._restoreSchedule();
 
-    // コートチェックボックス生成（1〜16面、全チェック）
+    // コートブロックチェックボックス生成（4ブロック、全チェック）
     const cbContainer = document.getElementById('schedule-court-checkboxes');
     if (cbContainer) {
-      for (let i = 1; i <= 16; i++) {
+      const blocks = [
+        { value: '1-4', label: '1〜4面' },
+        { value: '5-8', label: '5〜8面' },
+        { value: '9-12', label: '9〜12面' },
+        { value: '13-16', label: '13〜16面' },
+      ];
+      for (const block of blocks) {
         const label = document.createElement('label');
-        label.style.cssText = 'display:inline-flex;align-items:center;gap:2px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-size:13px;user-select:none;min-width:48px;justify-content:center;';
+        label.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:14px;user-select:none;';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = true;
-        cb.value = String(i);
+        cb.value = block.value;
         cb.className = 'schedule-court-cb';
         label.appendChild(cb);
-        label.appendChild(document.createTextNode(i + '面'));
+        label.appendChild(document.createTextNode(block.label));
         cbContainer.appendChild(label);
       }
     }
-    const btnAll = document.getElementById('btn-court-all');
-    if (btnAll) btnAll.addEventListener('click', () => {
-      document.querySelectorAll('.schedule-court-cb').forEach(cb => cb.checked = true);
-    });
-    const btnNone = document.getElementById('btn-court-none');
-    if (btnNone) btnNone.addEventListener('click', () => {
-      document.querySelectorAll('.schedule-court-cb').forEach(cb => cb.checked = false);
-    });
 
     const btnGenerate = document.getElementById('btn-generate-schedule');
     if (btnGenerate) {
@@ -4527,17 +4525,23 @@ window.App = {
       return;
     }
 
-    // 設定値の取得
-    const checkedCourts = [];
+    // 設定値の取得 - ブロックを個別コート番号に展開
+    const checkedBlocks = [];
     document.querySelectorAll('.schedule-court-cb:checked').forEach(cb => {
-      checkedCourts.push(cb.value);
+      checkedBlocks.push(cb.value);
     });
-    if (checkedCourts.length === 0) {
-      this.showMessage('使用するコートを選択してください', 'warning');
+    if (checkedBlocks.length === 0) {
+      this.showMessage('使用するコートブロックを選択してください', 'warning');
       return;
     }
-    const courtCount = checkedCourts.length;
-    const courtNames = checkedCourts;
+    const courtNames = [];
+    for (const block of checkedBlocks) {
+      const [start, end] = block.split('-').map(Number);
+      for (let i = start; i <= end; i++) {
+        courtNames.push(String(i));
+      }
+    }
+    const courtCount = courtNames.length;
     const matchDuration = parseInt(document.getElementById('schedule-match-duration').value, 10) || 40;
     const startTime = document.getElementById('schedule-start-time').value || '09:00';
 

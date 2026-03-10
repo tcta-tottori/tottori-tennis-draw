@@ -672,7 +672,7 @@ window.DrawRenderer = {
 
     if (isConfirmed) {
       // 確定済み: BYE圧縮出力
-      this._buildExcelConfirmed(wsData, leftDraw, rightDraw, halfSize, isDoubles, leftDataCols, rightStartCol, totalCols, singlesMerges);
+      this._buildExcelConfirmed(wsData, leftDraw, rightDraw, halfSize, isDoubles, leftDataCols, rightStartCol, totalCols, singlesMerges, drawData);
     } else {
       // 通常出力
       this._buildExcelNormal(wsData, leftDraw, rightDraw, halfSize, isDoubles, leftDataCols, rightStartCol, totalCols, singlesMerges);
@@ -712,7 +712,7 @@ window.DrawRenderer = {
 
     // ヘッダースタイル
     const h1cell = ensureCell(1, 1);
-    h1cell.s.font = { bold: true, sz: 14 };
+    h1cell.s.font = { bold: true, sz: 18 };
     const eventMergeEnd = leftDataCols + halfRounds - 1;
     ws['!merges'].push({ s: { r: 1, c: 1 }, e: { r: 1, c: eventMergeEnd } });
     for (let hRow = 1; hRow <= 3; hRow++) {
@@ -722,9 +722,13 @@ window.DrawRenderer = {
       if (hRow === 1) {
         if (!hCell.s.font) hCell.s.font = {};
         hCell.s.font.bold = true;
+        hCell.s.font.sz = 16;
       }
       ws['!merges'].push({ s: { r: hRow, c: centerLeftCol }, e: { r: hRow, c: totalCols - 1 } });
     }
+    // タイトル行高さ
+    if (!ws['!rows']) ws['!rows'] = [];
+    ws['!rows'][1] = { hpt: 24 };
 
     // 結合セル
     for (const sm of singlesMerges) {
@@ -752,14 +756,12 @@ window.DrawRenderer = {
       }
     }
 
-    // 区切り線
-    if (wsData._separatorRows) {
-      for (const sr of wsData._separatorRows) {
-        for (let c = 1; c < leftDataCols - 1; c++) {
-          ensureCell(sr, c).s.border.bottom = border('hair');
-        }
-        for (let c = rightStartCol + 1; c < rightStartCol + rightDataCols; c++) {
-          ensureCell(sr, c).s.border.bottom = border('hair');
+    // ダブルス: 2人目の行に薄いグレー下線（ペア区切り）
+    const grayBorder = { style: 'thin', color: { rgb: '808080' } };
+    if (wsData._playerPairRows) {
+      for (const pr of wsData._playerPairRows) {
+        for (let c = pr.startCol; c <= pr.endCol; c++) {
+          ensureCell(pr.row, c).s.border.bottom = grayBorder;
         }
       }
     }
@@ -787,6 +789,27 @@ window.DrawRenderer = {
       seedCell.s.font.bold = true;
     }
 
+    // スケジュール時間をブラケットセルに埋め込む
+    if (wsData._timeMerges) {
+      for (const tm of wsData._timeMerges) {
+        const cell = ensureCell(tm.startRow, tm.col);
+        cell.v = tm.timeValue;
+        cell.t = 'n';
+        cell.z = 'h:mm';
+        if (!cell.s.alignment) cell.s.alignment = {};
+        cell.s.alignment.vertical = 'center';
+        cell.s.alignment.horizontal = 'center';
+        cell.s.font = { sz: 9, color: { rgb: '1565C0' } };
+        if (tm.startRow !== tm.endRow) {
+          ws['!merges'].push({ s: { r: tm.startRow, c: tm.col }, e: { r: tm.endRow, c: tm.col } });
+        }
+      }
+    }
+
+    // グリッド線非表示
+    if (!ws['!sheetViews']) ws['!sheetViews'] = [{}];
+    ws['!sheetViews'][0].showGridLines = false;
+
     XLSX.utils.book_append_sheet(wb, ws, eventName.substring(0, 31));
 
     // エントリーリストシート
@@ -808,7 +831,7 @@ window.DrawRenderer = {
   _buildExcelNormal(wsData, leftDraw, rightDraw, halfSize, isDoubles, leftDataCols, rightStartCol, totalCols, singlesMerges) {
     const headerRows = wsData.length;
     wsData._bracketInfo = [];
-    wsData._separatorRows = [];
+    wsData._playerPairRows = [];
     const rounds = Math.log2(halfSize * 2);
     const halfRounds = rounds - 1;
     const centerCols = 2;
@@ -830,14 +853,17 @@ window.DrawRenderer = {
         row1[rightStartCol + 1] = right.isBye ? '' : right.position;
         row1[rightStartCol + 2] = rp[0]; row1[rightStartCol + 3] = ra[0] || '';
         wsData.push(row1);
+        const row2Idx = wsData.length;
         const row2 = new Array(totalCols).fill('');
         row2[2] = left.isBye ? '' : (lp[1] || '');
         row2[3] = left.isBye ? '' : (la[1] || la[0] || '');
         row2[rightStartCol + 2] = right.isBye ? '' : (rp[1] || '');
         row2[rightStartCol + 3] = right.isBye ? '' : (ra[1] || ra[0] || '');
         wsData.push(row2);
+        // 2人目の行にグレー下線
+        if (leftIsDoubles) wsData._playerPairRows.push({ row: row2Idx, startCol: 1, endCol: 3 });
+        if (rightIsDoubles) wsData._playerPairRows.push({ row: row2Idx, startCol: rightStartCol + 1, endCol: rightStartCol + 3 });
         if (isDoubles) wsData.push(new Array(totalCols).fill(''));
-        wsData._separatorRows.push(isDoubles ? wsData.length - 1 : wsData.length - 1);
       } else {
         const currentRow = wsData.length;
         const row1 = new Array(totalCols).fill('');
@@ -849,7 +875,6 @@ window.DrawRenderer = {
         row1[rightStartCol + 3] = right.isBye ? '' : (right.affiliation || '');
         wsData.push(row1);
         wsData.push(new Array(totalCols).fill(''));
-        wsData._separatorRows.push(wsData.length - 1);
         if (!isDoubles) {
           singlesMerges.push({ row: currentRow, side: 'left' });
           singlesMerges.push({ row: currentRow, side: 'right' });
@@ -883,10 +908,11 @@ window.DrawRenderer = {
   /**
    * 確定済みExcel出力（BYE圧縮・連番化）
    */
-  _buildExcelConfirmed(wsData, leftDraw, rightDraw, halfSize, isDoubles, leftDataCols, rightStartCol, totalCols, singlesMerges) {
+  _buildExcelConfirmed(wsData, leftDraw, rightDraw, halfSize, isDoubles, leftDataCols, rightStartCol, totalCols, singlesMerges, drawData) {
     const headerRows = wsData.length;
     wsData._bracketInfo = [];
-    wsData._separatorRows = [];
+    wsData._playerPairRows = [];
+    wsData._timeMerges = [];
     const rounds = Math.log2(halfSize * 2);
     const halfRounds = rounds - 1;
     const centerCols = 2;
@@ -894,202 +920,218 @@ window.DrawRenderer = {
     const leftCompact = this._buildCompactDraw(leftDraw, halfSize);
     const rightCompact = this._buildCompactDraw(rightDraw, halfSize);
 
-    // 左右で行を合わせるため、同じインデックスのペアを同時に処理
     const maxPairs = Math.max(leftCompact.length, rightCompact.length);
     let leftPos = 1;
     let rightPos = halfSize + 1;
 
-    // 各compactアイテムのExcel行位置を記録
     const leftItemRows = [];
     const rightItemRows = [];
+
+    // ダブルスエントリーを書き込むヘルパー
+    const writeDoublesEntry = (row, entry, pos, startCol) => {
+      const players = entry.name.split(' / ');
+      const affils = (entry.affiliation || '').split(' / ');
+      wsData[row][startCol] = pos;
+      wsData[row][startCol + 1] = players[0] || '';
+      wsData[row][startCol + 2] = affils[0] || '';
+      if (!wsData[row + 1]) wsData[row + 1] = new Array(totalCols).fill('');
+      wsData[row + 1][startCol + 1] = players[1] || '';
+      wsData[row + 1][startCol + 2] = affils[1] || affils[0] || '';
+      // 2人目の行にグレー下線
+      wsData._playerPairRows.push({ row: row + 1, startCol: startCol, endCol: startCol + 2 });
+    };
+
+    const writeSinglesEntry = (row, entry, pos, startCol) => {
+      wsData[row][startCol] = pos;
+      wsData[row][startCol + 1] = entry.name || '';
+      wsData[row][startCol + 2] = entry.affiliation || '';
+    };
+
+    // 各エントリーを処理: ダブルスは2行(player1+player2) + 1空行 = 3行/エントリー
+    // matchは2エントリー分 = 上2行+空1行+下2行+空1行 = 6行（ダブルス）
+    // bye-passは1エントリー = 2行+空1行 = 3行（ダブルス）
+    // シングルスは1行+空1行 = 2行/エントリー
+
+    const writeSide = (compact, startPos, side) => {
+      const startCol = side === 'left' ? 1 : rightStartCol + 1;
+      let pos = startPos;
+      const itemRows = [];
+
+      for (let ci = 0; ci < compact.length; ci++) {
+        const item = compact[ci];
+        if (item.type === 'bye-pair') {
+          itemRows.push(null);
+          continue;
+        }
+        itemRows.push(wsData.length);
+
+        if (item.type === 'match') {
+          const topRow = wsData.length;
+          // 上選手
+          if (!wsData[topRow]) wsData.push(new Array(totalCols).fill(''));
+          const topEntry = item.top;
+          const topIsDbl = isDoubles && topEntry.name && topEntry.name.includes(' / ');
+          if (topIsDbl) {
+            writeDoublesEntry(topRow, topEntry, pos, startCol);
+            if (!wsData[topRow + 1]) wsData.push(new Array(totalCols).fill(''));
+          } else {
+            writeSinglesEntry(topRow, topEntry, pos, startCol);
+            if (!wsData[topRow + 1]) wsData.push(new Array(totalCols).fill(''));
+          }
+          pos++;
+
+          // 下選手
+          const bottomRow = isDoubles ? topRow + 3 : topRow + 2;
+          while (wsData.length <= bottomRow) wsData.push(new Array(totalCols).fill(''));
+          const btmEntry = item.bottom;
+          const btmIsDbl = isDoubles && btmEntry.name && btmEntry.name.includes(' / ');
+          if (btmIsDbl) {
+            writeDoublesEntry(bottomRow, btmEntry, pos, startCol);
+            while (wsData.length <= bottomRow + 1) wsData.push(new Array(totalCols).fill(''));
+          } else {
+            writeSinglesEntry(bottomRow, btmEntry, pos, startCol);
+          }
+          pos++;
+
+          if (!isDoubles) {
+            singlesMerges.push({ row: topRow, side });
+            singlesMerges.push({ row: bottomRow, side });
+          }
+        } else if (item.type === 'bye-pass') {
+          const entryRow = wsData.length;
+          if (!wsData[entryRow]) wsData.push(new Array(totalCols).fill(''));
+          const entry = item.entry;
+          const isDbl = isDoubles && entry.name && entry.name.includes(' / ');
+          if (isDbl) {
+            writeDoublesEntry(entryRow, entry, pos, startCol);
+            if (!wsData[entryRow + 1]) wsData.push(new Array(totalCols).fill(''));
+          } else {
+            writeSinglesEntry(entryRow, entry, pos, startCol);
+            if (!wsData[entryRow + 1]) wsData.push(new Array(totalCols).fill(''));
+          }
+          pos++;
+
+          if (!isDoubles) {
+            singlesMerges.push({ row: entryRow, side });
+          }
+        }
+
+        // 空行（スペーサー）
+        wsData.push(new Array(totalCols).fill(''));
+      }
+      return { itemRows, endPos: pos };
+    };
+
+    // 左右を独立に行数計算してから、行数を揃えて書き込む
+    // まず左を書く
+    const leftResult = writeSide(leftCompact, leftPos, 'left');
+    const leftEndRow = wsData.length;
+
+    // 左のデータを退避して右も同じ行から書き直すため、行位置だけ記録
+    // 実際には左右を同じ行に配置する必要がある
+    // → 左右を同時に進めるアプローチに戻す
+
+    // 上のwriteSideの結果を使わず、同時処理に書き直し
+    wsData.length = headerRows; // リセット
+    leftPos = 1;
+    rightPos = halfSize + 1;
 
     for (let ci = 0; ci < maxPairs; ci++) {
       const lc = ci < leftCompact.length ? leftCompact[ci] : { type: 'bye-pair' };
       const rc = ci < rightCompact.length ? rightCompact[ci] : { type: 'bye-pair' };
 
-      // 両方bye-pairならスキップ
       if (lc.type === 'bye-pair' && rc.type === 'bye-pair') {
         leftItemRows.push(null);
         rightItemRows.push(null);
         continue;
       }
 
-      const currentBaseRow = wsData.length;
-      leftItemRows.push(currentBaseRow);
-      rightItemRows.push(currentBaseRow);
+      const baseRow = wsData.length;
+      leftItemRows.push(baseRow);
+      rightItemRows.push(baseRow);
 
-      // 左側のデータ
-      const writeEntry = (entry, pos, side, isDoublesEntry) => {
-        const startCol = side === 'left' ? 1 : rightStartCol + 1;
-        if (!entry) return pos;
-        if (isDoublesEntry) {
-          const players = entry.name.split(' / ');
-          const affils = (entry.affiliation || '').split(' / ');
-          // 1行目に書く (currentBaseRow)
-          const r1 = wsData[currentBaseRow] || new Array(totalCols).fill('');
-          r1[startCol] = pos;
-          r1[startCol + 1] = players[0] || '';
-          r1[startCol + 2] = affils[0] || '';
-          wsData[currentBaseRow] = r1;
-          // 2行目
-          let r2 = wsData[currentBaseRow + 1];
-          if (!r2) { r2 = new Array(totalCols).fill(''); wsData[currentBaseRow + 1] = r2; }
-          r2[startCol + 1] = players[1] || '';
-          r2[startCol + 2] = affils[1] || affils[0] || '';
-        } else {
-          const r1 = wsData[currentBaseRow] || new Array(totalCols).fill('');
-          r1[startCol] = pos;
-          r1[startCol + 1] = entry.name || '';
-          r1[startCol + 2] = entry.affiliation || '';
-          wsData[currentBaseRow] = r1;
-        }
-        return pos + 1;
+      // 必要な行数を計算
+      const calcRows = (item) => {
+        if (item.type === 'match') return isDoubles ? 6 : 4;
+        if (item.type === 'bye-pass') return isDoubles ? 3 : 2;
+        return 0;
       };
+      const neededRows = Math.max(calcRows(lc), calcRows(rc));
+      // 行を確保（+1 for spacer）
+      for (let r = 0; r < neededRows + 1; r++) {
+        if (wsData.length <= baseRow + r) wsData.push(new Array(totalCols).fill(''));
+      }
 
-      // 行を確保
-      if (!wsData[currentBaseRow]) wsData.push(new Array(totalCols).fill(''));
-
-      // 左側
+      // 左側書込
       if (lc.type === 'match') {
-        // 2行（名前行 + 空行 = 2スロット）
-        writeEntry(lc.top, leftPos++, 'left', isDoubles && lc.top.name && lc.top.name.includes(' / '));
-        if (!wsData[currentBaseRow + 1]) wsData.push(new Array(totalCols).fill(''));
-        // 2行目に下の選手
-        const secondRow = currentBaseRow + 2;
-        if (!wsData[secondRow]) wsData.push(new Array(totalCols).fill(''));
-        const startCol = 1;
-        const entry = lc.bottom;
-        const isDbl = isDoubles && entry.name && entry.name.includes(' / ');
-        if (isDbl) {
-          const players = entry.name.split(' / ');
-          const affils = (entry.affiliation || '').split(' / ');
-          wsData[secondRow][startCol] = leftPos;
-          wsData[secondRow][startCol + 1] = players[0] || '';
-          wsData[secondRow][startCol + 2] = affils[0] || '';
-          if (!wsData[secondRow + 1]) wsData.push(new Array(totalCols).fill(''));
-          wsData[secondRow + 1][startCol + 1] = players[1] || '';
-          wsData[secondRow + 1][startCol + 2] = affils[1] || affils[0] || '';
+        const topIsDbl = isDoubles && lc.top.name && lc.top.name.includes(' / ');
+        const btmIsDbl = isDoubles && lc.bottom.name && lc.bottom.name.includes(' / ');
+        if (topIsDbl) {
+          writeDoublesEntry(baseRow, lc.top, leftPos++, 1);
         } else {
-          wsData[secondRow][startCol] = leftPos;
-          wsData[secondRow][startCol + 1] = entry.name || '';
-          wsData[secondRow][startCol + 2] = entry.affiliation || '';
-          if (!wsData[secondRow + 1]) wsData.push(new Array(totalCols).fill(''));
+          writeSinglesEntry(baseRow, lc.top, leftPos++, 1);
+          if (!isDoubles) singlesMerges.push({ row: baseRow, side: 'left' });
         }
-        leftPos++;
+        const btmRow = isDoubles ? baseRow + 3 : baseRow + 2;
+        if (btmIsDbl) {
+          writeDoublesEntry(btmRow, lc.bottom, leftPos++, 1);
+        } else {
+          writeSinglesEntry(btmRow, lc.bottom, leftPos++, 1);
+          if (!isDoubles) singlesMerges.push({ row: btmRow, side: 'left' });
+        }
       } else if (lc.type === 'bye-pass') {
-        writeEntry(lc.entry, leftPos++, 'left', isDoubles && lc.entry.name && lc.entry.name.includes(' / '));
-        if (!wsData[currentBaseRow + 1]) wsData.push(new Array(totalCols).fill(''));
-      }
-
-      // 右側
-      if (rc.type === 'match') {
-        const startCol = rightStartCol + 1;
-        const r1 = wsData[currentBaseRow];
-        const entry1 = rc.top;
-        const isDbl1 = isDoubles && entry1.name && entry1.name.includes(' / ');
-        if (isDbl1) {
-          const players = entry1.name.split(' / ');
-          const affils = (entry1.affiliation || '').split(' / ');
-          r1[startCol] = rightPos;
-          r1[startCol + 1] = players[0] || '';
-          r1[startCol + 2] = affils[0] || '';
-          if (!wsData[currentBaseRow + 1]) wsData.push(new Array(totalCols).fill(''));
-          wsData[currentBaseRow + 1][startCol + 1] = players[1] || '';
-          wsData[currentBaseRow + 1][startCol + 2] = affils[1] || affils[0] || '';
-        } else {
-          r1[startCol] = rightPos;
-          r1[startCol + 1] = entry1.name || '';
-          r1[startCol + 2] = entry1.affiliation || '';
-        }
-        rightPos++;
-
-        const secondRow = currentBaseRow + 2;
-        if (!wsData[secondRow]) wsData.push(new Array(totalCols).fill(''));
-        const entry2 = rc.bottom;
-        const isDbl2 = isDoubles && entry2.name && entry2.name.includes(' / ');
-        if (isDbl2) {
-          const players = entry2.name.split(' / ');
-          const affils = (entry2.affiliation || '').split(' / ');
-          wsData[secondRow][startCol] = rightPos;
-          wsData[secondRow][startCol + 1] = players[0] || '';
-          wsData[secondRow][startCol + 2] = affils[0] || '';
-          if (!wsData[secondRow + 1]) wsData.push(new Array(totalCols).fill(''));
-          wsData[secondRow + 1][startCol + 1] = players[1] || '';
-          wsData[secondRow + 1][startCol + 2] = affils[1] || affils[0] || '';
-        } else {
-          wsData[secondRow][startCol] = rightPos;
-          wsData[secondRow][startCol + 1] = entry2.name || '';
-          wsData[secondRow][startCol + 2] = entry2.affiliation || '';
-          if (!wsData[secondRow + 1]) wsData.push(new Array(totalCols).fill(''));
-        }
-        rightPos++;
-      } else if (rc.type === 'bye-pass') {
-        const startCol = rightStartCol + 1;
-        const r1 = wsData[currentBaseRow];
-        const entry = rc.entry;
-        const isDbl = isDoubles && entry.name && entry.name.includes(' / ');
+        const isDbl = isDoubles && lc.entry.name && lc.entry.name.includes(' / ');
         if (isDbl) {
-          const players = entry.name.split(' / ');
-          const affils = (entry.affiliation || '').split(' / ');
-          r1[startCol] = rightPos;
-          r1[startCol + 1] = players[0] || '';
-          r1[startCol + 2] = affils[0] || '';
-          if (!wsData[currentBaseRow + 1]) wsData.push(new Array(totalCols).fill(''));
-          wsData[currentBaseRow + 1][startCol + 1] = players[1] || '';
-          wsData[currentBaseRow + 1][startCol + 2] = affils[1] || affils[0] || '';
+          writeDoublesEntry(baseRow, lc.entry, leftPos++, 1);
         } else {
-          r1[startCol] = rightPos;
-          r1[startCol + 1] = entry.name || '';
-          r1[startCol + 2] = entry.affiliation || '';
-          if (!wsData[currentBaseRow + 1]) wsData.push(new Array(totalCols).fill(''));
+          writeSinglesEntry(baseRow, lc.entry, leftPos++, 1);
+          if (!isDoubles) singlesMerges.push({ row: baseRow, side: 'left' });
         }
-        rightPos++;
       }
 
-      // ダブルスの場合はペア間に空白行追加
-      if (isDoubles) {
-        wsData.push(new Array(totalCols).fill(''));
-      }
-
-      wsData._separatorRows.push(wsData.length - 1);
-
-      // シングルスの結合セル
-      if (!isDoubles) {
-        if (lc.type === 'match') {
-          singlesMerges.push({ row: currentBaseRow, side: 'left' });
-          singlesMerges.push({ row: currentBaseRow + 2, side: 'left' });
-        } else if (lc.type === 'bye-pass') {
-          singlesMerges.push({ row: currentBaseRow, side: 'left' });
+      // 右側書込
+      const rCol = rightStartCol + 1;
+      if (rc.type === 'match') {
+        const topIsDbl = isDoubles && rc.top.name && rc.top.name.includes(' / ');
+        const btmIsDbl = isDoubles && rc.bottom.name && rc.bottom.name.includes(' / ');
+        if (topIsDbl) {
+          writeDoublesEntry(baseRow, rc.top, rightPos++, rCol);
+        } else {
+          writeSinglesEntry(baseRow, rc.top, rightPos++, rCol);
+          if (!isDoubles) singlesMerges.push({ row: baseRow, side: 'right' });
         }
-        if (rc.type === 'match') {
-          singlesMerges.push({ row: currentBaseRow, side: 'right' });
-          singlesMerges.push({ row: currentBaseRow + 2, side: 'right' });
-        } else if (rc.type === 'bye-pass') {
-          singlesMerges.push({ row: currentBaseRow, side: 'right' });
+        const btmRow = isDoubles ? baseRow + 3 : baseRow + 2;
+        if (btmIsDbl) {
+          writeDoublesEntry(btmRow, rc.bottom, rightPos++, rCol);
+        } else {
+          writeSinglesEntry(btmRow, rc.bottom, rightPos++, rCol);
+          if (!isDoubles) singlesMerges.push({ row: btmRow, side: 'right' });
+        }
+      } else if (rc.type === 'bye-pass') {
+        const isDbl = isDoubles && rc.entry.name && rc.entry.name.includes(' / ');
+        if (isDbl) {
+          writeDoublesEntry(baseRow, rc.entry, rightPos++, rCol);
+        } else {
+          writeSinglesEntry(baseRow, rc.entry, rightPos++, rCol);
+          if (!isDoubles) singlesMerges.push({ row: baseRow, side: 'right' });
         }
       }
     }
 
-    // ブラケット罫線: 各compact itemの実際の行位置に基づいて計算
-    // 各compact itemの「出力行」(名前が書かれている行)を計算
-    // match: 4行使用 (top名前, 空, bottom名前, 空) → 出力行 = startRow (top), startRow+2 (bottom)
-    // bye-pass: 2行使用 (名前, 空) → 出力行 = startRow
-    // bye-pair: 0行 (スキップ)
-
+    // ブラケット罫線の計算
     const computeOutputRows = (compact, itemRows) => {
-      const outputs = []; // 各compact itemの出力行 {nameRow, midRow, type}
+      const outputs = [];
       for (let ci = 0; ci < compact.length; ci++) {
         const item = compact[ci];
         const startRow = itemRows[ci];
         if (item.type === 'match') {
           const topNameRow = startRow;
-          const bottomNameRow = startRow + 2;
-          const midRow = startRow + 1; // midpoint between top and bottom name rows
+          const bottomNameRow = isDoubles ? startRow + 3 : startRow + 2;
+          const midRow = Math.floor((topNameRow + bottomNameRow) / 2);
           outputs.push({ topRow: topNameRow, bottomRow: bottomNameRow, midRow, type: 'match' });
         } else if (item.type === 'bye-pass') {
           outputs.push({ topRow: startRow, bottomRow: startRow, midRow: startRow, type: 'bye-pass' });
         } else {
-          // bye-pair: no output
           outputs.push({ topRow: -1, bottomRow: -1, midRow: -1, type: 'bye-pair' });
         }
       }
@@ -1099,11 +1141,11 @@ window.DrawRenderer = {
     const leftOutputs = computeOutputRows(leftCompact, leftItemRows);
     const rightOutputs = computeOutputRows(rightCompact, rightItemRows);
 
-    // Round 0: pair adjacent compact items and draw brackets between their output rows
-    // Round N: pair groups of 2^N compact items, using midpoints from previous round grouping
+    // スケジュールマップ取得
+    const scheduleMap = drawData.scheduleMap || null;
+    const eventCode = drawData.eventCode || '';
 
-    const drawBracketRounds = (compact, outputs, side) => {
-      // currentMidRows[ci] tracks the "output Y" of each compact item for the current round
+    const drawBracketRounds = (compact, outputs, side, halfLabel) => {
       const currentMidRows = outputs.map(o => o.midRow);
 
       for (let round = 0; round < halfRounds; round++) {
@@ -1119,7 +1161,6 @@ window.DrawRenderer = {
           const midIdx = startIdx + halfGroup;
           const endIdx = startIdx + groupSize - 1;
 
-          // Collect valid midRows for top half and bottom half of this group
           const topMids = [];
           for (let k = startIdx; k < midIdx; k++) {
             if (outputs[k].type !== 'bye-pair') topMids.push(currentMidRows[k]);
@@ -1128,41 +1169,58 @@ window.DrawRenderer = {
           for (let k = midIdx; k <= endIdx; k++) {
             if (outputs[k].type !== 'bye-pair') bottomMids.push(currentMidRows[k]);
           }
-
           if (topMids.length === 0 && bottomMids.length === 0) continue;
 
           let topRow, bottomRow, newMid;
           if (round === 0) {
-            // Round 0: use the actual name rows from outputs
             if (topMids.length > 0 && bottomMids.length > 0) {
-              // For a match item, use its top name row as the bracket top; for bye-pass, use its name row
               const topItem = outputs[startIdx];
               const bottomItem = outputs[startIdx + 1];
-              if (topItem.type === 'match') {
-                topRow = topItem.topRow;
-              } else {
-                topRow = topItem.midRow;
-              }
-              if (bottomItem.type === 'match') {
-                bottomRow = bottomItem.bottomRow;
-              } else {
-                bottomRow = bottomItem.midRow;
-              }
+              topRow = topItem.type === 'match' ? topItem.topRow : topItem.midRow;
+              bottomRow = bottomItem.type === 'match' ? bottomItem.bottomRow : bottomItem.midRow;
               newMid = Math.floor((topRow + bottomRow) / 2);
               wsData._bracketInfo.push({ topRow, bottomRow, col, side });
+
+              // R1 スケジュール時間
+              if (scheduleMap && eventCode) {
+                const matchId = eventCode + '-R1-' + halfLabel + (p + 1);
+                const info = scheduleMap[matchId];
+                if (info) {
+                  const timeHours = parseInt(info.startTime.split(':')[0]);
+                  const timeMins = parseInt(info.startTime.split(':')[1]);
+                  const timeVal = (timeHours * 60 + timeMins) / 1440;
+                  wsData._timeMerges.push({
+                    startRow: topRow + 1, endRow: bottomRow - 1, col, timeValue: timeVal
+                  });
+                }
+              }
             } else if (topMids.length > 0) {
               newMid = topMids[0];
             } else {
               newMid = bottomMids[0];
             }
           } else {
-            // Round 1+: use the midpoints from previous round grouping
             if (topMids.length > 0 && bottomMids.length > 0) {
               topRow = Math.floor((topMids[0] + topMids[topMids.length - 1]) / 2);
               bottomRow = Math.floor((bottomMids[0] + bottomMids[bottomMids.length - 1]) / 2);
               newMid = Math.floor((topRow + bottomRow) / 2);
               if (topRow >= headerRows && bottomRow < wsData.length) {
                 wsData._bracketInfo.push({ topRow, bottomRow, col, side });
+
+                // R2+ スケジュール時間
+                if (scheduleMap && eventCode) {
+                  const globalRound = round + 1;
+                  const matchId = eventCode + '-R' + globalRound + '-' + halfLabel + (p + 1);
+                  const info = scheduleMap[matchId];
+                  if (info) {
+                    const timeHours = parseInt(info.startTime.split(':')[0]);
+                    const timeMins = parseInt(info.startTime.split(':')[1]);
+                    const timeVal = (timeHours * 60 + timeMins) / 1440;
+                    wsData._timeMerges.push({
+                      startRow: topRow + 1, endRow: bottomRow - 1, col, timeValue: timeVal
+                    });
+                  }
+                }
               }
             } else if (topMids.length > 0) {
               newMid = Math.floor((topMids[0] + topMids[topMids.length - 1]) / 2);
@@ -1171,7 +1229,6 @@ window.DrawRenderer = {
             }
           }
 
-          // Update all items in this group to the new midpoint for next round
           for (let k = startIdx; k <= endIdx; k++) {
             currentMidRows[k] = newMid;
           }
@@ -1179,8 +1236,8 @@ window.DrawRenderer = {
       }
     };
 
-    drawBracketRounds(leftCompact, leftOutputs, 'left');
-    drawBracketRounds(rightCompact, rightOutputs, 'right');
+    drawBracketRounds(leftCompact, leftOutputs, 'left', 'L');
+    drawBracketRounds(rightCompact, rightOutputs, 'right', 'R');
   },
 
 

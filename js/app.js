@@ -3877,6 +3877,8 @@ window.App = {
       matchFormat: AppConfig.MATCH_FORMAT || '',
       isDoubles: evtDef ? evtDef.category === 'doubles' : false,
       confirmed: !!isConfirmed,
+      scheduleMap: this._getScheduleMap(),
+      eventCode: select.value,
     });
     this.showMessage('Excelファイルをダウンロードしました', 'success');
   },

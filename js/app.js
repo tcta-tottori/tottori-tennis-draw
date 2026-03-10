@@ -3659,17 +3659,9 @@ window.App = {
     const evtDef = AppConfig.EVENTS.find(e => e.code === eventCode);
     if (titleEl) titleEl.textContent = result.eventName || eventCode;
 
-    // SVGを全画面用に描画
+    // 全画面用コンテナを作成（SVGはrender内で自動生成される）
     const fsContainer = document.createElement('div');
-    fsContainer.className = 'bracket-container';
-    fsContainer.style.cssText = 'border:none;margin:0;padding:8px;min-height:auto;';
-    const fsWrapper = document.createElement('div');
-    fsWrapper.className = 'bracket-svg-wrapper';
-    const fsSvg = document.createElement('svg');
-    fsSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    fsSvg.id = 'bracket-fullscreen-svg';
-    fsWrapper.appendChild(fsSvg);
-    fsContainer.appendChild(fsWrapper);
+    fsContainer.style.cssText = 'padding:8px;';
 
     body.innerHTML = '';
     body.appendChild(fsContainer);

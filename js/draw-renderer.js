@@ -107,9 +107,8 @@ window.DrawRenderer = {
     if (autoFit) {
       const fixedWidth = (P.drawNumWidth + P.nameAreaWidth) * 2;
       const baseLineWidth = baseRoundWidth * 2 * halfRounds + baseCenterGap;
-      const baseTotalWidth = fixedWidth + baseLineWidth;
       const containerWidth = container.clientWidth || container.offsetWidth || 0;
-      if (containerWidth > 0 && baseTotalWidth > containerWidth) {
+      if (containerWidth > 0) {
         const minRoundWidth = 20;
         const minCenterGap = 16;
         const availForLines = containerWidth - fixedWidth;

@@ -2558,3 +2558,8 @@ details[open] > .collapsible-toggle::before {
 .schedule-empty-cell { background: #fafafa; }
 .schedule-cell-event { font-size: 11px; font-weight: 600; white-space: nowrap; }
 .schedule-cell-round { font-size: 10px; color: #666; }
+.schedule-cell-selected {
+  outline: 3px solid #1565C0 !important;
+  outline-offset: -2px;
+  box-shadow: 0 0 8px rgba(21,101,192,0.4);
+}

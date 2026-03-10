@@ -1314,6 +1314,8 @@ window.DrawRenderer = {
 
       // R1注記: compact[ci]がmatchの場合にmatchIdを計算
       // matchId = {eventCode}-R1-{halfLabel}{ci+1}
+      // 注記位置: コの字の内側（縦線の反対側）
+      //   左山: 縦線の左側 (end anchor)、右山: 縦線の右側 (start anchor)
       for (let ci = 0; ci < compact.length; ci++) {
         if (compact[ci].type !== 'match') continue;
         const matchId = eventCode + '-R1-' + halfLabel + (ci + 1);
@@ -1321,13 +1323,13 @@ window.DrawRenderer = {
         if (!info) continue;
 
         const midY = itemYs[ci].midY;
-        // 注記位置: R1ブラケット線の外側
         const lineX0 = isLeft
           ? offsetX + P.drawNumWidth + P.nameAreaWidth
           : offsetX + (halfRounds - 1) * P.roundWidth + P.roundWidth;
         const nextX0 = isLeft ? lineX0 + P.roundWidth : lineX0 - P.roundWidth;
-        const annotX = isLeft ? nextX0 + 2 : nextX0 - 2;
-        const anchor = isLeft ? 'start' : 'end';
+        // コの字内側 = 縦線から名前側に配置
+        const annotX = isLeft ? nextX0 - 2 : nextX0 + 2;
+        const anchor = isLeft ? 'end' : 'start';
 
         self._text(svg, annotX, midY - 4, info.startTime, {
           fontSize: 8, fill: '#1565C0', textAnchor: anchor,
@@ -1341,7 +1343,7 @@ window.DrawRenderer = {
       for (let round = 1; round < halfRounds; round++) {
         const pairCount = compact.length / Math.pow(2, round);
         const groupSize = Math.pow(2, round);
-        const globalRound = round + 1; // half-bracket round 1 = global R2
+        const globalRound = round + 1;
 
         let nextRoundX;
         if (isLeft) {
@@ -1370,12 +1372,12 @@ window.DrawRenderer = {
             ? (topOutY + bottomOutY) / 2
             : (topMids.length > 0 ? topOutY : bottomOutY);
 
-          // matchId: globalRound, halfLabel, p+1
           const matchId = eventCode + '-R' + globalRound + '-' + halfLabel + (p + 1);
           const info = scheduleMap[matchId];
           if (info && pairMidY > 0) {
-            const annotX = isLeft ? nextRoundX + 2 : nextRoundX - 2;
-            const anchor = isLeft ? 'start' : 'end';
+            // コの字内側 = 縦線から名前側に配置
+            const annotX = isLeft ? nextRoundX - 2 : nextRoundX + 2;
+            const anchor = isLeft ? 'end' : 'start';
             self._text(svg, annotX, pairMidY - 4, info.startTime, {
               fontSize: 8, fill: '#1565C0', textAnchor: anchor,
             }).setAttribute('dominant-baseline', 'central');

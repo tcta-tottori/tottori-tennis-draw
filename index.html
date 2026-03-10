@@ -770,6 +770,7 @@
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button id="btn-generate-schedule" class="btn btn-primary">時間割を自動生成</button>
+          <button id="btn-reset-schedule" class="btn btn-secondary" style="display:none;">リセット（再生成）</button>
           <button id="btn-clear-schedule" class="btn btn-danger" style="display:none;">クリア</button>
         </div>
         <p id="schedule-status-msg" style="margin-top:8px;font-size:13px;color:#666;"></p>
@@ -778,6 +779,7 @@
       <!-- タイムテーブル -->
       <div class="card" id="schedule-grid-panel" style="display:none;margin-top:16px;">
         <h3 class="card-title">タイムテーブル</h3>
+        <p id="schedule-edit-hint" style="font-size:12px;color:#888;margin-bottom:8px;">セルをタップして選択 → 移動先セルをタップで入れ替え</p>
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
           <table class="data-table schedule-grid" id="schedule-grid-table">
             <thead id="schedule-grid-head"></thead>

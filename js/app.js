@@ -4474,6 +4474,13 @@ window.App = {
     if (btnGenerate) {
       btnGenerate.addEventListener('click', () => this._generateSchedule());
     }
+    const btnReset = document.getElementById('btn-reset-schedule');
+    if (btnReset) {
+      btnReset.addEventListener('click', () => {
+        if (!confirm('手動変更を破棄して再生成しますか？')) return;
+        this._generateSchedule();
+      });
+    }
     const btnClear = document.getElementById('btn-clear-schedule');
     if (btnClear) {
       btnClear.addEventListener('click', () => {
@@ -4485,6 +4492,9 @@ window.App = {
     if (btnPrint) {
       btnPrint.addEventListener('click', () => window.print());
     }
+
+    // セル選択状態
+    this._selectedScheduleCell = null;
   },
 
   _refreshScheduleScreen() {
@@ -4558,7 +4568,10 @@ window.App = {
     if (statusMsg) statusMsg.textContent = '時間割を生成しました（' + slots.length + '試合）';
     const btnClear = document.getElementById('btn-clear-schedule');
     if (btnClear) btnClear.style.display = '';
+    const btnReset = document.getElementById('btn-reset-schedule');
+    if (btnReset) btnReset.style.display = '';
 
+    this._selectedScheduleCell = null;
     this.showMessage('時間割を生成しました（' + slots.length + '試合）', 'success');
   },
 
@@ -4569,12 +4582,13 @@ window.App = {
     if (!gridPanel || !thead || !tbody) return;
 
     gridPanel.style.display = '';
+    this._selectedScheduleCell = null;
 
     // 最大タイムスロットを計算
     const maxSlot = slots.reduce((max, s) => Math.max(max, s.timeSlotIndex), 0);
     const { courtNames, courtCount, matchDuration, startTime } = config;
 
-    // ヘッダー行: コート名 | 各時間枠
+    // ヘッダー行
     let headHtml = '<tr><th class="schedule-court-header">コート</th>';
     for (let t = 0; t <= maxSlot; t++) {
       const timeStr = ScheduleEngine.calcTimeString(startTime, t, matchDuration);
@@ -4583,7 +4597,7 @@ window.App = {
     headHtml += '</tr>';
     thead.innerHTML = headHtml;
 
-    // グリッドデータ構築: grid[courtIdx][timeSlot] = slot
+    // グリッドデータ構築
     const grid = {};
     for (const slot of slots) {
       if (!grid[slot.courtIndex]) grid[slot.courtIndex] = {};
@@ -4599,29 +4613,101 @@ window.App = {
       });
     }
 
-    let bodyHtml = '';
+    tbody.innerHTML = '';
     for (let c = 0; c < courtCount; c++) {
-      bodyHtml += '<tr><td class="schedule-court-cell">' + (courtNames[c] || (c + 1)) + '</td>';
+      const tr = document.createElement('tr');
+      const tdCourt = document.createElement('td');
+      tdCourt.className = 'schedule-court-cell';
+      tdCourt.textContent = courtNames[c] || (c + 1);
+      tr.appendChild(tdCourt);
+
       for (let t = 0; t <= maxSlot; t++) {
+        const td = document.createElement('td');
+        td.dataset.court = c;
+        td.dataset.slot = t;
         const slot = grid[c] && grid[c][t];
         if (slot) {
           const bgColor = eventColors[slot.eventCode] || '#f5f5f5';
           const evtName = ScheduleEngine._getEventName ? ScheduleEngine._getEventName(slot.eventCode) : slot.eventCode;
-          bodyHtml += '<td class="schedule-match-cell" style="background:' + bgColor + ';">' +
-            '<div class="schedule-cell-event">' + evtName + '</div>' +
-            '<div class="schedule-cell-round">' + slot.roundLabel + '</div>' +
-            '</td>';
+          td.className = 'schedule-match-cell';
+          td.style.background = bgColor;
+          td.dataset.matchId = slot.matchId;
+          td.innerHTML = '<div class="schedule-cell-event">' + evtName + '</div>' +
+            '<div class="schedule-cell-round">' + slot.roundLabel + '</div>';
         } else {
-          bodyHtml += '<td class="schedule-empty-cell"></td>';
+          td.className = 'schedule-empty-cell';
         }
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', () => this._onScheduleCellClick(td, c, t));
+        tr.appendChild(td);
       }
-      bodyHtml += '</tr>';
+      tbody.appendChild(tr);
     }
-    tbody.innerHTML = bodyHtml;
 
     // 印刷ボタン表示
     const btnPrint = document.getElementById('btn-schedule-print');
     if (btnPrint) btnPrint.style.display = '';
+  },
+
+  /**
+   * タイムテーブルセルクリック: 選択 → 移動先指定で入替
+   */
+  _onScheduleCellClick(td, courtIdx, slotIdx) {
+    if (!this._scheduleSlots || !this._scheduleConfig) return;
+
+    // 1回目: セル選択
+    if (!this._selectedScheduleCell) {
+      // 空セルの選択は無視
+      if (!td.dataset.matchId) return;
+      this._selectedScheduleCell = { td, courtIdx, slotIdx, matchId: td.dataset.matchId };
+      td.classList.add('schedule-cell-selected');
+      const hint = document.getElementById('schedule-edit-hint');
+      if (hint) hint.textContent = '移動先のセルをタップしてください（同じセルで選択解除）';
+      return;
+    }
+
+    const src = this._selectedScheduleCell;
+
+    // 同じセル → 選択解除
+    if (src.courtIdx === courtIdx && src.slotIdx === slotIdx) {
+      src.td.classList.remove('schedule-cell-selected');
+      this._selectedScheduleCell = null;
+      const hint = document.getElementById('schedule-edit-hint');
+      if (hint) hint.textContent = 'セルをタップして選択 → 移動先セルをタップで入れ替え';
+      return;
+    }
+
+    // 2回目: 入替実行
+    const srcMatchId = src.matchId;
+    const dstMatchId = td.dataset.matchId || null;
+
+    // slots配列を更新
+    const slots = this._scheduleSlots;
+    const config = this._scheduleConfig;
+    const { courtNames, matchDuration, startTime } = config;
+
+    // srcスロットを探す
+    const srcSlotObj = slots.find(s => s.matchId === srcMatchId);
+    // dstスロットを探す（空の場合はnull）
+    const dstSlotObj = dstMatchId ? slots.find(s => s.matchId === dstMatchId) : null;
+
+    if (srcSlotObj) {
+      srcSlotObj.courtIndex = courtIdx;
+      srcSlotObj.timeSlotIndex = slotIdx;
+      srcSlotObj.courtName = courtNames[courtIdx] || String(courtIdx + 1);
+      srcSlotObj.startTime = ScheduleEngine.calcTimeString(startTime, slotIdx, matchDuration);
+    }
+    if (dstSlotObj) {
+      dstSlotObj.courtIndex = src.courtIdx;
+      dstSlotObj.timeSlotIndex = src.slotIdx;
+      dstSlotObj.courtName = courtNames[src.courtIdx] || String(src.courtIdx + 1);
+      dstSlotObj.startTime = ScheduleEngine.calcTimeString(startTime, src.slotIdx, matchDuration);
+    }
+
+    this._saveSchedule();
+    this._renderScheduleGrid(slots, config);
+    this._renderEventScheduleLists(slots);
+    this.showMessage('試合を移動しました', 'info');
   },
 
   _renderEventScheduleLists(slots) {
@@ -4709,11 +4795,14 @@ window.App = {
     if (eventPanel) eventPanel.style.display = 'none';
     const btnClear = document.getElementById('btn-clear-schedule');
     if (btnClear) btnClear.style.display = 'none';
+    const btnReset = document.getElementById('btn-reset-schedule');
+    if (btnReset) btnReset.style.display = 'none';
     const btnPrint = document.getElementById('btn-schedule-print');
     if (btnPrint) btnPrint.style.display = 'none';
     const statusMsg = document.getElementById('schedule-status-msg');
     if (statusMsg) statusMsg.textContent = '';
 
+    this._selectedScheduleCell = null;
     this.showMessage('時間割をクリアしました', 'info');
   },
 

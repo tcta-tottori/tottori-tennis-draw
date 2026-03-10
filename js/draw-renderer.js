@@ -440,7 +440,8 @@ window.DrawRenderer = {
       af2.setAttribute('dominant-baseline', 'central');
       af2.setAttribute('clip-path', 'url(#' + clipId + ')');
     } else {
-      const nameEl = this._text(svg, nameX, cy, entry.name, {
+      const formattedSinglesName = this._formatPlayerName(entry.name);
+      const nameEl = this._text(svg, nameX, cy, formattedSinglesName, {
         fontSize: P.fontSize.playerName, fill: P.colors.text, fontWeight: 'bold',
       });
       nameEl.setAttribute('dominant-baseline', 'central');
@@ -580,7 +581,7 @@ window.DrawRenderer = {
 
   _drawSeedInfo(svg, drawData, y, totalWidth) {
     const P = this.PARAMS;
-    const seeds = drawData.seeds || [];
+    const seeds = (drawData.seeds || []).slice().sort((a, b) => a.seed - b.seed);
     if (seeds.length === 0) return;
     const isDoubles = drawData.isDoubles || false;
     const formatSeed = (s) => {
@@ -673,7 +674,7 @@ window.DrawRenderer = {
 
     // シード情報行
     wsData.push(new Array(totalCols).fill(''));
-    const seeds = drawData.seeds || [];
+    const seeds = (drawData.seeds || []).slice().sort((a, b) => a.seed - b.seed);
     const seedInfoRow = seeds.length > 0 ? wsData.length : -1;
     if (seeds.length > 0) {
       const seedRow = new Array(totalCols).fill('');
@@ -1224,25 +1225,28 @@ window.DrawRenderer = {
    * 苗字と名前の開始・終了位置を揃えるためにスペースを調整
    * 目標: 全角5文字分（苗字3文字+名前2文字程度）に収まるよう調整
    */
-  _formatDoublesName(name) {
+  /**
+   * 名前フォーマット（シングルス・ダブルス共通）
+   * 5文字: 半角スペース、4文字: 全角+半角、3文字: 全角×2+半角
+   */
+  _formatPlayerName(name) {
     if (!name) return '';
-    // 苗字と名前に分割
     const parts = name.split(/[\s\u3000]+/).filter(Boolean);
     if (parts.length < 2) return name;
     const family = parts[0];
     const given = parts.slice(1).join('');
-    // 苗字+名前の合計文字数に応じてスペース調整
     const totalLen = family.length + given.length;
     if (totalLen <= 3) {
-      // 短い名前: 苗字と名前の間に全角スペース
-      return family + '\u3000' + given;
+      return family + '\u3000\u3000 ' + given;
     } else if (totalLen <= 4) {
-      // 中程度: 半角スペース
-      return family + ' ' + given;
+      return family + '\u3000 ' + given;
     } else {
-      // 長い名前: スペースなし
-      return family + given;
+      return family + ' ' + given;
     }
+  },
+
+  _formatDoublesName(name) {
+    return this._formatPlayerName(name);
   },
 
   // --- SVG ヘルパー ---

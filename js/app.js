@@ -3623,6 +3623,28 @@ window.App = {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') this._closeBracketFullscreen();
     });
+
+    // ドローデータエクスポート
+    const btnDrawExport = document.getElementById('btn-draw-export');
+    if (btnDrawExport) {
+      btnDrawExport.addEventListener('click', () => this._exportDrawData());
+    }
+
+    // ドローデータインポート
+    const fileDrawImport = document.getElementById('file-draw-import');
+    if (fileDrawImport) {
+      fileDrawImport.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) this._importDrawData(file);
+        e.target.value = '';
+      });
+    }
+
+    // ボール数計算
+    const btnCalcBalls = document.getElementById('btn-calc-balls');
+    if (btnCalcBalls) {
+      btnCalcBalls.addEventListener('click', () => this._calcBallCount());
+    }
   },
 
   _openBracketFullscreen(eventCode) {
@@ -3678,6 +3700,155 @@ window.App = {
     if (!overlay || overlay.style.display === 'none') return;
     overlay.style.display = 'none';
     document.body.style.overflow = '';
+  },
+
+  /**
+   * ドローデータをJSONファイルとしてエクスポート
+   */
+  _exportDrawData() {
+    const confirmed = {};
+    for (const code of Object.keys(this.drawResults || {})) {
+      if (this.confirmedEvents && this.confirmedEvents[code]) {
+        confirmed[code] = this.drawResults[code];
+      }
+    }
+    if (Object.keys(confirmed).length === 0) {
+      this.showMessage('確定済みのドローがありません', 'error');
+      return;
+    }
+    const data = {
+      type: 'draw-share',
+      version: 1,
+      tournamentName: AppConfig.TOURNAMENT_NAME || '',
+      exportedAt: new Date().toISOString(),
+      drawResults: confirmed,
+      confirmedEvents: { ...this.confirmedEvents },
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'draw-data_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    this.showMessage('ドローデータをエクスポートしました（' + Object.keys(confirmed).length + '種目）', 'success');
+  },
+
+  /**
+   * ドローデータをJSONファイルからインポート（マージ）
+   */
+  _importDrawData(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.type !== 'draw-share') {
+          this.showMessage('ドロー共有データではないファイルです', 'error');
+          return;
+        }
+        let imported = 0;
+        let skipped = 0;
+        for (const code of Object.keys(data.drawResults || {})) {
+          if (this.confirmedEvents && this.confirmedEvents[code]) {
+            skipped++;
+            continue;
+          }
+          this.drawResults[code] = data.drawResults[code];
+          if (!this.confirmedEvents) this.confirmedEvents = {};
+          if (data.confirmedEvents && data.confirmedEvents[code]) {
+            this.confirmedEvents[code] = true;
+          }
+          imported++;
+        }
+        this._saveDrawResults();
+        this._refreshBracketEventSelect();
+        this._refreshDataSummary();
+        let msg = imported + '種目をインポートしました';
+        if (skipped > 0) msg += '（' + skipped + '種目は既に確定済みのためスキップ）';
+        this.showMessage(msg, 'success');
+
+        const resultEl = document.getElementById('draw-import-result');
+        if (resultEl) {
+          resultEl.style.display = '';
+          resultEl.innerHTML = '<div style="padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:13px;">' +
+            msg + '</div>';
+        }
+      } catch (err) {
+        this.showMessage('ファイルの読み込みに失敗しました: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  /**
+   * ボール必要数を算出
+   * ルール: 初戦（ニューボール×2）+ シードBYEの2回戦（ニューボール×2）+ 決勝（ニューボール×2）
+   */
+  _calcBallCount() {
+    const resultEl = document.getElementById('ball-calc-result');
+    if (!resultEl) return;
+
+    const confirmed = {};
+    for (const code of Object.keys(this.drawResults || {})) {
+      if (this.confirmedEvents && this.confirmedEvents[code]) {
+        confirmed[code] = this.drawResults[code];
+      }
+    }
+    if (Object.keys(confirmed).length === 0) {
+      this.showMessage('確定済みのドローがありません', 'error');
+      return;
+    }
+
+    let totalBalls = 0;
+    let html = '<div class="table-wrapper"><table class="data-table"><thead><tr>' +
+      '<th>種目</th><th>初戦数</th><th>シードBYE2回戦</th><th>決勝</th><th>ボール数</th></tr></thead><tbody>';
+
+    const sortedCodes = this._getSortedEventCodes(Object.keys(confirmed));
+    for (const code of sortedCodes) {
+      const result = confirmed[code];
+      const draw = result.draw || [];
+      const drawSize = result.drawSize || draw.length;
+      const halfSize = drawSize / 2;
+
+      // 初戦の試合数をカウント（BYE同士は除く）
+      let firstRoundMatches = 0;
+      let seedByeMatches = 0;
+      for (let i = 0; i < draw.length; i += 2) {
+        const top = draw[i];
+        const bottom = draw[i + 1];
+        const topBye = top && top.isBye;
+        const bottomBye = bottom && bottom.isBye;
+        if (!topBye && !bottomBye) {
+          // 両方選手 → 初戦
+          firstRoundMatches++;
+        } else if ((topBye && !bottomBye) || (!topBye && bottomBye)) {
+          // 片方BYE → 不戦勝。相手がシードなら2回戦でニューボール
+          const player = topBye ? bottom : top;
+          if (player && player.seed && player.seed > 0) {
+            seedByeMatches++;
+          }
+        }
+      }
+
+      const finalBall = 1; // 決勝1試合
+      const eventBalls = (firstRoundMatches + seedByeMatches + finalBall) * 2;
+      totalBalls += eventBalls;
+
+      const evt = AppConfig.EVENTS.find(e => e.code === code);
+      const evtName = evt ? evt.shortName || evt.name : code;
+      html += '<tr><td>' + this._esc(evtName) + '</td>' +
+        '<td style="text-align:center;">' + firstRoundMatches + '</td>' +
+        '<td style="text-align:center;">' + seedByeMatches + '</td>' +
+        '<td style="text-align:center;">1</td>' +
+        '<td style="text-align:center;font-weight:bold;">' + eventBalls + '球</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    html += '<div style="margin-top:12px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">' +
+      '<span style="font-size:18px;font-weight:700;color:#1e40af;">全体合計: ' + totalBalls + '球</span>' +
+      '<span style="font-size:13px;color:#6b7280;margin-left:12px;">（' + (totalBalls / 2) + '缶）</span></div>';
+
+    resultEl.innerHTML = html;
+    resultEl.style.display = '';
   },
 
   _exportDrawExcel() {

@@ -27,7 +27,7 @@
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
       <div class="header-version">
-        <span class="version-number">Ver.1.6</span>
+        <span class="version-number">Ver.1.7</span>
         <span class="version-date">2026.3.10</span>
       </div>
     </div>
@@ -717,6 +717,33 @@
           </table>
         </div>
       </div>
+
+      <!-- ドローデータ共有 -->
+      <div class="card no-print" style="margin-top:16px;">
+        <h3 class="card-title">ドローデータ共有</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          複数端末でドロー会議を行った場合、各端末で確定したドローデータをエクスポート・インポートして集約できます。
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button id="btn-draw-export" class="btn btn-primary">ドローデータをエクスポート</button>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            ドローデータをインポート
+            <input type="file" id="file-draw-import" accept=".json" style="display:none;">
+          </label>
+        </div>
+        <div id="draw-import-result" style="display:none;"></div>
+      </div>
+
+      <!-- ボール必要数 -->
+      <div class="card no-print" style="margin-top:16px;">
+        <h3 class="card-title">ボール必要数</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          確定済みドローから必要なボール数を自動算出します。<br>
+          初戦＋シードBYE2回戦（ニューボール×2）＋ 決勝（ニューボール×2）
+        </p>
+        <button id="btn-calc-balls" class="btn btn-secondary" style="margin-bottom:12px;">ボール数を計算</button>
+        <div id="ball-calc-result" style="display:none;"></div>
+      </div>
     </section>
 
     <!-- 画面: バックアップ -->
@@ -989,6 +1016,7 @@
                 <tr><th style="width:80px;">Ver.</th><th style="width:100px;">日付</th><th>更新内容</th></tr>
               </thead>
               <tbody>
+                <tr><td>1.7</td><td>2026.3.10</td><td>シード表示順修正、名前スペース統一ルール、ドローデータ共有機能、ボール必要数算出機能</td></tr>
                 <tr><td>1.6</td><td>2026.3.10</td><td>未手配所属表示改善、所属重複トグル化、トーナメント表全画面表示、バージョン情報シート追加、スマホ表示改善</td></tr>
                 <tr><td>1.5</td><td>2026.3.10</td><td>大会設定の確定モード化、ゲームルールを抽選画面に移動、PC画面テーブル中央寄せ</td></tr>
                 <tr><td>1.4</td><td>2026.3.9</td><td>エントリーページ大幅改善、大会2行レイアウト、種目フィルタリング、データ状況サマリー追加</td></tr>

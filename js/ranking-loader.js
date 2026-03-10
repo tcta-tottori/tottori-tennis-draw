@@ -118,6 +118,7 @@ window.RankingLoader = {
   },
 
   /**
+   * @deprecated ふりがなはApp側のJSON管理に移行。互換性のため残置。
    * ふりがなデータ読み込み
    * A列=氏名, B列=ふりがな のデータを持つExcelファイルを読み込む
    */
@@ -421,6 +422,7 @@ window.RankingLoader = {
   },
 
   /**
+   * @deprecated ふりがなはApp側のJSON管理に移行。互換性のため残置。
    * Google スプレッドシートからふりがなデータを読み込み
    * @param {string} urlOrId スプレッドシートのURLまたはID
    */

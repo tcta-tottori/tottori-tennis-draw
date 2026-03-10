@@ -38,7 +38,7 @@ window.App = {
     this.initRankingScreen();
     this.initEntryImport();
     this.initEntryScreen();
-    this.initFuriganaScreen();
+    // initFuriganaScreen は廃止。_initFuriganaInDataScreen() で代替（initDataScreen内で呼出）
     this.initDrawScreen();
     this.initBracketScreen();
     this.initScheduleScreen();
@@ -116,11 +116,8 @@ window.App = {
       if (gsRankingStatus) {
         gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">バックアップから復元: ' + status.total + '名' + (dateStr ? ' (' + dateStr + ')' : '') + '</span>';
       }
-      const gsFuriganaStatus = document.getElementById('gs-furigana-status');
-      const furiganaCount = Object.keys(RankingLoader.furiganaMap).length;
-      if (gsFuriganaStatus && furiganaCount > 0) {
-        gsFuriganaStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">バックアップから復元: ' + furiganaCount + '件' + (dateStr ? ' (' + dateStr + ')' : '') + '</span>';
-      }
+      // ふりがなをランキングと同期
+      this._syncFuriganaWithRanking();
 
       // バックグラウンドでスプレッドシートから最新データを取得
       this._silentRefreshFromSpreadsheets();
@@ -132,8 +129,8 @@ window.App = {
     try {
       this._updateLoadingProgress(5, 'ランキングデータを取得中...');
       await this._loadRankingFromGS(true);
-      this._updateLoadingProgress(70, 'ふりがなデータを取得中...');
-      await this._loadFuriganaFromGS(true);
+      this._updateLoadingProgress(80, 'ふりがなデータを同期中...');
+      this._syncFuriganaWithRanking();
       this._updateLoadingProgress(95, 'データ整理中...');
     } finally {
       this._hideLoadingOverlay();
@@ -152,16 +149,8 @@ window.App = {
         if (gsRankingStatus) {
           gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">最新データ読込済: ' + status.total + '名 (' + now + ')</span>';
         }
-      }
-      const furiInput = document.getElementById('gs-furigana-url');
-      if (furiInput && furiInput.value.trim()) {
-        await RankingLoader.loadFuriganaFromSpreadsheet(furiInput.value.trim());
-        const count = Object.keys(RankingLoader.furiganaMap).length;
-        const gsFuriganaStatus = document.getElementById('gs-furigana-status');
-        const now2 = new Date().toLocaleString('ja-JP');
-        if (gsFuriganaStatus) {
-          gsFuriganaStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">最新データ読込済: ' + count + '件 (' + now2 + ')</span>';
-        }
+        // ランキング読込後、ふりがなを自動同期
+        this._syncFuriganaWithRanking();
       }
     } catch (e) {
       console.warn('バックグラウンド更新に失敗（バックアップデータを使用中）:', e.message);
@@ -201,7 +190,7 @@ window.App = {
       this._refreshDataSummary();
     }
     if (screenId === 'screen-entry') this.refreshEntryTable();
-    if (screenId === 'screen-furigana') this._renderFuriganaTable();
+    if (screenId === 'screen-data') this._renderFuriganaTable();
     if (screenId === 'screen-draw') this._refreshDrawEventSelect();
     if (screenId === 'screen-bracket') this._refreshBracketEventSelect();
     if (screenId === 'screen-schedule') this._refreshScheduleScreen();
@@ -216,24 +205,15 @@ window.App = {
     // ローカルファイル読み込み
     const dropRanking = document.getElementById('drop-ranking');
     const fileRanking = document.getElementById('file-ranking');
-    const dropFurigana = document.getElementById('drop-furigana');
-    const fileFurigana = document.getElementById('file-furigana');
 
     if (dropRanking) {
       this._setupDropZone(dropRanking, fileRanking, (file) => this._loadRankingFile(file));
-    }
-    if (dropFurigana) {
-      this._setupDropZone(dropFurigana, fileFurigana, (file) => this._loadFuriganaFile(file));
     }
 
     // Google スプレッドシートから読み込み
     const btnGsRanking = document.getElementById('btn-gs-ranking');
     if (btnGsRanking) {
       btnGsRanking.addEventListener('click', () => this._loadRankingFromGS());
-    }
-    const btnGsFurigana = document.getElementById('btn-gs-furigana');
-    if (btnGsFurigana) {
-      btnGsFurigana.addEventListener('click', () => this._loadFuriganaFromGS());
     }
     // 一括読込ボタン
     const btnGsAll = document.getElementById('btn-gs-all');
@@ -248,25 +228,19 @@ window.App = {
         if (e.key === 'Enter') this._loadRankingFromGS();
       });
     }
-    const gsFuriganaUrl = document.getElementById('gs-furigana-url');
-    if (gsFuriganaUrl) {
-      gsFuriganaUrl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this._loadFuriganaFromGS();
-      });
-    }
 
     // localStorageに保存されたURL、またはデフォルトURLで初期値セット
     try {
       const savedRankingUrl = localStorage.getItem('drawSystem_gsRankingUrl');
-      const savedFuriganaUrl = localStorage.getItem('drawSystem_gsFuriganaUrl');
       if (gsRankingUrl) gsRankingUrl.value = savedRankingUrl || AppConfig.DEFAULT_RANKING_SPREADSHEET || '';
-      if (gsFuriganaUrl) gsFuriganaUrl.value = savedFuriganaUrl || AppConfig.DEFAULT_FURIGANA_SPREADSHEET || '';
     } catch (e) { /* ignore */ }
 
     // リンクボタンの更新
     this._updateGSLinkButtons();
     if (gsRankingUrl) gsRankingUrl.addEventListener('input', () => this._updateGSLinkButtons());
-    if (gsFuriganaUrl) gsFuriganaUrl.addEventListener('input', () => this._updateGSLinkButtons());
+
+    // ふりがな管理の初期化（データ画面に統合）
+    this._initFuriganaInDataScreen();
 
     // 大会一覧の初期化（データ読込画面に統合）
     this.initTournamentsScreen();
@@ -274,23 +248,13 @@ window.App = {
 
   _updateGSLinkButtons() {
     const rankingUrl = (document.getElementById('gs-ranking-url') || {}).value || '';
-    const furiganaUrl = (document.getElementById('gs-furigana-url') || {}).value || '';
     const rankingLink = document.getElementById('btn-gs-ranking-link');
-    const furiganaLink = document.getElementById('btn-gs-furigana-link');
     if (rankingLink) {
       if (rankingUrl.trim()) {
         rankingLink.style.display = '';
         rankingLink.href = rankingUrl.trim().startsWith('http') ? rankingUrl.trim() : 'https://docs.google.com/spreadsheets/d/' + rankingUrl.trim();
       } else {
         rankingLink.style.display = 'none';
-      }
-    }
-    if (furiganaLink) {
-      if (furiganaUrl.trim()) {
-        furiganaLink.style.display = '';
-        furiganaLink.href = furiganaUrl.trim().startsWith('http') ? furiganaUrl.trim() : 'https://docs.google.com/spreadsheets/d/' + furiganaUrl.trim();
-      } else {
-        furiganaLink.style.display = 'none';
       }
     }
   },
@@ -300,8 +264,8 @@ window.App = {
     try {
       this._updateLoadingProgress(5, 'ランキングデータを取得中...');
       await this._loadRankingFromGS(true);
-      this._updateLoadingProgress(70, 'ふりがなデータを取得中...');
-      await this._loadFuriganaFromGS(true);
+      this._updateLoadingProgress(80, 'ふりがなデータを同期中...');
+      this._syncFuriganaWithRanking();
       this._updateLoadingProgress(95, 'データ整理中...');
       this.showMessage('一括読込が完了しました', 'success');
     } catch (err) {
@@ -354,6 +318,8 @@ window.App = {
         statusEl.style.display = '';
         statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + status.total + '名 (' + now + ')</span>';
       }
+      // ランキング読込後、ふりがなを自動同期（個別呼び出し時のみ）
+      if (!useGlobalOverlay) this._syncFuriganaWithRanking();
       if (!useGlobalOverlay) this.showMessage('ランキングデータを読み込みました (' + status.total + '名)', 'success');
     } catch (err) {
       console.error(err);
@@ -369,60 +335,7 @@ window.App = {
     }
   },
 
-  async _loadFuriganaFromGS(useGlobalOverlay) {
-    const urlInput = document.getElementById('gs-furigana-url');
-    const statusEl = document.getElementById('gs-furigana-status');
-    const btnEl = document.getElementById('btn-gs-furigana');
-    const progressEl = document.getElementById('gs-furigana-progress');
-    const progressBar = document.getElementById('gs-furigana-progress-bar');
-    const progressText = document.getElementById('gs-furigana-progress-text');
-    if (!urlInput || !urlInput.value.trim()) {
-      if (!useGlobalOverlay) this.showMessage('スプレッドシートのURLまたはIDを入力してください', 'error');
-      return;
-    }
-
-    try { localStorage.setItem('drawSystem_gsFuriganaUrl', urlInput.value.trim()); } catch (e) {}
-    this._updateGSLinkButtons();
-
-    if (!useGlobalOverlay) {
-      this._showLoadingOverlay('ふりがなデータを読込中...');
-      this._updateLoadingProgress(10, 'ふりがなデータを取得中...');
-    }
-
-    if (progressEl) progressEl.style.display = '';
-    if (progressBar) progressBar.style.width = '20%';
-    if (progressText) progressText.textContent = 'ふりがなデータ読込中...';
-    if (statusEl) statusEl.style.display = 'none';
-    if (btnEl) btnEl.disabled = true;
-
-    try {
-      if (progressBar) progressBar.style.width = '50%';
-      if (useGlobalOverlay) this._updateLoadingProgress(80, 'ふりがなデータを取得中...');
-      else this._updateLoadingProgress(50, 'ふりがなデータを取得中...');
-      await RankingLoader.loadFuriganaFromSpreadsheet(urlInput.value.trim());
-      if (progressBar) progressBar.style.width = '100%';
-      if (useGlobalOverlay) this._updateLoadingProgress(95, 'ふりがなデータ読込完了');
-      else this._updateLoadingProgress(90, 'ふりがなデータ読込完了');
-      const count = Object.keys(RankingLoader.furiganaMap).length;
-      const now = new Date().toLocaleString('ja-JP');
-      if (statusEl) {
-        statusEl.style.display = '';
-        statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + count + '件 (' + now + ')</span>';
-      }
-      if (!useGlobalOverlay) this.showMessage('ふりがなデータを読み込みました (' + count + '件)', 'success');
-    } catch (err) {
-      console.error(err);
-      if (statusEl) {
-        statusEl.style.display = '';
-        statusEl.innerHTML = '<span class="status-icon status-error">&#9679;</span><span class="status-text">エラー: ' + err.message + '</span>';
-      }
-      this.showMessage('読み込み失敗: ' + err.message, 'error');
-    } finally {
-      if (btnEl) btnEl.disabled = false;
-      setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 500);
-      if (!useGlobalOverlay) this._hideLoadingOverlay();
-    }
-  },
+  // _loadFuriganaFromGS は廃止。ふりがなはローカルJSON管理 + ランキング同期に移行
 
   _setupDropZone(dropZone, fileInput, handler) {
     // ドラッグ&ドロップ
@@ -459,6 +372,8 @@ window.App = {
     try {
       this._updateLoadingProgress(30, 'ランキングデータを読込中...');
       const status = await RankingLoader.loadRankingFile(file);
+      this._updateLoadingProgress(80, 'ふりがなデータを同期中...');
+      this._syncFuriganaWithRanking();
       this._updateLoadingProgress(90, 'データ整理中...');
       this._updateRankingStatus(status);
       this.showMessage('ランキングデータを読み込みました', 'success');
@@ -470,28 +385,7 @@ window.App = {
     }
   },
 
-  async _loadFuriganaFile(file) {
-    this._showLoadingOverlay('ふりがなデータを読込中...');
-    this._updateLoadingProgress(10, 'ファイルを解析中...');
-    try {
-      this._updateLoadingProgress(30, 'ふりがなデータを読込中...');
-      await RankingLoader.loadFuriganaFile(file);
-      this._updateLoadingProgress(90, 'データ整理中...');
-      const statusEl = document.getElementById('status-furigana');
-      if (statusEl) {
-        const count = Object.keys(RankingLoader.furiganaMap).length;
-        statusEl.innerHTML =
-          '<span class="status-icon status-ok">&#9679;</span>' +
-          '<span class="status-text">読込済: ' + count + '件</span>';
-      }
-      this.showMessage('ふりがなデータを読み込みました', 'success');
-    } catch (err) {
-      console.error(err);
-      this.showMessage('ふりがなデータの読み込みに失敗しました: ' + err.message, 'error');
-    } finally {
-      this._hideLoadingOverlay();
-    }
-  },
+  // _loadFuriganaFile は廃止。ふりがなはExcel取込（_importFuriganaExcel）またはJSON取込で管理
 
   _updateRankingStatus(status) {
     // ファイル読込ステータス更新
@@ -851,7 +745,7 @@ window.App = {
       RankingLoader.addToFuriganaMap(player.name, furigana);
       // ふりがなDBにも自動登録
       if (player.name && furigana && !this._furiganaData.find(d => d.name === player.name)) {
-        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana });
+        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana, source: 'auto', affiliation: player.affiliation || '', eventCode: player.eventCode || '', rankingPoints: player.points || 0, rankingPosition: player.rank || 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
         this._saveFuriganaData();
       }
 
@@ -934,7 +828,7 @@ window.App = {
       RankingLoader.addToFuriganaMap(player.name, furigana);
       // ふりがなDBにも自動登録
       if (player.name && furigana && !this._furiganaData.find(d => d.name === player.name)) {
-        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana });
+        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana, source: 'auto', affiliation: player.affiliation || '', eventCode: player.eventCode || '', rankingPoints: player.points || 0, rankingPosition: player.rank || 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
         this._saveFuriganaData();
       }
       this._renderRankingRows();
@@ -1593,7 +1487,7 @@ window.App = {
 
     // ふりがなDBにも自動登録（未登録の場合のみ）
     if (name && furigana && !this._furiganaData.find(d => d.name === name)) {
-      this._furiganaData.push({ id: this._furiganaNextId++, name: name, furigana: furigana });
+      this._furiganaData.push({ id: this._furiganaNextId++, name: name, furigana: furigana, source: 'manual', affiliation: '', eventCode: '', rankingPoints: 0, rankingPosition: 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
       this._saveFuriganaData();
     }
 
@@ -5743,29 +5637,96 @@ window.App = {
   },
 
   // ================================================================
-  // ふりがな管理画面
+  // ふりがな管理（データ画面に統合）
   // ================================================================
 
   _furiganaData: [],
   _furiganaNextId: 1,
   _furiganaFilter: '',
+  _furiganaSourceFilter: 'all',
   _furiganaPage: 1,
   _furiganaPageSize: 50,
   _furiganaEditingId: null,
   FURIGANA_STORAGE_KEY: 'drawSystem_furigana',
 
   /**
-   * ふりがな管理画面の初期化
+   * よくある日本語姓の読み辞書（上位約300姓）
    */
-  initFuriganaScreen() {
+  SURNAME_READINGS: {
+    '佐藤': 'さとう', '鈴木': 'すずき', '高橋': 'たかはし', '田中': 'たなか',
+    '伊藤': 'いとう', '渡辺': 'わたなべ', '山本': 'やまもと', '中村': 'なかむら',
+    '小林': 'こばやし', '加藤': 'かとう', '吉田': 'よしだ', '山田': 'やまだ',
+    '佐々木': 'ささき', '松本': 'まつもと', '井上': 'いのうえ', '木村': 'きむら',
+    '林': 'はやし', '斎藤': 'さいとう', '清水': 'しみず', '山口': 'やまぐち',
+    '森': 'もり', '池田': 'いけだ', '橋本': 'はしもと', '阿部': 'あべ',
+    '石川': 'いしかわ', '山崎': 'やまさき', '中島': 'なかじま', '前田': 'まえだ',
+    '藤田': 'ふじた', '小川': 'おがわ', '後藤': 'ごとう', '岡田': 'おかだ',
+    '長谷川': 'はせがわ', '村上': 'むらかみ', '近藤': 'こんどう', '石井': 'いしい',
+    '坂本': 'さかもと', '遠藤': 'えんどう', '青木': 'あおき', '藤井': 'ふじい',
+    '西村': 'にしむら', '福田': 'ふくだ', '太田': 'おおた', '三浦': 'みうら',
+    '藤原': 'ふじわら', '岡本': 'おかもと', '松田': 'まつだ', '中川': 'なかがわ',
+    '中野': 'なかの', '原田': 'はらだ', '小野': 'おの', '田村': 'たむら',
+    '竹内': 'たけうち', '金子': 'かねこ', '和田': 'わだ', '中山': 'なかやま',
+    '石田': 'いしだ', '上田': 'うえだ', '森田': 'もりた', '原': 'はら',
+    '柴田': 'しばた', '酒井': 'さかい', '工藤': 'くどう', '横山': 'よこやま',
+    '宮崎': 'みやざき', '宮本': 'みやもと', '内田': 'うちだ', '高木': 'たかぎ',
+    '安藤': 'あんどう', '谷口': 'たにぐち', '大野': 'おおの', '丸山': 'まるやま',
+    '今井': 'いまい', '河野': 'こうの', '藤本': 'ふじもと', '村田': 'むらた',
+    '武田': 'たけだ', '上野': 'うえの', '杉山': 'すぎやま', '増田': 'ますだ',
+    '小山': 'こやま', '大塚': 'おおつか', '平野': 'ひらの', '菅原': 'すがわら',
+    '久保': 'くぼ', '松井': 'まつい', '千葉': 'ちば', '岩崎': 'いわさき',
+    '桜井': 'さくらい', '木下': 'きのした', '野口': 'のぐち', '松尾': 'まつお',
+    '菊池': 'きくち', '野村': 'のむら', '新井': 'あらい', '渡部': 'わたなべ',
+    '佐野': 'さの', '杉本': 'すぎもと', '浜田': 'はまだ', '北村': 'きたむら',
+    '市川': 'いちかわ', '福島': 'ふくしま', '本田': 'ほんだ', '川崎': 'かわさき',
+    '樋口': 'ひぐち', '島田': 'しまだ', '片山': 'かたやま', '関': 'せき',
+    '中田': 'なかた', '吉川': 'よしかわ', '大谷': 'おおたに', '平田': 'ひらた',
+    '川口': 'かわぐち', '辻': 'つじ', '飯田': 'いいだ', '星野': 'ほしの',
+    '富田': 'とみた', '永井': 'ながい', '望月': 'もちづき', '内山': 'うちやま',
+    '永田': 'ながた', '矢野': 'やの', '川上': 'かわかみ', '田口': 'たぐち',
+    '小島': 'こじま', '大西': 'おおにし', '黒田': 'くろだ', '堀': 'ほり',
+    '大島': 'おおしま', '須藤': 'すどう', '服部': 'はっとり', '西田': 'にしだ',
+    '沢田': 'さわだ', '西川': 'にしかわ', '関口': 'せきぐち', '北川': 'きたがわ',
+    '五十嵐': 'いがらし', '山下': 'やました', '松村': 'まつむら', '吉村': 'よしむら',
+    '古川': 'ふるかわ', '栗原': 'くりはら', '山内': 'やまうち', '安田': 'やすだ',
+    '大久保': 'おおくぼ', '中西': 'なかにし', '田辺': 'たなべ', '水野': 'みずの',
+    '久保田': 'くぼた', '川村': 'かわむら', '熊谷': 'くまがい', '土屋': 'つちや',
+    '浅野': 'あさの', '野田': 'のだ', '広瀬': 'ひろせ', '岩田': 'いわた',
+    '松岡': 'まつおか', '秋山': 'あきやま', '奥田': 'おくだ', '中尾': 'なかお',
+    '荒木': 'あらき', '南': 'みなみ', '稲葉': 'いなば', '久米': 'くめ',
+    '高田': 'たかだ', '小松': 'こまつ', '高山': 'たかやま', '馬場': 'ばば',
+    '白石': 'しらいし', '長田': 'おさだ', '高野': 'たかの', '大山': 'おおやま',
+    '落合': 'おちあい', '吉岡': 'よしおか', '堀内': 'ほりうち', '成田': 'なりた',
+    '小池': 'こいけ', '平井': 'ひらい', '石原': 'いしはら', '大石': 'おおいし',
+    '鶴田': 'つるた', '石橋': 'いしばし', '有田': 'ありた', '森本': 'もりもと',
+    '田代': 'たしろ', '横田': 'よこた', '小田': 'おだ', '中原': 'なかはら',
+    '足立': 'あだち', '児玉': 'こだま', '荻野': 'おぎの', '植田': 'うえだ',
+    '奥村': 'おくむら', '河合': 'かわい', '深田': 'ふかだ', '今村': 'いまむら',
+    '福井': 'ふくい', '尾崎': 'おざき', '古賀': 'こが', '大森': 'おおもり',
+    '津田': 'つだ', '堀田': 'ほった', '上原': 'うえはら', '西山': 'にしやま',
+    '伊東': 'いとう', '門田': 'かどた', '相田': 'あいだ', '片岡': 'かたおか',
+    '早川': 'はやかわ', '松永': 'まつなが', '谷': 'たに', '河村': 'かわむら',
+    '大橋': 'おおはし', '本間': 'ほんま', '杉浦': 'すぎうら', '岩本': 'いわもと',
+    '田島': 'たじま', '黒木': 'くろき', '吉野': 'よしの', '萩原': 'はぎわら',
+    '赤松': 'あかまつ',
+  },
+
+  /**
+   * ふりがな管理UIの初期化（データ画面内に統合）
+   */
+  _initFuriganaInDataScreen() {
     this._loadFuriganaData();
 
-    // Excelから取込
-    const btnImport = document.getElementById('btn-furigana-import');
-    const fileInput = document.getElementById('file-furigana-import');
-    if (btnImport && fileInput) {
-      btnImport.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', (e) => {
+    // ランキングと同期ボタン
+    const btnSync = document.getElementById('btn-furigana-sync-ranking');
+    if (btnSync) {
+      btnSync.addEventListener('click', () => this._syncFuriganaWithRanking());
+    }
+
+    // Excel取込
+    const fileImport = document.getElementById('file-furigana-import');
+    if (fileImport) {
+      fileImport.addEventListener('change', (e) => {
         if (e.target.files && e.target.files[0]) {
           this._importFuriganaExcel(e.target.files[0]);
           e.target.value = '';
@@ -5777,6 +5738,23 @@ window.App = {
     const btnExport = document.getElementById('btn-furigana-export');
     if (btnExport) {
       btnExport.addEventListener('click', () => this._exportFuriganaExcel());
+    }
+
+    // JSON出力
+    const btnExportJson = document.getElementById('btn-furigana-export-json');
+    if (btnExportJson) {
+      btnExportJson.addEventListener('click', () => this._exportFuriganaJSON());
+    }
+
+    // JSON取込
+    const fileImportJson = document.getElementById('file-furigana-import-json');
+    if (fileImportJson) {
+      fileImportJson.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this._importFuriganaJSON(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
     }
 
     // 全件クリア
@@ -5828,6 +5806,19 @@ window.App = {
         this._renderFuriganaTable();
       });
     }
+
+    // ソースフィルター
+    const sourceFilter = document.getElementById('furigana-filter-source');
+    if (sourceFilter) {
+      sourceFilter.addEventListener('change', (e) => {
+        this._furiganaSourceFilter = e.target.value;
+        this._furiganaPage = 1;
+        this._renderFuriganaTable();
+      });
+    }
+
+    // 起動時にGitHub JSONを読み込み試行
+    this._loadFuriganaFromGitHub();
 
     this._renderFuriganaTable();
   },
@@ -5884,9 +5875,159 @@ window.App = {
    * 登録数表示を更新
    */
   _updateFuriganaCountDisplay() {
-    const el = document.getElementById('furigana-count-display');
+    const el = document.getElementById('furigana-count-badge');
     if (el) {
-      el.textContent = '登録数: ' + this._furiganaData.length + '件';
+      const total = this._furiganaData.length;
+      const noFurigana = this._furiganaData.filter(d => !d.furigana).length;
+      el.textContent = '登録数: ' + total + '件' + (noFurigana > 0 ? '（未設定: ' + noFurigana + '件）' : '');
+    }
+  },
+
+  /**
+   * ランキングデータとふりがなデータを同期
+   * ランキングに存在する選手をふりがなDBに追加・更新する
+   */
+  _syncFuriganaWithRanking() {
+    if (typeof RankingLoader === 'undefined' || !RankingLoader.rankings) return;
+
+    let updated = 0;
+    let added = 0;
+    let noFurigana = 0;
+    const now = new Date().toISOString();
+
+    // ランキングの全種目をイテレート
+    for (const eventCode of Object.keys(RankingLoader.rankings)) {
+      const players = RankingLoader.rankings[eventCode];
+      if (!players) continue;
+
+      for (const player of players) {
+        if (!player.name) continue;
+
+        const existing = this._furiganaData.find(d => d.name === player.name);
+
+        if (existing) {
+          // 既存エントリーを更新（ランキング情報のみ。ふりがなは手動編集済みなら上書きしない）
+          existing.affiliation = player.affiliation || existing.affiliation || '';
+          existing.eventCode = eventCode;
+          existing.rankingPoints = player.points || 0;
+          existing.rankingPosition = player.rank || 0;
+          existing.lastUpdated = now;
+          updated++;
+        } else {
+          // 新規追加
+          const autoResult = this._autoAssignFurigana(player.name);
+          const newEntry = {
+            id: this._furiganaNextId++,
+            name: player.name,
+            furigana: autoResult.furigana,
+            source: autoResult.success ? 'auto' : 'ranking',
+            affiliation: player.affiliation || '',
+            eventCode: eventCode,
+            rankingPoints: player.points || 0,
+            rankingPosition: player.rank || 0,
+            lastUpdated: now,
+            furiganaEdited: false,
+          };
+          this._furiganaData.push(newEntry);
+          added++;
+          if (!autoResult.success) noFurigana++;
+        }
+      }
+    }
+
+    this._saveFuriganaData();
+    this._syncFuriganaToRankingLoader();
+    this._renderFuriganaTable();
+
+    // ステータスメッセージ表示
+    const statusEl = document.getElementById('furigana-sync-status');
+    const msg = '同期完了: ' + updated + '件更新、' + added + '件新規追加' +
+      (noFurigana > 0 ? '（うち' + noFurigana + '件はふりがな未設定）' : '');
+    if (statusEl) {
+      statusEl.style.display = '';
+      statusEl.style.background = noFurigana > 0 ? '#fff3cd' : '#d4edda';
+      statusEl.style.color = noFurigana > 0 ? '#856404' : '#155724';
+      statusEl.textContent = msg;
+      setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+    }
+    this.showMessage(msg, noFurigana > 0 ? 'info' : 'success');
+  },
+
+  /**
+   * 氏名からふりがなを自動推定する
+   * @param {string} name - 氏名（全角スペース区切り）
+   * @returns {{ furigana: string, success: boolean }}
+   */
+  _autoAssignFurigana(name) {
+    if (!name) return { furigana: '', success: false };
+
+    // 1. RankingLoader.furiganaMap に既に存在するか確認
+    if (typeof RankingLoader !== 'undefined' && RankingLoader.furiganaMap && RankingLoader.furiganaMap[name]) {
+      return { furigana: RankingLoader.furiganaMap[name], success: true };
+    }
+
+    // 2. 姓辞書で推定
+    const parts = name.split(/[\u3000\s]+/); // 全角・半角スペースで分割
+    if (parts.length === 0) return { furigana: '', success: false };
+
+    const surname = parts[0];
+    const reading = this.SURNAME_READINGS[surname];
+    if (reading) {
+      // 姓の読みが見つかった場合、名の部分は「？」で表示
+      const givenNamePart = parts.length > 1 ? '\u3000？' : '';
+      return { furigana: reading + givenNamePart, success: true };
+    }
+
+    return { furigana: '', success: false };
+  },
+
+  /**
+   * GitHub管理のfurigana.jsonからデータを読み込み（起動時）
+   */
+  async _loadFuriganaFromGitHub() {
+    try {
+      const response = await fetch('./data/furigana.json');
+      if (!response.ok) return;
+      const json = await response.json();
+      if (!json || !Array.isArray(json.entries) || json.entries.length === 0) return;
+
+      // マージ: JSONのエントリーのうち、ローカルに存在しないものを追加
+      let merged = 0;
+      for (const entry of json.entries) {
+        if (!entry.name) continue;
+        const existing = this._furiganaData.find(d => d.name === entry.name);
+        if (!existing) {
+          this._furiganaData.push({
+            id: this._furiganaNextId++,
+            name: entry.name,
+            furigana: entry.furigana || '',
+            source: entry.source || 'spreadsheet',
+            affiliation: entry.affiliation || '',
+            eventCode: entry.eventCode || '',
+            rankingPoints: entry.rankingPoints || 0,
+            rankingPosition: entry.rankingPosition || 0,
+            lastUpdated: entry.lastUpdated || '',
+            furiganaEdited: entry.furiganaEdited || false,
+          });
+          merged++;
+        } else {
+          // 既存エントリーで、ふりがなが空かつJSONにふりがながある場合は補完
+          if (!existing.furigana && entry.furigana) {
+            existing.furigana = entry.furigana;
+            existing.source = entry.source || existing.source;
+            merged++;
+          }
+        }
+      }
+      if (merged > 0) {
+        this._saveFuriganaData();
+        this._syncFuriganaToRankingLoader();
+        this._renderFuriganaTable();
+        console.log('furigana.json から ' + merged + '件マージしました');
+      }
+    } catch (e) {
+      // ファイルが存在しない場合は無視
+      console.log('data/furigana.json の読み込みをスキップ:', e.message);
     }
   },
 
@@ -5923,6 +6064,13 @@ window.App = {
       id: this._furiganaNextId++,
       name: name,
       furigana: furigana,
+      source: 'manual',
+      affiliation: '',
+      eventCode: '',
+      rankingPoints: 0,
+      rankingPosition: 0,
+      lastUpdated: new Date().toISOString(),
+      furiganaEdited: true,
     });
     this._saveFuriganaData();
     this._syncFuriganaToRankingLoader();
@@ -5952,6 +6100,9 @@ window.App = {
 
     entry.name = name;
     entry.furigana = furigana;
+    entry.source = 'manual';
+    entry.furiganaEdited = true;
+    entry.lastUpdated = new Date().toISOString();
     this._saveFuriganaData();
     this._syncFuriganaToRankingLoader();
     return true;
@@ -5983,20 +6134,55 @@ window.App = {
     // ふりがなでソート（あいうえお順）
     data.sort((a, b) => (a.furigana || '').localeCompare(b.furigana || '', 'ja'));
 
-    // フィルター
+    // テキストフィルター
     if (this._furiganaFilter) {
       const q = this._furiganaFilter.toLowerCase();
       data = data.filter(d =>
         d.name.toLowerCase().includes(q) ||
-        (d.furigana || '').toLowerCase().includes(q)
+        (d.furigana || '').toLowerCase().includes(q) ||
+        (d.affiliation || '').toLowerCase().includes(q)
       );
+    }
+
+    // ソースフィルター
+    if (this._furiganaSourceFilter && this._furiganaSourceFilter !== 'all') {
+      if (this._furiganaSourceFilter === 'no-furigana') {
+        data = data.filter(d => !d.furigana);
+      } else if (this._furiganaSourceFilter === 'auto') {
+        data = data.filter(d => d.source === 'auto');
+      } else if (this._furiganaSourceFilter === 'manual') {
+        data = data.filter(d => d.source === 'manual');
+      }
     }
 
     return data;
   },
 
   /**
-   * ふりがなテーブルを描画
+   * ソースに応じたバッジHTMLを返す
+   */
+  _furiganaSourceBadge(entry) {
+    const source = entry.source || '';
+    if (!entry.furigana) {
+      return '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;background:#fee2e2;color:#991b1b;">未設定</span>';
+    }
+    if (source === 'manual' || entry.furiganaEdited) {
+      return '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;background:#dbeafe;color:#1e40af;">手動</span>';
+    }
+    if (source === 'auto') {
+      return '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;background:#ffedd5;color:#9a3412;">自動</span>';
+    }
+    if (source === 'spreadsheet') {
+      return '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;background:#e5e7eb;color:#374151;">SS</span>';
+    }
+    if (source === 'ranking') {
+      return '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;background:#fee2e2;color:#991b1b;">未設定</span>';
+    }
+    return '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;background:#e5e7eb;color:#374151;">-</span>';
+  },
+
+  /**
+   * ふりがなテーブルを描画（新データモデル対応）
    */
   _renderFuriganaTable() {
     this._updateFuriganaCountDisplay();
@@ -6016,19 +6202,28 @@ window.App = {
 
     if (pageData.length === 0) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="4" style="text-align:center;color:#999;padding:24px;">データがありません</td>';
+      tr.innerHTML = '<td colspan="8" style="text-align:center;color:#999;padding:24px;">データがありません</td>';
       tbody.appendChild(tr);
     } else {
       pageData.forEach((entry, idx) => {
         const tr = document.createElement('tr');
         const rowNum = start + idx + 1;
 
+        // イベントコードから種目名の短縮形を取得
+        const evtInfo = entry.eventCode ? (AppConfig.EVENTS.find(e => e.code === entry.eventCode) || {}) : {};
+        const evtShort = evtInfo.shortName || entry.eventCode || '-';
+        const rankDisplay = entry.rankingPosition ? String(entry.rankingPosition) + '位' : '-';
+
         if (this._furiganaEditingId === entry.id) {
           // 編集モード
           tr.innerHTML =
             '<td>' + rowNum + '</td>' +
             '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.name) + '" data-field="name" style="padding:4px 8px;font-size:13px;"></td>' +
-            '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.furigana) + '" data-field="furigana" style="padding:4px 8px;font-size:13px;"></td>' +
+            '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.furigana || '') + '" data-field="furigana" style="padding:4px 8px;font-size:13px;"></td>' +
+            '<td>' + this._esc(evtShort) + '</td>' +
+            '<td>' + this._esc(entry.affiliation || '') + '</td>' +
+            '<td>' + rankDisplay + '</td>' +
+            '<td>' + this._furiganaSourceBadge(entry) + '</td>' +
             '<td>' +
               '<button class="btn btn-primary btn-furigana-save" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">保存</button>' +
               '<button class="btn btn-secondary btn-furigana-cancel" style="padding:4px 10px;font-size:12px;">取消</button>' +
@@ -6038,8 +6233,8 @@ window.App = {
           tr.querySelector('.btn-furigana-save').addEventListener('click', () => {
             const nameVal = tr.querySelector('[data-field="name"]').value.trim();
             const furiVal = tr.querySelector('[data-field="furigana"]').value.trim();
-            if (!nameVal || !furiVal) {
-              this.showMessage('氏名とふりがなは必須です', 'error');
+            if (!nameVal) {
+              this.showMessage('氏名は必須です', 'error');
               return;
             }
             const result = this._editFurigana(entry.id, nameVal, furiVal);
@@ -6071,7 +6266,11 @@ window.App = {
           tr.innerHTML =
             '<td>' + rowNum + '</td>' +
             '<td>' + this._esc(entry.name) + '</td>' +
-            '<td>' + this._esc(entry.furigana) + '</td>' +
+            '<td>' + this._esc(entry.furigana || '') + '</td>' +
+            '<td>' + this._esc(evtShort) + '</td>' +
+            '<td>' + this._esc(entry.affiliation || '') + '</td>' +
+            '<td>' + rankDisplay + '</td>' +
+            '<td>' + this._furiganaSourceBadge(entry) + '</td>' +
             '<td>' +
               '<button class="btn btn-secondary btn-furigana-edit" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">編集</button>' +
               '<button class="btn btn-danger btn-furigana-delete" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;">削除</button>' +
@@ -6136,7 +6335,7 @@ window.App = {
   },
 
   /**
-   * Excelからふりがなデータを取込
+   * Excelからふりがなデータを取込（新データモデル対応）
    */
   async _importFuriganaExcel(file) {
     if (typeof XLSX === 'undefined') {
@@ -6198,7 +6397,15 @@ window.App = {
           // 重複チェック（名前で判定）
           const existing = this._furiganaData.find(d => d.name === name);
           if (existing) {
-            skipped++;
+            // 既存エントリーにふりがなが無い場合は上書き
+            if (!existing.furigana) {
+              existing.furigana = furigana;
+              existing.source = 'spreadsheet';
+              existing.lastUpdated = new Date().toISOString();
+              imported++;
+            } else {
+              skipped++;
+            }
             continue;
           }
 
@@ -6206,6 +6413,13 @@ window.App = {
             id: this._furiganaNextId++,
             name: name,
             furigana: furigana,
+            source: 'spreadsheet',
+            affiliation: '',
+            eventCode: '',
+            rankingPoints: 0,
+            rankingPosition: 0,
+            lastUpdated: new Date().toISOString(),
+            furiganaEdited: false,
           });
           imported++;
         }
@@ -6227,7 +6441,7 @@ window.App = {
   },
 
   /**
-   * ふりがなデータをExcel出力
+   * ふりがなデータをExcel出力（新データモデル対応）
    */
   _exportFuriganaExcel() {
     if (typeof XLSX === 'undefined') {
@@ -6243,17 +6457,132 @@ window.App = {
       (a.furigana || '').localeCompare(b.furigana || '', 'ja')
     );
 
-    const aoa = [['氏名', 'ふりがな']];
+    const aoa = [['氏名', 'ふりがな', '所属', '種目', 'ランキング', 'ソース']];
     for (const entry of sorted) {
-      aoa.push([entry.name, entry.furigana]);
+      const evtInfo = entry.eventCode ? (AppConfig.EVENTS.find(e => e.code === entry.eventCode) || {}) : {};
+      aoa.push([
+        entry.name,
+        entry.furigana || '',
+        entry.affiliation || '',
+        evtInfo.shortName || entry.eventCode || '',
+        entry.rankingPosition || '',
+        entry.source || '',
+      ]);
     }
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 20 }, { wch: 20 }];
+    ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'ふりがな');
     XLSX.writeFile(wb, 'ふりがなデータ.xlsx');
     this.showMessage('Excelファイルを出力しました', 'success');
+  },
+
+  /**
+   * ふりがなデータをJSON出力（GitHub管理用）
+   */
+  _exportFuriganaJSON() {
+    if (this._furiganaData.length === 0) {
+      this.showMessage('エクスポートするデータがありません', 'info');
+      return;
+    }
+
+    const sorted = [...this._furiganaData].sort((a, b) =>
+      (a.furigana || '').localeCompare(b.furigana || '', 'ja')
+    );
+
+    const exportData = {
+      version: '1.0',
+      lastUpdated: new Date().toISOString().split('T')[0],
+      entries: sorted.map(d => ({
+        id: d.id,
+        name: d.name,
+        furigana: d.furigana || '',
+        source: d.source || '',
+        affiliation: d.affiliation || '',
+        eventCode: d.eventCode || '',
+        rankingPoints: d.rankingPoints || 0,
+        rankingPosition: d.rankingPosition || 0,
+        lastUpdated: d.lastUpdated || '',
+        furiganaEdited: d.furiganaEdited || false,
+      })),
+    };
+
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'furigana.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.showMessage('JSONファイルを出力しました（data/furigana.json として保存してください）', 'success');
+  },
+
+  /**
+   * JSONファイルからふりがなデータを取込
+   */
+  async _importFuriganaJSON(file) {
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+
+      if (!json || !Array.isArray(json.entries)) {
+        this.showMessage('無効なJSONファイルです', 'error');
+        return;
+      }
+
+      let imported = 0;
+      let updated = 0;
+      const now = new Date().toISOString();
+
+      for (const entry of json.entries) {
+        if (!entry.name) continue;
+        const existing = this._furiganaData.find(d => d.name === entry.name);
+
+        if (existing) {
+          // 既存: ふりがな未設定の場合のみ更新
+          if (!existing.furigana && entry.furigana) {
+            existing.furigana = entry.furigana;
+            existing.source = entry.source || 'spreadsheet';
+            existing.lastUpdated = now;
+            updated++;
+          }
+          // ランキング情報は常に更新
+          if (entry.affiliation) existing.affiliation = entry.affiliation;
+          if (entry.eventCode) existing.eventCode = entry.eventCode;
+          if (entry.rankingPoints) existing.rankingPoints = entry.rankingPoints;
+          if (entry.rankingPosition) existing.rankingPosition = entry.rankingPosition;
+        } else {
+          this._furiganaData.push({
+            id: this._furiganaNextId++,
+            name: entry.name,
+            furigana: entry.furigana || '',
+            source: entry.source || 'spreadsheet',
+            affiliation: entry.affiliation || '',
+            eventCode: entry.eventCode || '',
+            rankingPoints: entry.rankingPoints || 0,
+            rankingPosition: entry.rankingPosition || 0,
+            lastUpdated: entry.lastUpdated || now,
+            furiganaEdited: entry.furiganaEdited || false,
+          });
+          imported++;
+        }
+      }
+
+      this._saveFuriganaData();
+      this._syncFuriganaToRankingLoader();
+      this._renderFuriganaTable();
+
+      let msg = imported + '件を新規取込';
+      if (updated > 0) msg += '、' + updated + '件を更新';
+      this.showMessage(msg, 'success');
+    } catch (err) {
+      console.error('JSON取込エラー:', err);
+      this.showMessage('JSONの取込に失敗しました: ' + err.message, 'error');
+    }
   },
 
   /**

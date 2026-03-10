@@ -2,7 +2,7 @@
  * Service Worker - オフライン対応
  * 一度読み込んだリソースをキャッシュし、オフラインでも動作可能にする
  */
-const CACHE_NAME = 'draw-system-v2.1';
+const CACHE_NAME = 'draw-system-v2.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -19,6 +19,7 @@ const ASSETS_TO_CACHE = [
   './js/cloud-share.js',
   './js/app.js',
   './js/schedule-engine.js',
+  './data/furigana.json',
   './logo.png',
   'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',

@@ -35,10 +35,9 @@
 
   <!-- タブバーメニュー（常時表示） -->
   <nav id="tab-bar" class="tab-bar">
-    <button class="tab-btn active" data-screen="screen-data">データ読込</button>
+    <button class="tab-btn active" data-screen="screen-data">データ</button>
     <button class="tab-btn" data-screen="screen-ranking">エントリー</button>
     <button class="tab-btn" data-screen="screen-entry">エントリーリスト</button>
-    <button class="tab-btn" data-screen="screen-furigana">ふりがな</button>
     <button class="tab-btn" data-screen="screen-draw">抽選</button>
     <button class="tab-btn" data-screen="screen-bracket">ドロー表</button>
     <button class="tab-btn" data-screen="screen-schedule">時間割</button>
@@ -51,7 +50,7 @@
 
     <!-- 画面1: データ読込 -->
     <section id="screen-data" class="screen active">
-      <h2 class="screen-title">データ読込</h2>
+      <h2 class="screen-title">データ管理</h2>
 
       <!-- ランキング・名簿リスト -->
       <details class="card collapsible-section" style="margin-bottom: 24px;" open>
@@ -80,22 +79,6 @@
                 <span id="gs-ranking-progress-text" class="progress-text">読込中...</span>
               </div>
               <div id="gs-ranking-status" class="load-status" style="margin-top:8px;">
-                <span class="status-icon status-pending">&#9679;</span>
-                <span class="status-text">未読込</span>
-              </div>
-            </div>
-            <div>
-              <label class="form-label" style="font-weight:600;">ふりがなデータ</label>
-              <div style="display:flex;gap:8px;margin-bottom:6px;">
-                <button id="btn-gs-furigana" class="btn btn-primary">読込</button>
-                <a id="btn-gs-furigana-link" class="btn btn-secondary" href="#" target="_blank" style="display:none;" title="スプレッドシートを開く">開く</a>
-              </div>
-              <input type="text" id="gs-furigana-url" class="form-input" placeholder="スプレッドシートのURLまたはID" style="font-size:11px;color:#999;padding:6px 10px;">
-              <div id="gs-furigana-progress" class="progress-bar-container" style="display:none;margin-top:8px;">
-                <div class="progress-bar"><div id="gs-furigana-progress-bar" class="progress-bar-fill" style="width:0%;"></div></div>
-                <span id="gs-furigana-progress-text" class="progress-text">読込中...</span>
-              </div>
-              <div id="gs-furigana-status" class="load-status" style="margin-top:8px;">
                 <span class="status-icon status-pending">&#9679;</span>
                 <span class="status-text">未読込</span>
               </div>
@@ -131,24 +114,6 @@
                 <input type="file" id="file-ranking" accept=".xlsx,.xls,.csv" hidden>
               </div>
               <div id="status-ranking" class="load-status">
-                <span class="status-icon status-pending">&#9679;</span>
-                <span class="status-text">未読込</span>
-              </div>
-            </div>
-            <div class="card" style="margin-bottom:0;">
-              <h3 class="card-title">ふりがなデータ</h3>
-              <div id="drop-furigana" class="drop-zone">
-                <div class="drop-zone-content">
-                  <svg class="drop-zone-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M12 16V4m0 0L8 8m4-4l4 4"/>
-                    <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
-                  </svg>
-                  <p>ここにふりがなデータをドラッグ&ドロップ</p>
-                  <p class="drop-zone-sub">またはクリックしてファイルを選択</p>
-                </div>
-                <input type="file" id="file-furigana" accept=".xlsx,.xls,.csv,.json" hidden>
-              </div>
-              <div id="status-furigana" class="load-status">
                 <span class="status-icon status-pending">&#9679;</span>
                 <span class="status-text">未読込</span>
               </div>
@@ -308,6 +273,83 @@
         </div>
         <div id="data-summary-detail" style="margin-top:12px;"></div>
       </details>
+
+      <!-- ふりがなデータベース -->
+      <div class="card" style="margin-top:24px;">
+        <h3 class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+          ふりがなデータベース
+          <span id="furigana-count-badge" style="font-size:13px;font-weight:normal;color:#666;">登録数: 0件</span>
+        </h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          選手名とふりがなを管理します。ランキングデータと自動連携し、新規選手は自動追加されます。
+        </p>
+
+        <!-- 操作ボタン -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <button id="btn-furigana-sync-ranking" class="btn btn-primary">ランキングと同期</button>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            Excel取込
+            <input type="file" id="file-furigana-import" accept=".xlsx,.xls,.csv" style="display:none;">
+          </label>
+          <button id="btn-furigana-export" class="btn btn-secondary">Excel出力</button>
+          <button id="btn-furigana-export-json" class="btn btn-secondary">JSON出力</button>
+          <label class="btn btn-secondary" style="cursor:pointer;">
+            JSON取込
+            <input type="file" id="file-furigana-import-json" accept=".json" style="display:none;">
+          </label>
+          <button id="btn-furigana-clear" class="btn btn-danger" style="margin-left:auto;opacity:0.85;">全件クリア</button>
+        </div>
+
+        <!-- 同期ステータス -->
+        <div id="furigana-sync-status" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;"></div>
+
+        <!-- 新規登録フォーム -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding:12px;background:#f8f9fa;border-radius:8px;">
+          <div class="form-group" style="flex:1;min-width:120px;margin-bottom:0;">
+            <label class="form-label">氏名</label>
+            <input type="text" class="form-input" id="furigana-add-name" placeholder="例: 山田　太郎">
+          </div>
+          <div class="form-group" style="flex:1;min-width:120px;margin-bottom:0;">
+            <label class="form-label">ふりがな</label>
+            <input type="text" class="form-input" id="furigana-add-reading" placeholder="例: やまだ　たろう">
+          </div>
+          <button id="btn-furigana-add" class="btn btn-primary" style="white-space:nowrap;">追加</button>
+        </div>
+
+        <!-- フィルタ・検索 -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+          <input type="text" class="form-input" id="furigana-search" placeholder="氏名・ふりがなで検索..." style="flex:1;min-width:200px;">
+          <select id="furigana-filter-source" class="form-input" style="width:auto;min-width:140px;">
+            <option value="all">すべて表示</option>
+            <option value="auto">自動付与のみ</option>
+            <option value="manual">手動設定のみ</option>
+            <option value="no-furigana">ふりがな未設定</option>
+          </select>
+        </div>
+
+        <!-- ふりがなリスト -->
+        <div class="table-wrapper">
+          <table class="data-table" id="furigana-table">
+            <thead>
+              <tr>
+                <th style="width:40px;">#</th>
+                <th>氏名</th>
+                <th>ふりがな</th>
+                <th style="width:60px;">種別</th>
+                <th>所属</th>
+                <th style="width:80px;">ランキング</th>
+                <th style="width:60px;">ソース</th>
+                <th style="width:90px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="furigana-table-body">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ページネーション -->
+        <div id="furigana-pagination" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;"></div>
+      </div>
     </section>
 
     <!-- 画面: エントリー（旧：選手一覧） -->
@@ -545,60 +587,6 @@
     </section>
 
 
-    <!-- 画面: ふりがな管理 -->
-    <section id="screen-furigana" class="screen">
-      <h2 class="screen-title">ふりがな管理</h2>
-
-      <!-- データ操作 -->
-      <div class="card">
-        <h3 class="card-title">データ操作</h3>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-          <button class="btn btn-primary" id="btn-furigana-import">Excelから取込</button>
-          <button class="btn btn-secondary" id="btn-furigana-export">Excel出力</button>
-          <button class="btn btn-danger" id="btn-furigana-clear">全件クリア</button>
-          <input type="file" id="file-furigana-import" accept=".xlsx,.xls" style="display:none;">
-          <span id="furigana-count-display" style="margin-left:auto;font-size:14px;color:#555;font-weight:600;">登録数: 0件</span>
-        </div>
-      </div>
-
-      <!-- 新規登録 -->
-      <div class="card">
-        <h3 class="card-title">新規登録</h3>
-        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-          <div class="form-group" style="flex:1;min-width:140px;margin-bottom:0;">
-            <label class="form-label">氏名</label>
-            <input type="text" class="form-input" id="furigana-add-name" placeholder="例: 山田　太郎">
-          </div>
-          <div class="form-group" style="flex:1;min-width:140px;margin-bottom:0;">
-            <label class="form-label">ふりがな</label>
-            <input type="text" class="form-input" id="furigana-add-reading" placeholder="例: やまだ　たろう">
-          </div>
-          <button class="btn btn-primary" id="btn-furigana-add" style="height:38px;">追加</button>
-        </div>
-      </div>
-
-      <!-- ふりがなリスト -->
-      <div class="card">
-        <h3 class="card-title">ふりがなリスト</h3>
-        <div style="margin-bottom:12px;">
-          <input type="text" class="form-input" id="furigana-search" placeholder="氏名・ふりがなで検索..." style="max-width:360px;">
-        </div>
-        <div class="table-wrapper">
-          <table class="data-table" id="furigana-table">
-            <thead>
-              <tr>
-                <th style="width:40px;">#</th>
-                <th>氏名</th>
-                <th>ふりがな</th>
-                <th style="width:120px;">操作</th>
-              </tr>
-            </thead>
-            <tbody id="furigana-table-body"></tbody>
-          </table>
-        </div>
-        <div id="furigana-pagination" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;"></div>
-      </div>
-    </section>
 
 
     <!-- 画面5: 抽選 -->
@@ -1140,16 +1128,16 @@
       <!-- ====== Tab 2: 画面別ガイド ====== -->
       <div class="manual-content" id="tab-guide">
 
-        <!-- 2-1 データ読込 -->
+        <!-- 2-1 データ管理 -->
         <div class="manual-guide-section">
-          <h4>2-1. データ読込</h4>
+          <h4>2-1. データ管理</h4>
           <div class="manual-diagram">
             <svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" style="max-width:600px;">
               <defs><marker id="arrow-g" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#666"/></marker></defs>
               <!-- Screen frame -->
               <rect x="10" y="10" width="580" height="260" rx="8" fill="#fff" stroke="#ccc" stroke-width="1"/>
               <rect x="10" y="10" width="580" height="30" rx="8" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
-              <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12" font-family="sans-serif">データ読込画面</text>
+              <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12" font-family="sans-serif">データ管理画面</text>
               <!-- URL input -->
               <rect x="30" y="60" width="400" height="32" rx="4" fill="#fff" stroke="#ccc" stroke-width="1"/>
               <text x="40" y="81" fill="#aaa" font-size="11" font-family="sans-serif">GoogleスプレッドシートのURLを入力...</text>
@@ -1167,19 +1155,14 @@
               <text x="290" y="165" text-anchor="middle" fill="#fff" font-size="10" font-weight="700" font-family="sans-serif">70%</text>
               <!-- Callout 3 -->
               <circle cx="460" cy="161" r="12" fill="#2b7ec6"/><text x="460" y="165" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="sans-serif">③</text>
-              <text x="30" y="195" fill="#333" font-size="11" font-family="sans-serif">ふりがな読込:</text>
-              <rect x="140" y="183" width="300" height="16" rx="4" fill="#e9ecef" stroke="none"/>
-              <rect x="140" y="183" width="300" height="16" rx="4" fill="#28a745" stroke="none"/>
-              <text x="290" y="195" text-anchor="middle" fill="#fff" font-size="10" font-weight="700" font-family="sans-serif">完了</text>
               <!-- Data status -->
-              <rect x="30" y="215" width="530" height="45" rx="6" fill="#f0f7ff" stroke="#d0e3f5" stroke-width="1"/>
-              <text x="45" y="235" fill="#333" font-size="11" font-family="sans-serif">ms: 48名  ls: 32名  m45s: 24名  m55s: 18名  m65s: 12名  l45s: 8名</text>
-              <text x="45" y="252" fill="#666" font-size="10" font-family="sans-serif">ふりがなデータ: 142件読込済み</text>
+              <rect x="30" y="195" width="530" height="35" rx="6" fill="#f0f7ff" stroke="#d0e3f5" stroke-width="1"/>
+              <text x="45" y="217" fill="#333" font-size="11" font-family="sans-serif">ms: 48名  ls: 32名  m45s: 24名  m55s: 18名  m65s: 12名  l45s: 8名</text>
             </svg>
           </div>
           <ul class="manual-steps">
             <li>GoogleスプレッドシートのURLを入力欄に貼り付けます（デフォルトURLが設定済みの場合はそのままでOK）</li>
-            <li>「一括読込」ボタンを押すと、ランキングデータとふりがなデータをまとめて読み込みます</li>
+            <li>「一括読込」ボタンを押すと、ランキングデータを読み込みます</li>
             <li>進捗バーで読み込み状況を確認します。全項目が「完了」になれば成功です</li>
           </ul>
           <div class="manual-tip">
@@ -1312,15 +1295,15 @@
           </div>
         </div>
 
-        <!-- 2-4 ふりがな管理 -->
+        <!-- 2-4 ふりがなデータベース（データページ内） -->
         <div class="manual-guide-section">
-          <h4>2-4. ふりがな管理</h4>
+          <h4>2-4. ふりがなデータベース</h4>
           <div class="manual-diagram">
             <svg viewBox="0 0 600 220" xmlns="http://www.w3.org/2000/svg" style="max-width:600px;">
               <!-- Screen frame -->
               <rect x="10" y="10" width="580" height="200" rx="8" fill="#fff" stroke="#ccc" stroke-width="1"/>
               <rect x="10" y="10" width="580" height="30" rx="8" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
-              <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12" font-family="sans-serif">ふりがな管理画面</text>
+              <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12" font-family="sans-serif">データ管理 - ふりがなデータベース</text>
               <!-- Add form -->
               <rect x="25" y="50" width="150" height="28" rx="4" fill="#fff" stroke="#ccc" stroke-width="1"/>
               <text x="35" y="68" fill="#aaa" font-size="10" font-family="sans-serif">氏名</text>
@@ -1329,9 +1312,9 @@
               <rect x="345" y="50" width="70" height="28" rx="6" fill="#28a745" stroke="none"/>
               <text x="380" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700" font-family="sans-serif">追加</text>
               <circle cx="430" cy="64" r="12" fill="#2b7ec6"/><text x="430" y="68" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="sans-serif">①</text>
-              <!-- Import button -->
-              <rect x="455" y="50" width="110" height="28" rx="6" fill="#ff9800" stroke="none"/>
-              <text x="510" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700" font-family="sans-serif">Excelから取込</text>
+              <!-- Sync button -->
+              <rect x="455" y="50" width="120" height="28" rx="6" fill="#2b7ec6" stroke="none"/>
+              <text x="515" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700" font-family="sans-serif">ランキングと同期</text>
               <circle cx="575" cy="64" r="12" fill="#2b7ec6"/><text x="575" y="68" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <!-- Search -->
               <rect x="25" y="90" width="200" height="26" rx="4" fill="#fff" stroke="#ccc" stroke-width="1"/>
@@ -1339,24 +1322,28 @@
               <!-- Table -->
               <rect x="25" y="126" width="540" height="22" rx="0" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="1"/>
               <text x="35" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">氏名</text>
-              <text x="200" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">ふりがな</text>
-              <text x="430" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">操作</text>
+              <text x="160" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">ふりがな</text>
+              <text x="300" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">種別</text>
+              <text x="370" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">所属</text>
+              <text x="470" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">ソース</text>
+              <text x="530" y="141" fill="#333" font-size="10" font-weight="700" font-family="sans-serif">操作</text>
               <rect x="25" y="148" width="540" height="22" fill="#fff" stroke="#e5e7eb" stroke-width="0.5"/>
               <text x="35" y="163" fill="#333" font-size="10" font-family="sans-serif">山田 太郎</text>
-              <text x="200" y="163" fill="#333" font-size="10" font-family="sans-serif">やまだ たろう</text>
-              <text x="430" y="163" fill="#2b7ec6" font-size="10" font-family="sans-serif">編集 | 削除</text>
-              <rect x="25" y="170" width="540" height="22" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="0.5"/>
-              <text x="35" y="185" fill="#333" font-size="10" font-family="sans-serif">鈴木 一郎</text>
-              <text x="200" y="185" fill="#333" font-size="10" font-family="sans-serif">すずき いちろう</text>
-              <text x="430" y="185" fill="#2b7ec6" font-size="10" font-family="sans-serif">編集 | 削除</text>
+              <text x="160" y="163" fill="#333" font-size="10" font-family="sans-serif">やまだ たろう</text>
+              <text x="300" y="163" fill="#333" font-size="10" font-family="sans-serif">男子</text>
+              <text x="370" y="163" fill="#333" font-size="10" font-family="sans-serif">鳥取TC</text>
+              <text x="470" y="163" fill="#888" font-size="10" font-family="sans-serif">自動</text>
+              <text x="530" y="163" fill="#2b7ec6" font-size="10" font-family="sans-serif">編集 | 削除</text>
             </svg>
           </div>
           <ul class="manual-steps">
-            <li>氏名とふりがなを入力し「追加」ボタンで手動登録します</li>
-            <li>「Excelから取込」ボタンで、リスト.xlsxなどのExcelファイルからふりがなデータを一括取り込みできます</li>
+            <li>ふりがなデータベースは「データ」ページの下部にあります</li>
+            <li>「ランキングと同期」ボタンで、読み込み済みランキングデータから選手名を自動取得します</li>
+            <li>氏名とふりがなを入力し「追加」ボタンで手動登録もできます</li>
+            <li>Excel取込・出力、JSON取込・出力に対応しています</li>
           </ul>
           <div class="manual-tip">
-            <strong>ヒント：</strong>ふりがなデータはドロー表にふりがなを表示する際に使用されます。Googleスプレッドシートからの一括読込でも自動取得されます。
+            <strong>ヒント：</strong>ふりがなデータはドロー表にふりがなを表示する際に使用されます。ランキングデータ読込時に自動連携されます。
           </div>
         </div>
 
@@ -1785,7 +1772,7 @@
 
           <div class="manual-faq-item">
             <div class="faq-q">ふりがなデータはどこから読み込まれますか？</div>
-            <div class="faq-a">Googleスプレッドシートの「furigana」シートから自動取得されます。また「ふりがな管理」画面からExcelファイル（リスト.xlsx）を手動でインポートすることも可能です。</div>
+            <div class="faq-a">「データ」ページ下部の「ふりがなデータベース」で管理されます。「ランキングと同期」ボタンで自動取得できるほか、Excel/JSONの取込・出力や手動登録にも対応しています。</div>
           </div>
 
           <div class="manual-faq-category">エントリーについて</div>

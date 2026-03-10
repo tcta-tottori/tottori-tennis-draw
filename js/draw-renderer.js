@@ -161,12 +161,12 @@ window.DrawRenderer = {
     this._drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth, bracketBodyHeight);
     this._drawSeedInfo(svg, drawData, bodyTop + bracketBodyHeight + 8, totalWidth);
 
-    // スケジュール注記を描画
-    if (options.scheduleMap && options.eventCode) {
-      this._drawScheduleAnnotations(svg, options.scheduleMap, options.eventCode,
-        drawSize, halfRounds, bodyTop, halfWidth, P, isConfirmed,
-        leftDraw, rightDraw, halfSize);
-    }
+    // スケジュール注記はSVGには描画しない（Excel出力のみ）
+    // if (options.scheduleMap && options.eventCode) {
+    //   this._drawScheduleAnnotations(svg, options.scheduleMap, options.eventCode,
+    //     drawSize, halfRounds, bodyTop, halfWidth, P, isConfirmed,
+    //     leftDraw, rightDraw, halfSize);
+    // }
   },
 
   _drawHeader(svg, drawData, options, totalWidth) {
@@ -1207,20 +1207,20 @@ window.DrawRenderer = {
               if (topRow >= headerRows && bottomRow < wsData.length) {
                 wsData._bracketInfo.push({ topRow, bottomRow, col, side });
 
-                // R2+ スケジュール時間
-                if (scheduleMap && eventCode) {
-                  const globalRound = round + 1;
-                  const matchId = eventCode + '-R' + globalRound + '-' + halfLabel + (p + 1);
-                  const info = scheduleMap[matchId];
-                  if (info) {
-                    const timeHours = parseInt(info.startTime.split(':')[0]);
-                    const timeMins = parseInt(info.startTime.split(':')[1]);
-                    const timeVal = (timeHours * 60 + timeMins) / 1440;
-                    wsData._timeMerges.push({
-                      startRow: topRow + 1, endRow: bottomRow - 1, col, timeValue: timeVal
-                    });
-                  }
-                }
+                // R2+ スケジュール時間はExcelに出力しない（1回戦のみ）
+                // if (scheduleMap && eventCode) {
+                //   const globalRound = round + 1;
+                //   const matchId = eventCode + '-R' + globalRound + '-' + halfLabel + (p + 1);
+                //   const info = scheduleMap[matchId];
+                //   if (info) {
+                //     const timeHours = parseInt(info.startTime.split(':')[0]);
+                //     const timeMins = parseInt(info.startTime.split(':')[1]);
+                //     const timeVal = (timeHours * 60 + timeMins) / 1440;
+                //     wsData._timeMerges.push({
+                //       startRow: topRow + 1, endRow: bottomRow - 1, col, timeValue: timeVal
+                //     });
+                //   }
+                // }
               }
             } else if (topMids.length > 0) {
               newMid = Math.floor((topMids[0] + topMids[topMids.length - 1]) / 2);

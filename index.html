@@ -488,6 +488,16 @@
         </table>
       </div>
 
+      <!-- データ全クリア -->
+      <div style="margin-top:32px; padding-top:20px; border-top:1px solid #e5e7eb; text-align:right;">
+        <button id="btn-all-data-clear" class="btn btn-danger" style="opacity:0.85;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:4px;">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+          データ全クリア
+        </button>
+      </div>
+
       <!-- 手動追加モーダル -->
       <div id="modal-entry-add" class="modal-overlay" style="display:none;">
         <div class="modal">
@@ -794,6 +804,8 @@
       <!-- エクスポート -->
       <div id="schedule-export-panel" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
         <button id="btn-schedule-print" class="btn btn-primary" style="display:none;">時間割を印刷</button>
+        <button id="btn-schedule-excel" class="btn" style="display:none;background-color:#28a745;color:#fff;border:none;">Excel出力</button>
+        <button id="btn-schedule-pdf" class="btn" style="display:none;background-color:#dc3545;color:#fff;border:none;">PDF出力</button>
       </div>
     </section>
 

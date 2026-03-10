@@ -4,7 +4,7 @@
    ============================================ */
 
 @media print {
-  /* --- ページ設定: A3横向き --- */
+  /* --- ページ設定: A3横向き（デフォルト: ドロー表用） --- */
   @page {
     size: A3 landscape;
     margin: 10mm;
@@ -149,5 +149,74 @@
   a {
     color: #000000;
     text-decoration: none;
+  }
+
+  /* ========================================
+     スケジュール印刷モード（PDF出力用）
+     body.schedule-print-mode が付与された時のみ有効
+     ======================================== */
+  body.schedule-print-mode .screen {
+    display: none !important;
+  }
+
+  body.schedule-print-mode #screen-schedule {
+    display: block !important;
+  }
+
+  body.schedule-print-mode #screen-bracket {
+    display: none !important;
+  }
+
+  body.schedule-print-mode #schedule-config-panel,
+  body.schedule-print-mode #schedule-export-panel,
+  body.schedule-print-mode #schedule-event-panel,
+  body.schedule-print-mode #schedule-edit-hint,
+  body.schedule-print-mode .screen-title {
+    display: none !important;
+  }
+
+  body.schedule-print-mode #schedule-grid-panel {
+    display: block !important;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  body.schedule-print-mode #schedule-grid-panel .card-title {
+    display: block !important;
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 5mm;
+  }
+
+  body.schedule-print-mode .schedule-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+  }
+
+  body.schedule-print-mode .schedule-grid th,
+  body.schedule-print-mode .schedule-grid td {
+    border: 1px solid #000 !important;
+    padding: 3px 4px;
+    text-align: center;
+  }
+
+  body.schedule-print-mode .schedule-grid th {
+    background-color: #d0d0d0 !important;
+    font-weight: bold;
+  }
+
+  body.schedule-print-mode .schedule-match-cell {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.schedule-print-mode .schedule-grid .schedule-cell-event,
+  body.schedule-print-mode .schedule-grid .schedule-cell-round {
+    font-size: 7pt;
+    line-height: 1.2;
   }
 }

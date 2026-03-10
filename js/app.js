@@ -1459,6 +1459,39 @@ window.App = {
       });
     }
 
+    // データ全クリア
+    const btnAllClear = document.getElementById('btn-all-data-clear');
+    if (btnAllClear) {
+      btnAllClear.addEventListener('click', () => {
+        if (confirm('全てのデータ（エントリー、ドロー結果、時間割）をクリアしますか？この操作は元に戻せません。')) {
+          // localStorage をすべてクリア
+          localStorage.removeItem('drawSystem_entries');
+          localStorage.removeItem('drawSystem_tournaments');
+          localStorage.removeItem('drawSystem_rankingBackup');
+          localStorage.removeItem('drawSystem_tournamentBackup');
+          localStorage.removeItem('drawSystem_drawResults');
+          localStorage.removeItem('drawSystem_schedule');
+          // メモリ上のデータをクリア
+          EntryStore.entries = [];
+          EntryStore.nextId = 1;
+          if (typeof TournamentStore !== 'undefined') {
+            TournamentStore.tournaments = [];
+            TournamentStore.nextId = 1;
+          }
+          RankingLoader.rankings = {};
+          RankingLoader.allPlayers = [];
+          RankingLoader.furiganaMap = {};
+          RankingLoader.listMembers = [];
+          this.drawResults = {};
+          this.confirmedEvents = {};
+          this._scheduleSlots = null;
+          // 画面を更新
+          this.refreshEntryTable();
+          this.showMessage('全てのデータをクリアしました', 'info');
+        }
+      });
+    }
+
     // 氏名入力でサジェスト
     const entryName = document.getElementById('entry-name');
     if (entryName) {
@@ -4492,6 +4525,14 @@ window.App = {
     if (btnPrint) {
       btnPrint.addEventListener('click', () => window.print());
     }
+    const btnScheduleExcel = document.getElementById('btn-schedule-excel');
+    if (btnScheduleExcel) {
+      btnScheduleExcel.addEventListener('click', () => this._exportScheduleExcel());
+    }
+    const btnSchedulePdf = document.getElementById('btn-schedule-pdf');
+    if (btnSchedulePdf) {
+      btnSchedulePdf.addEventListener('click', () => this._exportSchedulePDF());
+    }
 
     // セル選択状態
     this._selectedScheduleCell = null;
@@ -4650,9 +4691,13 @@ window.App = {
       tbody.appendChild(tr);
     }
 
-    // 印刷ボタン表示
+    // 印刷・エクスポートボタン表示
     const btnPrint = document.getElementById('btn-schedule-print');
     if (btnPrint) btnPrint.style.display = '';
+    const btnSchExcel = document.getElementById('btn-schedule-excel');
+    if (btnSchExcel) btnSchExcel.style.display = '';
+    const btnSchPdf = document.getElementById('btn-schedule-pdf');
+    if (btnSchPdf) btnSchPdf.style.display = '';
   },
 
   /**
@@ -4805,11 +4850,231 @@ window.App = {
     if (btnReset) btnReset.style.display = 'none';
     const btnPrint = document.getElementById('btn-schedule-print');
     if (btnPrint) btnPrint.style.display = 'none';
+    const btnSchExcel2 = document.getElementById('btn-schedule-excel');
+    if (btnSchExcel2) btnSchExcel2.style.display = 'none';
+    const btnSchPdf2 = document.getElementById('btn-schedule-pdf');
+    if (btnSchPdf2) btnSchPdf2.style.display = 'none';
     const statusMsg = document.getElementById('schedule-status-msg');
     if (statusMsg) statusMsg.textContent = '';
 
     this._selectedScheduleCell = null;
     this.showMessage('時間割をクリアしました', 'info');
+  },
+
+  /**
+   * 時間割をExcelファイルとしてエクスポート
+   */
+  _exportScheduleExcel() {
+    if (!this._scheduleSlots || !this._scheduleConfig) {
+      this.showMessage('時間割が生成されていません', 'error');
+      return;
+    }
+    const slots = this._scheduleSlots;
+    const config = this._scheduleConfig;
+    const { courtNames, courtCount, matchDuration, startTime } = config;
+    const maxSlot = slots.reduce((max, s) => Math.max(max, s.timeSlotIndex), 0);
+
+    // グリッドデータ構築
+    const grid = {};
+    for (const slot of slots) {
+      if (!grid[slot.courtIndex]) grid[slot.courtIndex] = {};
+      grid[slot.courtIndex][slot.timeSlotIndex] = slot;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    // === Sheet 1: タイムテーブル ===
+    const ttData = [];
+    // ヘッダー行
+    const headerRow = ['コート'];
+    for (let t = 0; t <= maxSlot; t++) {
+      headerRow.push(ScheduleEngine.calcTimeString(startTime, t, matchDuration));
+    }
+    ttData.push(headerRow);
+
+    // データ行
+    for (let c = 0; c < courtCount; c++) {
+      const row = [courtNames[c] || String(c + 1)];
+      for (let t = 0; t <= maxSlot; t++) {
+        const slot = grid[c] && grid[c][t];
+        if (slot) {
+          const evtName = ScheduleEngine._getEventName ? ScheduleEngine._getEventName(slot.eventCode) : slot.eventCode;
+          row.push(evtName + ' ' + slot.roundLabel);
+        } else {
+          row.push('');
+        }
+      }
+      ttData.push(row);
+    }
+
+    const ws1 = XLSX.utils.aoa_to_sheet(ttData);
+
+    // 列幅設定
+    const colWidths = [{ wch: 8 }];
+    for (let t = 0; t <= maxSlot; t++) {
+      colWidths.push({ wch: 16 });
+    }
+    ws1['!cols'] = colWidths;
+
+    // ヘッダースタイル（背景色）
+    for (let col = 0; col <= maxSlot + 1; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (ws1[cellRef]) {
+        ws1[cellRef].s = {
+          fill: { fgColor: { rgb: '4472C4' } },
+          font: { color: { rgb: 'FFFFFF' }, bold: true },
+          alignment: { horizontal: 'center' },
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } },
+          },
+        };
+      }
+    }
+
+    // 種目ごとの色マップ
+    const eventColorMap = {};
+    if (typeof AppConfig !== 'undefined' && AppConfig.EVENTS) {
+      const xlPalette = ['D6E4F0', 'FDE9D9', 'E2EFDA', 'FCE4EC', 'E8D5F5', 'D5F5F0', 'FFF9C4', 'EFEBE9'];
+      AppConfig.EVENTS.forEach((evt, i) => {
+        eventColorMap[evt.code] = xlPalette[i % xlPalette.length];
+      });
+    }
+
+    // データセルにスタイル適用
+    for (let r = 1; r <= courtCount; r++) {
+      for (let col = 0; col <= maxSlot + 1; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c: col });
+        if (!ws1[cellRef]) {
+          ws1[cellRef] = { v: '', t: 's' };
+        }
+        const cellStyle = {
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } },
+          },
+        };
+        if (col === 0) {
+          cellStyle.font = { bold: true };
+          cellStyle.fill = { fgColor: { rgb: 'E5E7EB' } };
+        } else {
+          const slot = grid[r - 1] && grid[r - 1][col - 1];
+          if (slot && eventColorMap[slot.eventCode]) {
+            cellStyle.fill = { fgColor: { rgb: eventColorMap[slot.eventCode] } };
+          }
+        }
+        ws1[cellRef].s = cellStyle;
+      }
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws1, 'タイムテーブル');
+
+    // === Sheet 2+: 種目別スケジュール ===
+    const byEvent = {};
+    for (const slot of slots) {
+      if (!byEvent[slot.eventCode]) byEvent[slot.eventCode] = [];
+      byEvent[slot.eventCode].push(slot);
+    }
+
+    const matchMap = {};
+    if (this._scheduleAllMatches) {
+      for (const m of this._scheduleAllMatches) {
+        matchMap[m.matchId] = m;
+      }
+    }
+
+    for (const code of Object.keys(byEvent)) {
+      const eventSlots = byEvent[code].sort((a, b) => a.timeSlotIndex - b.timeSlotIndex);
+      const evtName = ScheduleEngine._getEventName ? ScheduleEngine._getEventName(code) : code;
+
+      const evtData = [['時間', 'コート', 'ラウンド', '対戦']];
+      for (const slot of eventSlots) {
+        const match = matchMap[slot.matchId];
+        const playersStr = match && match.players.length > 0
+          ? match.players.filter(Boolean).join(' vs ')
+          : '（前試合勝者）';
+        evtData.push([slot.startTime, slot.courtName, slot.roundLabel, playersStr]);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(evtData);
+      ws['!cols'] = [{ wch: 10 }, { wch: 8 }, { wch: 14 }, { wch: 30 }];
+
+      // ヘッダースタイル
+      for (let col = 0; col < 4; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: '4472C4' } },
+            font: { color: { rgb: 'FFFFFF' }, bold: true },
+            alignment: { horizontal: 'center' },
+            border: {
+              top: { style: 'thin', color: { rgb: '000000' } },
+              bottom: { style: 'thin', color: { rgb: '000000' } },
+              left: { style: 'thin', color: { rgb: '000000' } },
+              right: { style: 'thin', color: { rgb: '000000' } },
+            },
+          };
+        }
+      }
+
+      // データセルにボーダー
+      for (let r = 1; r < evtData.length; r++) {
+        for (let col = 0; col < 4; col++) {
+          const cellRef = XLSX.utils.encode_cell({ r, c: col });
+          if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+          ws[cellRef].s = {
+            alignment: { horizontal: col === 3 ? 'left' : 'center', vertical: 'center' },
+            border: {
+              top: { style: 'thin', color: { rgb: '000000' } },
+              bottom: { style: 'thin', color: { rgb: '000000' } },
+              left: { style: 'thin', color: { rgb: '000000' } },
+              right: { style: 'thin', color: { rgb: '000000' } },
+            },
+          };
+        }
+      }
+
+      // シート名は31文字制限
+      const sheetName = evtName.substring(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+
+    // ファイル出力
+    const tournamentName = (AppConfig.TOURNAMENT_NAME || '大会').replace(/[\\/:*?"<>|]/g, '_');
+    const fileName = '時間割_' + tournamentName + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    this.showMessage('Excelファイルをダウンロードしました', 'success');
+  },
+
+  /**
+   * 時間割をPDFとして出力（印刷ダイアログ経由）
+   */
+  _exportSchedulePDF() {
+    if (!this._scheduleSlots || !this._scheduleConfig) {
+      this.showMessage('時間割が生成されていません', 'error');
+      return;
+    }
+    // A4横向き用の@pageルールを動的に注入（デフォルトはA3横向き）
+    const styleEl = document.createElement('style');
+    styleEl.id = 'schedule-print-page-override';
+    styleEl.textContent = '@media print { @page { size: A4 landscape; margin: 8mm; } }';
+    document.head.appendChild(styleEl);
+
+    document.body.classList.add('schedule-print-mode');
+    setTimeout(() => {
+      window.print();
+      // 印刷ダイアログを閉じた後にクラスとスタイルを除去
+      setTimeout(() => {
+        document.body.classList.remove('schedule-print-mode');
+        const overrideStyle = document.getElementById('schedule-print-page-override');
+        if (overrideStyle) overrideStyle.remove();
+      }, 500);
+    }, 100);
   },
 
   /**

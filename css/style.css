@@ -1172,12 +1172,10 @@ body {
   flex: 1;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 8px;
-}
-
-#bracket-svg {
-  display: block;
-  max-width: 100%;
+  padding: 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 /* --- 空メッセージ --- */
@@ -2504,15 +2502,14 @@ details[open] > .collapsible-toggle::before {
 .schedule-grid {
   border-collapse: collapse;
   font-size: 12px;
-  table-layout: fixed;
 }
 .schedule-grid th,
 .schedule-grid td {
   border: 1px solid #d1d5db;
-  padding: 4px 6px;
+  padding: 4px 8px;
   text-align: center;
   white-space: nowrap;
-  min-width: 100px;
+  min-width: 72px;
 }
 .schedule-grid th {
   background: #f0f5fa;
@@ -2557,7 +2554,7 @@ details[open] > .collapsible-toggle::before {
 .schedule-court-header { min-width: 70px !important; }
 .schedule-time-header { min-width: 90px !important; }
 .schedule-court-cell { font-weight: 600; background: #f8fafc; }
-.schedule-match-cell { padding: 4px 6px; }
+.schedule-match-cell { padding: 4px 8px; white-space: normal !important; min-width: 80px; }
 .schedule-empty-cell { background: #fafafa; }
-.schedule-cell-event { font-size: 11px; font-weight: 600; }
+.schedule-cell-event { font-size: 11px; font-weight: 600; white-space: nowrap; }
 .schedule-cell-round { font-size: 10px; color: #666; }

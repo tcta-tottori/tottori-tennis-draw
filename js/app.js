@@ -1281,7 +1281,9 @@ window.App = {
     tournaments.forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.id;
-      opt.textContent = t.name;
+      let label = t.name;
+      if (t.events) label += '（' + t.events + '）';
+      opt.textContent = label;
       select.appendChild(opt);
     });
     if (prevValue) select.value = prevValue;
@@ -3616,10 +3618,10 @@ window.App = {
       });
     }
 
-    // 全画面閉じるボタン
-    const btnFsClose = document.getElementById('btn-bracket-fullscreen-close');
-    if (btnFsClose) {
-      btnFsClose.addEventListener('click', () => this._closeBracketFullscreen());
+    // 全画面: タップ/クリックで閉じる
+    const fsOverlay = document.getElementById('bracket-fullscreen-overlay');
+    if (fsOverlay) {
+      fsOverlay.addEventListener('click', () => this._closeBracketFullscreen());
     }
     // ESCキーで閉じる
     document.addEventListener('keydown', (e) => {
@@ -3663,7 +3665,7 @@ window.App = {
 
     // 全画面用コンテナを作成（SVGはrender内で自動生成される）
     const fsContainer = document.createElement('div');
-    fsContainer.style.cssText = 'padding:8px;';
+    fsContainer.style.cssText = 'width:100%;';
 
     body.innerHTML = '';
     body.appendChild(fsContainer);
@@ -3686,6 +3688,20 @@ window.App = {
         entryCount: result.entryCount,
         isDoubles: evtDef ? evtDef.category === 'doubles' : false,
       }, { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode });
+
+      // SVGを画面に収める（viewBoxを維持しつつ幅100%にスケール）
+      const svg = fsContainer.querySelector('svg');
+      if (svg) {
+        const svgW = parseFloat(svg.getAttribute('width'));
+        const svgH = parseFloat(svg.getAttribute('height'));
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
+        svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + svgH);
+        svg.style.width = '100%';
+        svg.style.height = 'auto';
+        svg.style.maxHeight = '100%';
+        svg.style.display = 'block';
+      }
     });
   },
 
@@ -3839,7 +3855,8 @@ window.App = {
     html += '</tbody></table></div>';
     html += '<div style="margin-top:12px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">' +
       '<span style="font-size:18px;font-weight:700;color:#1e40af;">全体合計: ' + totalBalls + '球</span>' +
-      '<span style="font-size:13px;color:#6b7280;margin-left:12px;">（' + (totalBalls / 2) + '缶）</span></div>';
+      '<span style="font-size:14px;color:#1e40af;font-weight:600;margin-left:12px;">（' + Math.ceil(totalBalls / 4) + '缶）</span>' +
+      '<span style="font-size:12px;color:#6b7280;margin-left:8px;">※1缶4球</span></div>';
 
     resultEl.innerHTML = html;
     resultEl.style.display = '';
@@ -4428,6 +4445,31 @@ window.App = {
     this._scheduleConfig = null;
     this._restoreSchedule();
 
+    // コートチェックボックス生成（1〜16面、全チェック）
+    const cbContainer = document.getElementById('schedule-court-checkboxes');
+    if (cbContainer) {
+      for (let i = 1; i <= 16; i++) {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:inline-flex;align-items:center;gap:2px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-size:13px;user-select:none;min-width:48px;justify-content:center;';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.value = String(i);
+        cb.className = 'schedule-court-cb';
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(i + '面'));
+        cbContainer.appendChild(label);
+      }
+    }
+    const btnAll = document.getElementById('btn-court-all');
+    if (btnAll) btnAll.addEventListener('click', () => {
+      document.querySelectorAll('.schedule-court-cb').forEach(cb => cb.checked = true);
+    });
+    const btnNone = document.getElementById('btn-court-none');
+    if (btnNone) btnNone.addEventListener('click', () => {
+      document.querySelectorAll('.schedule-court-cb').forEach(cb => cb.checked = false);
+    });
+
     const btnGenerate = document.getElementById('btn-generate-schedule');
     if (btnGenerate) {
       btnGenerate.addEventListener('click', () => this._generateSchedule());
@@ -4474,16 +4516,18 @@ window.App = {
     }
 
     // 設定値の取得
-    const courtCount = parseInt(document.getElementById('schedule-court-count').value, 10) || 6;
-    const courtNamesStr = document.getElementById('schedule-court-names').value || '';
-    const courtNames = courtNamesStr.split(',').map(s => s.trim()).filter(Boolean);
+    const checkedCourts = [];
+    document.querySelectorAll('.schedule-court-cb:checked').forEach(cb => {
+      checkedCourts.push(cb.value);
+    });
+    if (checkedCourts.length === 0) {
+      this.showMessage('使用するコートを選択してください', 'warning');
+      return;
+    }
+    const courtCount = checkedCourts.length;
+    const courtNames = checkedCourts;
     const matchDuration = parseInt(document.getElementById('schedule-match-duration').value, 10) || 40;
     const startTime = document.getElementById('schedule-start-time').value || '09:00';
-
-    // コート名が不足していたら番号で補完
-    while (courtNames.length < courtCount) {
-      courtNames.push(String(courtNames.length + 1));
-    }
 
     // 全確定種目からマッチを抽出
     const allMatches = [];

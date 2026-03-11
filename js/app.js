@@ -3442,6 +3442,26 @@ window.App = {
     // 1回戦ペア: (0,1),(2,3),(4,5),... のインデックス
     // 各ペアの対戦相手と所属が被らないように配置
 
+    const evt = this._currentDrawData ? AppConfig.EVENTS.find(e => e.code === this._currentDrawData.eventCode) : null;
+    const isDoubles = evt ? evt.category === 'doubles' : false;
+
+    // 2エントリー間で所属衝突があるかチェック
+    const hasAffiliationCollision = (a, b) => {
+      if (isDoubles) {
+        // ダブルス: どちらかのパートナーの所属が一致すれば衝突
+        const aAffs = [a.affiliation1 || a.affiliation || '', a.affiliation2 || ''].filter(x => x);
+        const bAffs = [b.affiliation1 || b.affiliation || '', b.affiliation2 || ''].filter(x => x);
+        for (const aa of aAffs) {
+          for (const ba of bAffs) {
+            if (aa && ba && aa === ba) return true;
+          }
+        }
+        return false;
+      } else {
+        return a.affiliation && b.affiliation && a.affiliation === b.affiliation;
+      }
+    };
+
     // まず通常通り配置して、衝突があったら交換する
     const placed = [...players];
     const slotsCopy = [...slots];
@@ -3459,7 +3479,7 @@ window.App = {
         const b = this._manualDraw[i + 1];
         if (!a || !b || a.isBye || b.isBye || a.isEmpty || b.isEmpty) continue;
         if (a.seed > 0 || b.seed > 0) continue;
-        if (a.affiliation && b.affiliation && a.affiliation === b.affiliation) {
+        if (hasAffiliationCollision(a, b)) {
           hasCollision = true;
           // ランダムな別の位置とスワップ
           const swapCandidates = slotsCopy.filter(s => {
@@ -5929,6 +5949,76 @@ window.App = {
       btnAutoAssign.addEventListener('click', () => this._autoAssignFuriganaKuromoji());
     }
 
+    // GitHub同期設定
+    const btnGhSettings = document.getElementById('btn-github-settings');
+    const modalGhSettings = document.getElementById('modal-github-settings');
+    if (btnGhSettings && modalGhSettings) {
+      btnGhSettings.addEventListener('click', () => {
+        document.getElementById('github-repo').value = GitHubSync.config.repo;
+        document.getElementById('github-pat').value = GitHubSync.config.pat;
+        document.getElementById('github-file-path').value = GitHubSync.config.filePath;
+        modalGhSettings.style.display = 'flex';
+      });
+    }
+
+    const btnGhSave = document.getElementById('btn-github-save');
+    if (btnGhSave) {
+      btnGhSave.addEventListener('click', async () => {
+        const repo = document.getElementById('github-repo').value.trim();
+        const pat = document.getElementById('github-pat').value.trim();
+        const path = document.getElementById('github-file-path').value.trim();
+        GitHubSync.saveConfig(repo, pat, path);
+        if (modalGhSettings) modalGhSettings.style.display = 'none';
+        this.showMessage('GitHub連携設定を保存しました', 'success');
+        
+        // 保存直後にアップロードを試行
+        if (this._furiganaData.length > 0) {
+          try {
+            this.showMessage('GitHubへデータを同期しています...', 'info');
+            await GitHubSync.uploadData(this._furiganaData);
+            this.showMessage('GitHubへの同期が完了しました', 'success');
+          } catch (e) {
+            this.showMessage('GitHub同期エラー: ' + e.message, 'error');
+          }
+        }
+      });
+    }
+
+    const btnGhLoad = document.getElementById('btn-github-load');
+    if (btnGhLoad) {
+      btnGhLoad.addEventListener('click', async () => {
+        const repo = document.getElementById('github-repo').value.trim();
+        const pat = document.getElementById('github-pat').value.trim();
+        const path = document.getElementById('github-file-path').value.trim();
+        GitHubSync.saveConfig(repo, pat, path);
+
+        try {
+          btnGhLoad.disabled = true;
+          btnGhLoad.textContent = '取得中...';
+          const data = await GitHubSync.downloadData();
+          if (data && Array.isArray(data)) {
+            this._furiganaData = data;
+            if (data.length > 0) {
+              this._furiganaNextId = Math.max(...data.map(d => d.id || 0)) + 1;
+            }
+            // ローカルストレージにも保存
+            localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
+            this._syncFuriganaToRankingLoader();
+            this._renderFuriganaTable();
+            this.showMessage(`GitHubから ${data.length} 件のデータを取得しました`, 'success');
+            if (modalGhSettings) modalGhSettings.style.display = 'none';
+          } else {
+            this.showMessage('GitHub上にデータが見つかりませんでした', 'info');
+          }
+        } catch (e) {
+          this.showMessage('GitHub取得エラー: ' + e.message, 'error');
+        } finally {
+          btnGhLoad.disabled = false;
+          btnGhLoad.textContent = '手動取得';
+        }
+      });
+    }
+
     // 全件クリア
     const btnClear = document.getElementById('btn-furigana-clear');
     if (btnClear) {
@@ -6051,6 +6141,56 @@ window.App = {
       console.error('ふりがなデータの保存に失敗:', e);
     }
     this._updateFuriganaCountDisplay();
+
+    // 非同期でGitHubへ同期
+    if (typeof GitHubSync !== 'undefined' && GitHubSync.isValid()) {
+      const syncStatus = document.getElementById('furigana-sync-status');
+      if (syncStatus) {
+        syncStatus.style.display = 'block';
+        syncStatus.textContent = 'GitHubへ同期中...';
+        syncStatus.style.backgroundColor = '#f0f4ff';
+        syncStatus.style.color = '#3b82f6';
+      }
+      
+      GitHubSync.uploadData(this._furiganaData)
+        .then(() => {
+          if (syncStatus) {
+            syncStatus.textContent = '✓ GitHub同期完了 (' + new Date().toLocaleTimeString('ja-JP') + ')';
+            syncStatus.style.backgroundColor = '#f0fdf4';
+            syncStatus.style.color = '#15803d';
+            setTimeout(() => { syncStatus.style.display = 'none'; }, 5000);
+          }
+        })
+        .catch(e => {
+          if (syncStatus) {
+            syncStatus.textContent = '⚠ GitHub同期失敗: ' + e.message;
+            syncStatus.style.backgroundColor = '#fef2f2';
+            syncStatus.style.color = '#b91c1c';
+          }
+        });
+    }
+  },
+
+  /**
+   * 起動時にGitHubから自動取得
+   */
+  async _autoLoadFuriganaFromGitHub() {
+    if (typeof GitHubSync === 'undefined' || !GitHubSync.isValid()) return;
+    try {
+      const data = await GitHubSync.downloadData();
+      if (data && Array.isArray(data)) {
+        this._furiganaData = data;
+        if (data.length > 0) {
+          this._furiganaNextId = Math.max(...data.map(d => d.id || 0)) + 1;
+        }
+        localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
+        this._syncFuriganaToRankingLoader();
+        this._renderFuriganaTable();
+        console.log('GitHubからふりがなデータを自動同期しました');
+      }
+    } catch (e) {
+      console.warn('起動時のGitHub自動同期に失敗しました:', e);
+    }
   },
 
   /**
@@ -6792,7 +6932,10 @@ window.App = {
       if (btn) btn.textContent = '解析中...';
 
       let updated = 0;
+      let processed = 0;
+      const total = targets.length;
       const now = new Date().toISOString();
+      const CHUNK_SIZE = 10;
 
       // カタカナをひらがなに変換するヘルパー
       const kataToHira = (str) => {
@@ -6811,7 +6954,16 @@ window.App = {
         return kataToHira(result);
       };
 
-      for (const target of targets) {
+      for (let i = 0; i < total; i++) {
+        const target = targets[i];
+        processed++;
+        
+        // UI更新とフリーズ回避のための非同期待機（チャンク境界ごと）
+        if (i > 0 && i % CHUNK_SIZE === 0) {
+          if (btn) btn.textContent = `解析中... (${processed}/${total})`;
+          await new Promise(resolve => setTimeout(resolve, 10)); // UIスレッドを一時解放
+        }
+
         if (!target.name) continue;
 
         // 氏名をスペースで分割（姓・名を個別に解析）
@@ -6822,9 +6974,9 @@ window.App = {
           // ？を含む場合：既存ふりがなの？部分のみを置換
           const furiganaParts = target.furigana.split(/[\s　]+/);
           const newParts = [];
-          for (let i = 0; i < Math.max(furiganaParts.length, nameParts.length); i++) {
-            const fp = furiganaParts[i] || '';
-            const np = nameParts[i] || '';
+          for (let k = 0; k < Math.max(furiganaParts.length, nameParts.length); k++) {
+            const fp = furiganaParts[k] || '';
+            const np = nameParts[k] || '';
             if (fp.includes('？') && np) {
               // ？を含むパートは再解析
               newParts.push(tokenizePart(np));

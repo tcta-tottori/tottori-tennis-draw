@@ -1299,11 +1299,17 @@ body {
   }
 }
 
+/* --- ふりがなデータベーステーブル: 折り返し禁止 --- */
+#furigana-table td,
+#furigana-table th {
+  white-space: nowrap;
+}
+
 /* --- エントリー画面（旧：選手一覧） --- */
 .ranking-sticky-filter {
   position: sticky;
-  top: 100px;
-  /* ヘッダー+タブバーの高さ分 */
+  top: 98px;
+  /* ヘッダー(68px)+タブバー(40px)の高さ分 ≈ 98px */
   z-index: 50;
   background: var(--color-bg);
   padding-bottom: 4px;

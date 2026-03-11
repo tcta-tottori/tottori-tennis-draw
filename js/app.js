@@ -265,7 +265,7 @@ window.App = {
       return;
     }
 
-    try { localStorage.setItem('drawSystem_gsRankingUrl', urlInput.value.trim()); } catch (e) {}
+    try { localStorage.setItem('drawSystem_gsRankingUrl', urlInput.value.trim()); } catch (e) { }
     this._updateGSLinkButtons();
 
     // 個別ボタンからの呼び出し時はオーバーレイ表示
@@ -477,14 +477,64 @@ window.App = {
         const count = (RankingLoader.rankings[evt.code] || []).length;
         if (count === 0) continue;
         const btn = document.createElement('button');
-        btn.className = 'btn btn-sm ' + (!this._rankingFilter.showList && this._rankingFilter.eventCode === evt.code ? 'btn-primary' : 'btn-secondary');
+        btn.className = 'btn btn-sm ' + (!this._rankingFilter.showList && !this._rankingFilter.showAll && !this._rankingFilter.showAllMale && !this._rankingFilter.showAllFemale && !this._rankingFilter.showFuriganaDB && this._rankingFilter.eventCode === evt.code ? 'btn-primary' : 'btn-secondary');
         btn.textContent = evt.shortName + ' (' + count + ')';
         btn.addEventListener('click', () => {
           this._rankingFilter.eventCode = evt.code;
           this._rankingFilter.showList = false;
+          this._rankingFilter.showAll = false;
+          this._rankingFilter.showAllMale = false;
+          this._rankingFilter.showAllFemale = false;
+          this._rankingFilter.showFuriganaDB = false;
           this.refreshRankingTable();
         });
         tabsEl.appendChild(btn);
+      }
+
+      // セパレーター
+      const sep1 = document.createElement('span');
+      sep1.style.cssText = 'width:1px;height:20px;background:#d1d5db;margin:0 4px;';
+      tabsEl.appendChild(sep1);
+
+      // 男子全員/女子全員タブ
+      const genderPrefix = currentCategory === 'singles' ? 's' : 'd';
+      const maleEvents = categoryEvents.filter(e => e.code.startsWith('m'));
+      const femaleEvents = categoryEvents.filter(e => e.code.startsWith('l'));
+      const maleTotal = maleEvents.reduce((sum, e) => sum + (RankingLoader.rankings[e.code] || []).length, 0);
+      const femaleTotal = femaleEvents.reduce((sum, e) => sum + (RankingLoader.rankings[e.code] || []).length, 0);
+
+      if (maleTotal > 0) {
+        const maleAllBtn = document.createElement('button');
+        maleAllBtn.className = 'btn btn-sm ' + (this._rankingFilter.showAllMale ? 'btn-primary' : 'btn-secondary');
+        maleAllBtn.textContent = '男子全員 (' + maleTotal + ')';
+        maleAllBtn.style.cssText = 'border-color:#1e40af;';
+        maleAllBtn.addEventListener('click', () => {
+          this._rankingFilter.showAllMale = true;
+          this._rankingFilter.showAllFemale = false;
+          this._rankingFilter.showList = false;
+          this._rankingFilter.showAll = false;
+          this._rankingFilter.showFuriganaDB = false;
+          this._rankingFilter.eventCode = '';
+          this.refreshRankingTable();
+        });
+        tabsEl.appendChild(maleAllBtn);
+      }
+
+      if (femaleTotal > 0) {
+        const femaleAllBtn = document.createElement('button');
+        femaleAllBtn.className = 'btn btn-sm ' + (this._rankingFilter.showAllFemale ? 'btn-primary' : 'btn-secondary');
+        femaleAllBtn.textContent = '女子全員 (' + femaleTotal + ')';
+        femaleAllBtn.style.cssText = 'border-color:#be185d;';
+        femaleAllBtn.addEventListener('click', () => {
+          this._rankingFilter.showAllFemale = true;
+          this._rankingFilter.showAllMale = false;
+          this._rankingFilter.showList = false;
+          this._rankingFilter.showAll = false;
+          this._rankingFilter.showFuriganaDB = false;
+          this._rankingFilter.eventCode = '';
+          this.refreshRankingTable();
+        });
+        tabsEl.appendChild(femaleAllBtn);
       }
 
       // リスト登録者タブ
@@ -499,15 +549,41 @@ window.App = {
         listBtn.textContent = 'リスト登録者 (' + listCount + ')';
         listBtn.addEventListener('click', () => {
           this._rankingFilter.showList = true;
+          this._rankingFilter.showAll = false;
+          this._rankingFilter.showAllMale = false;
+          this._rankingFilter.showAllFemale = false;
+          this._rankingFilter.showFuriganaDB = false;
           this._rankingFilter.eventCode = '';
           this.refreshRankingTable();
         });
         tabsEl.appendChild(listBtn);
       }
 
-      // 全種目タブは削除
+      // ふりがなDB全選手タブ（ミックスD/団体戦対応）
+      const furiganaCount = (this._furiganaData || []).length;
+      if (furiganaCount > 0) {
+        const sep2 = document.createElement('span');
+        sep2.style.cssText = 'width:1px;height:20px;background:#d1d5db;margin:0 4px;';
+        tabsEl.appendChild(sep2);
+
+        const dbBtn = document.createElement('button');
+        dbBtn.className = 'btn btn-sm ' + (this._rankingFilter.showFuriganaDB ? 'btn-primary' : 'btn-secondary');
+        dbBtn.textContent = '全選手DB (' + furiganaCount + ')';
+        dbBtn.style.cssText = 'border-color:#059669;';
+        dbBtn.addEventListener('click', () => {
+          this._rankingFilter.showFuriganaDB = true;
+          this._rankingFilter.showList = false;
+          this._rankingFilter.showAll = false;
+          this._rankingFilter.showAllMale = false;
+          this._rankingFilter.showAllFemale = false;
+          this._rankingFilter.eventCode = '';
+          this.refreshRankingTable();
+        });
+        tabsEl.appendChild(dbBtn);
+      }
+
       // デフォルトで最初の種目を自動選択（eventCode未選択なら）
-      if (!this._rankingFilter.eventCode && !this._rankingFilter.showList) {
+      if (!this._rankingFilter.eventCode && !this._rankingFilter.showList && !this._rankingFilter.showAll && !this._rankingFilter.showAllMale && !this._rankingFilter.showAllFemale && !this._rankingFilter.showFuriganaDB) {
         const firstEvt = categoryEvents.find(e => (RankingLoader.rankings[e.code] || []).length > 0);
         if (firstEvt) {
           this._rankingFilter.eventCode = firstEvt.code;
@@ -517,7 +593,51 @@ window.App = {
       }
     }
 
+    // 並べ替えコントロールの表示/更新
+    this._updateRankingSortControls();
+
     this._renderRankingRows();
+  },
+
+  /**
+   * 並べ替えコントロール表示/更新
+   */
+  _updateRankingSortControls() {
+    const stickyFilter = document.querySelector('.ranking-sticky-filter');
+    if (!stickyFilter) return;
+
+    let sortBar = document.getElementById('ranking-sort-bar');
+    const showSort = this._rankingFilter.showAllMale || this._rankingFilter.showAllFemale || this._rankingFilter.showFuriganaDB;
+
+    if (!showSort) {
+      if (sortBar) sortBar.style.display = 'none';
+      return;
+    }
+
+    if (!sortBar) {
+      sortBar = document.createElement('div');
+      sortBar.id = 'ranking-sort-bar';
+      sortBar.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0;';
+      sortBar.innerHTML =
+        '<span style="font-size:12px;color:#666;white-space:nowrap;">並べ替え:</span>' +
+        '<select id="ranking-sort-select" class="form-input" style="width:auto;min-width:140px;padding:4px 8px;font-size:12px;">' +
+        '<option value="points-desc">ポイント順（高い順）</option>' +
+        '<option value="points-asc">ポイント順（低い順）</option>' +
+        '<option value="furigana-asc">ふりがな（あいうえお順）</option>' +
+        '<option value="name-asc">氏名（あいうえお順）</option>' +
+        '<option value="affiliation">所属順</option>' +
+        '</select>';
+      stickyFilter.appendChild(sortBar);
+
+      sortBar.querySelector('#ranking-sort-select').addEventListener('change', (e) => {
+        this._rankingFilter.sortKey = e.target.value;
+        this._renderRankingRows();
+      });
+    }
+
+    sortBar.style.display = 'flex';
+    const sel = sortBar.querySelector('#ranking-sort-select');
+    if (sel) sel.value = this._rankingFilter.sortKey || 'points-desc';
   },
 
   _renderRankingRows() {
@@ -529,10 +649,42 @@ window.App = {
 
     let players = [];
     let isListView = this._rankingFilter.showList;
+    let isFuriganaDBView = this._rankingFilter.showFuriganaDB;
+    let isAllMaleView = this._rankingFilter.showAllMale;
+    let isAllFemaleView = this._rankingFilter.showAllFemale;
     const currentCategory = this._rankingFilter.category;
     const categoryEventCodes = new Set(AppConfig.EVENTS.filter(e => e.category === currentCategory).map(e => e.code));
 
-    if (isListView) {
+    if (isFuriganaDBView) {
+      // ふりがなDB全選手（ミックスD/団体戦用）
+      const seen = new Set();
+      players = (this._furiganaData || []).filter(d => {
+        if (seen.has(d.name)) return false;
+        seen.add(d.name);
+        return true;
+      }).map(d => ({
+        rank: d.rankingPosition || '-',
+        name: d.name,
+        furigana: d.furigana || '',
+        affiliation: d.affiliation || '',
+        points: d.rankingPoints || 0,
+        eventCode: (d.eventCodes && d.eventCodes.length > 0) ? d.eventCodes[0] : '',
+      }));
+    } else if (isAllMaleView || isAllFemaleView) {
+      // 男子全員/女子全員（重複排除・最高ポイント優先）
+      const prefix = isAllMaleView ? 'm' : 'l';
+      const genderEvents = AppConfig.EVENTS.filter(e => e.category === currentCategory && e.code.startsWith(prefix));
+      const nameMap = new Map();
+      for (const evt of genderEvents) {
+        for (const p of (RankingLoader.rankings[evt.code] || [])) {
+          const existing = nameMap.get(p.name);
+          if (!existing || (p.points || 0) > (existing.points || 0)) {
+            nameMap.set(p.name, { ...p, eventCode: evt.code });
+          }
+        }
+      }
+      players = Array.from(nameMap.values());
+    } else if (isListView) {
       // リスト登録者（ランキング外）
       players = (RankingLoader.listMembers || []).map(m => ({
         rank: '-',
@@ -555,9 +707,35 @@ window.App = {
       players = players.filter(p => {
         const furigana = p.furigana || RankingLoader.furiganaMap[p.name] || '';
         return p.name.toLowerCase().includes(q) ||
-               furigana.toLowerCase().includes(q) ||
-               (p.affiliation || '').toLowerCase().includes(q);
+          furigana.toLowerCase().includes(q) ||
+          (p.affiliation || '').toLowerCase().includes(q);
       });
+    }
+
+    // 並べ替え（男子全員/女子全員/ふりがなDB時）
+    if (isAllMaleView || isAllFemaleView || isFuriganaDBView) {
+      const sortKey = this._rankingFilter.sortKey || 'points-desc';
+      switch (sortKey) {
+        case 'points-desc':
+          players.sort((a, b) => (b.points || 0) - (a.points || 0));
+          break;
+        case 'points-asc':
+          players.sort((a, b) => (a.points || 0) - (b.points || 0));
+          break;
+        case 'furigana-asc':
+          players.sort((a, b) => {
+            const fa = a.furigana || RankingLoader.furiganaMap[a.name] || '';
+            const fb = b.furigana || RankingLoader.furiganaMap[b.name] || '';
+            return fa.localeCompare(fb, 'ja');
+          });
+          break;
+        case 'name-asc':
+          players.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+          break;
+        case 'affiliation':
+          players.sort((a, b) => (a.affiliation || '').localeCompare(b.affiliation || '', 'ja'));
+          break;
+      }
     }
 
     tbody.innerHTML = '';
@@ -2765,7 +2943,7 @@ window.App = {
         const drawEventSel = document.getElementById('draw-event-select');
         const drawEventCode = drawEventSel ? drawEventSel.value : '';
         let drawIsDoubles = false;
-        try { drawIsDoubles = drawEventCode && EntryStore.isDoublesEvent(drawEventCode); } catch(e) {}
+        try { drawIsDoubles = drawEventCode && EntryStore.isDoublesEvent(drawEventCode); } catch (e) { }
 
         this._unplacedPlayers.forEach((p, idx) => {
           const chip = document.createElement('button');
@@ -4179,7 +4357,7 @@ window.App = {
       const sizeBytes = (localStorage.getItem(item.key) || '').length * 2;
       const sizeStr = sizeBytes < 1024 ? sizeBytes + ' B'
         : sizeBytes < 1048576 ? (sizeBytes / 1024).toFixed(1) + ' KB'
-        : (sizeBytes / 1048576).toFixed(1) + ' MB';
+          : (sizeBytes / 1048576).toFixed(1) + ' MB';
       const dateVal = item.getDate();
       const dateStr = dateVal ? new Date(dateVal).toLocaleString('ja-JP') : '-';
 
@@ -5172,7 +5350,7 @@ window.App = {
     };
 
     return {
-      init() {},
+      init() { },
 
       add(data) {
         const entry = { ...data, id: nextId++ };
@@ -5845,6 +6023,9 @@ window.App = {
     // 起動時にGitHub JSONを読み込み試行
     this._loadFuriganaFromGitHub();
 
+    // ふりがな編集モーダルの初期化
+    this._initFuriganaEditModal();
+
     this._renderFuriganaTable();
   },
 
@@ -6114,9 +6295,9 @@ window.App = {
   },
 
   /**
-   * ふりがなエントリーを編集
+   * ふりがなエントリーを編集（所属も更新可能に）
    */
-  _editFurigana(id, name, furigana) {
+  _editFurigana(id, name, furigana, affiliation) {
     const entry = this._furiganaData.find(d => d.id === id);
     if (!entry) return;
 
@@ -6131,12 +6312,92 @@ window.App = {
 
     entry.name = name;
     entry.furigana = furigana;
+    if (affiliation !== undefined) entry.affiliation = affiliation;
     entry.source = 'manual';
     entry.furiganaEdited = true;
     entry.lastUpdated = new Date().toISOString();
     this._saveFuriganaData();
     this._syncFuriganaToRankingLoader();
     return true;
+  },
+
+  /**
+   * ふりがな編集モーダルを開く
+   */
+  _openFuriganaEditModal(entry) {
+    const modal = document.getElementById('modal-furigana-edit');
+    if (!modal) return;
+
+    // フィールドに値をセット
+    document.getElementById('furigana-edit-name').value = entry.name || '';
+    document.getElementById('furigana-edit-reading').value = entry.furigana || '';
+    document.getElementById('furigana-edit-affiliation').value = entry.affiliation || '';
+
+    // 編集対象IDを保存
+    this._furiganaEditingId = entry.id;
+
+    // モーダル表示
+    modal.style.display = 'flex';
+    document.getElementById('furigana-edit-name').focus();
+  },
+
+  /**
+   * ふりがな編集モーダルの初期化
+   */
+  _initFuriganaEditModal() {
+    const modal = document.getElementById('modal-furigana-edit');
+    if (!modal) return;
+
+    // 保存ボタン
+    const saveBtn = document.getElementById('btn-furigana-edit-save');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const nameVal = document.getElementById('furigana-edit-name').value.trim();
+        const furiVal = document.getElementById('furigana-edit-reading').value.trim();
+        const affilVal = document.getElementById('furigana-edit-affiliation').value.trim();
+
+        if (!nameVal) {
+          this.showMessage('氏名は必須です', 'error');
+          return;
+        }
+
+        const result = this._editFurigana(this._furiganaEditingId, nameVal, furiVal, affilVal);
+        if (result !== false) {
+          modal.style.display = 'none';
+          this._furiganaEditingId = null;
+          this._renderFuriganaTable();
+          this.showMessage('更新しました', 'success');
+        }
+      });
+    }
+
+    // 閉じるボタン（×ボタンとキャンセルボタン）
+    modal.querySelectorAll('[data-modal-close]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        this._furiganaEditingId = null;
+      });
+    });
+
+    // オーバーレイクリックで閉じる
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+        this._furiganaEditingId = null;
+      }
+    });
+
+    // Enterキーで保存
+    modal.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          saveBtn.click();
+        } else if (e.key === 'Escape') {
+          modal.style.display = 'none';
+          this._furiganaEditingId = null;
+        }
+      });
+    });
   },
 
   /**
@@ -6280,77 +6541,28 @@ window.App = {
           return '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:#e8f0fe;color:#1a56db;margin:1px;">' + (this._escapeHtml ? this._escapeHtml(label) : label) + '</span>';
         }).join('') : '-';
 
-        if (this._furiganaEditingId === entry.id) {
-          // 編集モード
-          tr.innerHTML =
-            '<td>' + rowNum + '</td>' +
-            '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.name) + '" data-field="name" style="padding:4px 8px;font-size:13px;"></td>' +
-            '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.furigana || '') + '" data-field="furigana" style="padding:4px 8px;font-size:13px;"></td>' +
-            '<td>' + evtBadges + '</td>' +
-            '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-            '<td>' + this._furiganaSourceBadge(entry) + '</td>' +
-            '<td>' +
-              '<button class="btn btn-primary btn-furigana-save" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">保存</button>' +
-              '<button class="btn btn-secondary btn-furigana-cancel" style="padding:4px 10px;font-size:12px;">取消</button>' +
-            '</td>';
+        // 表示モード（モーダル編集方式）
+        tr.innerHTML =
+          '<td>' + rowNum + '</td>' +
+          '<td>' + this._esc(entry.name) + '</td>' +
+          '<td>' + this._esc(entry.furigana || '') + '</td>' +
+          '<td>' + evtBadges + '</td>' +
+          '<td>' + this._esc(entry.affiliation || '') + '</td>' +
+          '<td>' + this._furiganaSourceBadge(entry) + '</td>' +
+          '<td>' +
+          '<button class="btn btn-secondary btn-furigana-edit" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">編集</button>' +
+          '<button class="btn btn-danger btn-furigana-delete" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;">削除</button>' +
+          '</td>';
 
-          // 保存ボタン
-          tr.querySelector('.btn-furigana-save').addEventListener('click', () => {
-            const nameVal = tr.querySelector('[data-field="name"]').value.trim();
-            const furiVal = tr.querySelector('[data-field="furigana"]').value.trim();
-            if (!nameVal) {
-              this.showMessage('氏名は必須です', 'error');
-              return;
-            }
-            const result = this._editFurigana(entry.id, nameVal, furiVal);
-            if (result !== false) {
-              this._furiganaEditingId = null;
-              this._renderFuriganaTable();
-              this.showMessage('更新しました', 'success');
-            }
-          });
+        // 編集ボタン → モーダルを開く
+        tr.querySelector('.btn-furigana-edit').addEventListener('click', () => {
+          this._openFuriganaEditModal(entry);
+        });
 
-          // 取消ボタン
-          tr.querySelector('.btn-furigana-cancel').addEventListener('click', () => {
-            this._furiganaEditingId = null;
-            this._renderFuriganaTable();
-          });
-
-          // Enterキーで保存
-          tr.querySelectorAll('input').forEach(inp => {
-            inp.addEventListener('keydown', (e) => {
-              if (e.key === 'Enter') {
-                tr.querySelector('.btn-furigana-save').click();
-              } else if (e.key === 'Escape') {
-                tr.querySelector('.btn-furigana-cancel').click();
-              }
-            });
-          });
-        } else {
-          // 表示モード
-          tr.innerHTML =
-            '<td>' + rowNum + '</td>' +
-            '<td>' + this._esc(entry.name) + '</td>' +
-            '<td>' + this._esc(entry.furigana || '') + '</td>' +
-            '<td>' + evtBadges + '</td>' +
-            '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-            '<td>' + this._furiganaSourceBadge(entry) + '</td>' +
-            '<td>' +
-              '<button class="btn btn-secondary btn-furigana-edit" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">編集</button>' +
-              '<button class="btn btn-danger btn-furigana-delete" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;">削除</button>' +
-            '</td>';
-
-          // 編集ボタン
-          tr.querySelector('.btn-furigana-edit').addEventListener('click', () => {
-            this._furiganaEditingId = entry.id;
-            this._renderFuriganaTable();
-          });
-
-          // 削除ボタン
-          tr.querySelector('.btn-furigana-delete').addEventListener('click', () => {
-            this._deleteFurigana(entry.id);
-          });
-        }
+        // 削除ボタン
+        tr.querySelector('.btn-furigana-delete').addEventListener('click', () => {
+          this._deleteFurigana(entry.id);
+        });
 
         tbody.appendChild(tr);
       });

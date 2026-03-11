@@ -215,12 +215,6 @@ window.App = {
     if (btnGsRanking) {
       btnGsRanking.addEventListener('click', () => this._loadRankingFromGS());
     }
-    // 一括読込ボタン
-    const btnGsAll = document.getElementById('btn-gs-all');
-    if (btnGsAll) {
-      btnGsAll.addEventListener('click', () => this._loadAllFromGS());
-    }
-
     // Enterキーでも読込実行
     const gsRankingUrl = document.getElementById('gs-ranking-url');
     if (gsRankingUrl) {
@@ -256,23 +250,6 @@ window.App = {
       } else {
         rankingLink.style.display = 'none';
       }
-    }
-  },
-
-  async _loadAllFromGS() {
-    this._showLoadingOverlay('スプレッドシートを一括読込中...');
-    try {
-      this._updateLoadingProgress(5, 'ランキングデータを取得中...');
-      await this._loadRankingFromGS(true);
-      this._updateLoadingProgress(80, 'ふりがなデータを同期中...');
-      this._syncFuriganaWithRanking();
-      this._updateLoadingProgress(95, 'データ整理中...');
-      this.showMessage('一括読込が完了しました', 'success');
-    } catch (err) {
-      console.error(err);
-      this.showMessage('一括読込中にエラーが発生しました: ' + err.message, 'error');
-    } finally {
-      this._hideLoadingOverlay();
     }
   },
 

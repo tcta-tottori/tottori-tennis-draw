@@ -135,27 +135,24 @@ body {
     repeating-radial-gradient(ellipse 300% 60% at 50% 60%,
       transparent 0px,
       transparent 8px,
-      rgba(255,255,255,0.05) 9px,
-      rgba(255,255,255,0.05) 10px,
+      rgba(255, 255, 255, 0.05) 9px,
+      rgba(255, 255, 255, 0.05) 10px,
       transparent 11px,
-      transparent 20px
-    ),
+      transparent 20px),
     repeating-radial-gradient(ellipse 250% 50% at 30% 40%,
       transparent 0px,
       transparent 12px,
-      rgba(255,255,255,0.04) 13px,
-      rgba(255,255,255,0.04) 14px,
+      rgba(255, 255, 255, 0.04) 13px,
+      rgba(255, 255, 255, 0.04) 14px,
       transparent 15px,
-      transparent 26px
-    ),
+      transparent 26px),
     repeating-radial-gradient(ellipse 200% 55% at 70% 55%,
       transparent 0px,
       transparent 10px,
-      rgba(255,255,255,0.03) 11px,
-      rgba(255,255,255,0.03) 12px,
+      rgba(255, 255, 255, 0.03) 11px,
+      rgba(255, 255, 255, 0.03) 12px,
       transparent 13px,
-      transparent 22px
-    );
+      transparent 22px);
 }
 
 .header-fumon::after {
@@ -166,26 +163,22 @@ body {
   width: 100%;
   height: 100%;
   background:
-    repeating-linear-gradient(
-      175deg,
+    repeating-linear-gradient(175deg,
       transparent 0px,
       transparent 14px,
-      rgba(255,255,255,0.04) 15px,
-      rgba(255,255,255,0.07) 16px,
-      rgba(255,255,255,0.04) 17px,
+      rgba(255, 255, 255, 0.04) 15px,
+      rgba(255, 255, 255, 0.07) 16px,
+      rgba(255, 255, 255, 0.04) 17px,
       transparent 18px,
-      transparent 32px
-    ),
-    repeating-linear-gradient(
-      10deg,
+      transparent 32px),
+    repeating-linear-gradient(10deg,
       transparent 0px,
       transparent 20px,
-      rgba(255,255,255,0.03) 21px,
-      rgba(255,255,255,0.05) 22px,
-      rgba(255,255,255,0.03) 23px,
+      rgba(255, 255, 255, 0.03) 21px,
+      rgba(255, 255, 255, 0.05) 22px,
+      rgba(255, 255, 255, 0.03) 23px,
       transparent 24px,
-      transparent 40px
-    );
+      transparent 40px);
 }
 
 .header-top {
@@ -207,15 +200,17 @@ body {
   flex-shrink: 0;
   padding-bottom: 2px;
 }
+
 .header-version .version-number {
   font-size: 12px;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
   line-height: 1.3;
   font-weight: 500;
 }
+
 .header-version .version-date {
   font-size: 10px;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255, 255, 255, 0.65);
   line-height: 1.3;
 }
 
@@ -237,6 +232,7 @@ body {
     opacity: 0;
     transform: scale(0.8) rotate(-8deg);
   }
+
   to {
     opacity: 1;
     transform: scale(1) rotate(0deg);
@@ -262,10 +258,10 @@ body {
 
 .header-org {
   font-size: 10px;
-  color: rgba(255,255,255,0.85);
+  color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
   letter-spacing: 0.12em;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .app-title {
@@ -274,7 +270,7 @@ body {
   color: #ffffff;
   letter-spacing: 0.06em;
   line-height: 1.3;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   white-space: nowrap;
 }
 
@@ -292,7 +288,7 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   background: linear-gradient(135deg, #1a7cb8 0%, #1568a0 40%, #125a8a 100%);
-  border-bottom: 1px solid rgba(255,255,255,0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 2px 8px rgba(21, 104, 160, 0.3);
   scrollbar-width: none;
 }
@@ -317,7 +313,7 @@ body {
   font-family: var(--font-family);
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
@@ -326,20 +322,20 @@ body {
   z-index: 1;
   border-bottom: 3px solid transparent;
   margin-bottom: -2px;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .tab-bar .tab-btn:hover {
   color: #ffffff;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .tab-bar .tab-btn.active {
   color: #ffffff;
   font-weight: 700;
   border-bottom-color: #ffffff;
-  background: rgba(255,255,255,0.15);
-  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  background: rgba(255, 255, 255, 0.15);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* --- メインコンテンツ --- */
@@ -364,6 +360,7 @@ body {
     opacity: 0;
     transform: translateY(16px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -380,8 +377,13 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* テーブル行のスタガーアニメーション */
@@ -394,25 +396,28 @@ body {
   overflow: hidden;
   pointer-events: none;
 }
+
 .row-fade-out td {
   transition: padding-top 0.45s ease-in-out, padding-bottom 0.45s ease-in-out,
-              border-color 0.3s ease-in-out, line-height 0.45s ease-in-out,
-              font-size 0.45s ease-in-out;
+    border-color 0.3s ease-in-out, line-height 0.45s ease-in-out,
+    font-size 0.45s ease-in-out;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   border-color: transparent !important;
   line-height: 0;
   font-size: 0;
 }
-.row-fade-out td > * {
+
+.row-fade-out td>* {
   transition: max-height 0.45s ease-in-out, margin 0.45s ease-in-out,
-              line-height 0.45s ease-in-out, font-size 0.45s ease-in-out;
+    line-height 0.45s ease-in-out, font-size 0.45s ease-in-out;
   max-height: 0 !important;
   overflow: hidden;
   margin: 0 !important;
   line-height: 0;
   font-size: 0;
 }
+
 .row-fade-out td .furigana-inline {
   max-height: 0 !important;
   line-height: 0;
@@ -424,6 +429,7 @@ body {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -534,14 +540,33 @@ body {
   line-height: 1;
 }
 
-.status-pending { color: var(--color-text-muted); }
-.status-loading { color: var(--color-warning); }
-.status-done, .status-ok { color: var(--color-success); }
-.status-error { color: var(--color-danger); }
+.status-pending {
+  color: var(--color-text-muted);
+}
+
+.status-loading {
+  color: var(--color-warning);
+}
+
+.status-done,
+.status-ok {
+  color: var(--color-success);
+}
+
+.status-error {
+  color: var(--color-danger);
+}
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
 }
 
 /* --- サマリー --- */
@@ -574,9 +599,11 @@ body {
     opacity: 0;
     transform: scale(0.5);
   }
+
   70% {
     transform: scale(1.1);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -706,7 +733,8 @@ body {
   border: 1px solid var(--color-border-dark);
   border-radius: var(--radius-sm);
   font-family: var(--font-family);
-  font-size: 16px; /* prevent zoom on iOS */
+  font-size: 16px;
+  /* prevent zoom on iOS */
   color: var(--color-text);
   background-color: var(--color-bg-white);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
@@ -875,8 +903,13 @@ body {
 }
 
 @keyframes overlayFadeIn {
-  from { background-color: rgba(0, 0, 0, 0); }
-  to { background-color: rgba(0, 0, 0, 0.5); }
+  from {
+    background-color: rgba(0, 0, 0, 0);
+  }
+
+  to {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
 }
 
 .modal {
@@ -897,6 +930,7 @@ body {
     opacity: 0;
     transform: translateY(40px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1111,6 +1145,7 @@ body {
   overflow: hidden;
   border: 1px solid #d1d5db;
 }
+
 .collision-btn {
   border: none;
   padding: 5px 14px;
@@ -1121,14 +1156,17 @@ body {
   background: #f3f4f6;
   color: #6b7280;
 }
+
 .collision-btn.active.collision-ng {
   background: #dc2626;
   color: #fff;
 }
+
 .collision-btn.active.collision-ok {
   background: #2563eb;
   color: #fff;
 }
+
 .collision-btn:not(.active):hover {
   background: #e5e7eb;
 }
@@ -1153,12 +1191,16 @@ body {
 /* --- トーナメント表全画面表示 --- */
 .bracket-fullscreen-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 10000;
   background: #fff;
   display: flex;
   flex-direction: column;
 }
+
 .bracket-fullscreen-header {
   display: flex;
   align-items: center;
@@ -1168,6 +1210,7 @@ body {
   background: #f8fafc;
   flex-shrink: 0;
 }
+
 .bracket-fullscreen-body {
   flex: 1;
   overflow: auto;
@@ -1212,25 +1255,55 @@ body {
   pointer-events: auto;
 }
 
-.toast-success { background-color: var(--color-success); color: #fff; }
-.toast-error { background-color: var(--color-danger); color: #fff; }
-.toast-info { background-color: var(--color-primary); color: #fff; }
-.toast-warning { background-color: var(--color-warning); color: #fff; }
+.toast-success {
+  background-color: var(--color-success);
+  color: #fff;
+}
+
+.toast-error {
+  background-color: var(--color-danger);
+  color: #fff;
+}
+
+.toast-info {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.toast-warning {
+  background-color: var(--color-warning);
+  color: #fff;
+}
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes toast-out {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-20px); }
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
 }
 
 /* --- エントリー画面（旧：選手一覧） --- */
 .ranking-sticky-filter {
   position: sticky;
-  top: 100px; /* ヘッダー+タブバーの高さ分 */
+  top: 100px;
+  /* ヘッダー+タブバーの高さ分 */
   z-index: 50;
   background: var(--color-bg);
   padding-bottom: 4px;
@@ -1251,6 +1324,7 @@ body {
   padding: 3px;
   width: fit-content;
 }
+
 .category-btn {
   padding: 8px 24px;
   border: none;
@@ -1262,11 +1336,13 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
 .category-btn.active {
   background: var(--color-primary);
   color: #fff;
   box-shadow: 0 2px 8px rgba(43, 126, 198, 0.3);
 }
+
 .category-btn:not(.active):hover {
   background: rgba(43, 126, 198, 0.08);
   color: var(--color-primary);
@@ -1299,34 +1375,103 @@ body {
 }
 
 /* シングルス */
-.event-badge-ms   { background: #dbeafe; color: #1e40af; }
-.event-badge-ls   { background: #fce7f3; color: #9d174d; }
-.event-badge-m35s { background: #ccfbf1; color: #0f766e; }
-.event-badge-m45s { background: #d1fae5; color: #065f46; }
-.event-badge-m55s { background: #fef3c7; color: #92400e; }
-.event-badge-m65s { background: #e0e7ff; color: #3730a3; }
-.event-badge-mbs  { background: #f1f5f9; color: #475569; }
-.event-badge-lbs  { background: #fff1f2; color: #be123c; }
+.event-badge-ms {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.event-badge-ls {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.event-badge-m35s {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.event-badge-m45s {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.event-badge-m55s {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.event-badge-m65s {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.event-badge-mbs {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.event-badge-lbs {
+  background: #fff1f2;
+  color: #be123c;
+}
+
 /* ダブルス */
-.event-badge-md   { background: #bfdbfe; color: #1e3a8a; }
-.event-badge-ld   { background: #fbcfe8; color: #831843; }
-.event-badge-m45d { background: #a7f3d0; color: #064e3b; }
-.event-badge-m55d { background: #fde68a; color: #78350f; }
-.event-badge-m65d { background: #c7d2fe; color: #312e81; }
-.event-badge-l45d { background: #f5d0fe; color: #6b21a8; }
-.event-badge-l55d { background: #e9d5ff; color: #581c87; }
-.event-badge-mbd  { background: #e2e8f0; color: #334155; }
-.event-badge-lbd  { background: #ffe4e6; color: #9f1239; }
+.event-badge-md {
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.event-badge-ld {
+  background: #fbcfe8;
+  color: #831843;
+}
+
+.event-badge-m45d {
+  background: #a7f3d0;
+  color: #064e3b;
+}
+
+.event-badge-m55d {
+  background: #fde68a;
+  color: #78350f;
+}
+
+.event-badge-m65d {
+  background: #c7d2fe;
+  color: #312e81;
+}
+
+.event-badge-l45d {
+  background: #f5d0fe;
+  color: #6b21a8;
+}
+
+.event-badge-l55d {
+  background: #e9d5ff;
+  color: #581c87;
+}
+
+.event-badge-mbd {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.event-badge-lbd {
+  background: #ffe4e6;
+  color: #9f1239;
+}
 
 /* --- 手動配置（シード・抽選画面） --- */
 .unplaced-players-area {
   margin-bottom: 16px;
 }
+
 .unplaced-list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
+
 .unplaced-chip {
   display: inline-block;
   padding: 6px 14px;
@@ -1339,14 +1484,17 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
 }
+
 .unplaced-chip:hover {
   background: rgba(43, 126, 198, 0.08);
 }
+
 .unplaced-chip.selected {
   background: var(--color-primary);
   color: #fff;
   box-shadow: 0 2px 8px rgba(43, 126, 198, 0.35);
 }
+
 .live-bracket-preview {
   margin-bottom: 20px;
   padding: 12px;
@@ -1354,37 +1502,46 @@ body {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
 }
+
 .live-bracket-preview .bracket-svg-wrapper {
   max-height: 600px;
   overflow: auto;
   background: #fff;
   border-radius: 4px;
 }
+
 .live-bracket-preview svg {
   display: block;
 }
+
 .draw-halves {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+
 @media (max-width: 768px) {
   .draw-halves {
     grid-template-columns: 1fr;
   }
 }
+
 .draw-half {
   min-width: 0;
 }
+
 .empty-slot td {
   background: #fafafa;
 }
+
 .empty-slot.placeable {
   cursor: pointer;
 }
+
 .empty-slot.placeable:hover td {
   background: #e8f4fd;
 }
+
 .seed-mark {
   color: var(--color-primary);
   font-weight: 700;
@@ -1413,13 +1570,16 @@ tr.row-entered td {
   background: #d5d5d5;
   color: #888;
 }
+
 tr.row-entered td strong {
   color: #888;
 }
+
 /* エントリー済み選手を非表示（デフォルト） */
 #ranking-table.hide-entered tr.row-entered {
   display: none;
 }
+
 .entered-badge {
   display: inline-block;
   padding: 3px 10px;
@@ -1428,7 +1588,7 @@ tr.row-entered td strong {
   font-weight: 600;
   background: var(--color-primary-light);
   color: var(--color-primary);
-  border: 1px solid rgba(43,126,198,0.3);
+  border: 1px solid rgba(43, 126, 198, 0.3);
 }
 
 /* --- シード・ドロー情報バー --- */
@@ -1440,26 +1600,31 @@ tr.row-entered td strong {
   padding: 10px 14px;
   margin-bottom: 12px;
 }
+
 .draw-info-grid {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
   align-items: center;
 }
+
 .draw-info-item {
   display: flex;
   align-items: center;
   gap: 4px;
 }
+
 .draw-info-label {
   font-size: 12px;
   color: #666;
 }
+
 .draw-info-value {
   font-size: 14px;
   font-weight: 700;
   color: #1a56db;
 }
+
 .seed-chip {
   display: inline-block;
   background: #fff;
@@ -1470,6 +1635,7 @@ tr.row-entered td strong {
   font-weight: 600;
   color: #333;
 }
+
 .seed-chip small {
   font-weight: 400;
   color: #888;
@@ -1582,15 +1748,41 @@ tr.row-entered td strong {
 }
 
 /* --- ユーティリティ --- */
-.text-center { text-align: center; }
-.text-right { text-align: right; }
-.text-muted { color: var(--color-text-muted); }
-.text-danger { color: var(--color-danger); }
-.text-success { color: var(--color-success); }
-.mt-2 { margin-top: var(--space-2); }
-.mt-4 { margin-top: var(--space-4); }
-.mb-4 { margin-bottom: var(--space-4); }
-.hidden { display: none !important; }
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.mt-2 {
+  margin-top: var(--space-2);
+}
+
+.mt-4 {
+  margin-top: var(--space-4);
+}
+
+.mb-4 {
+  margin-bottom: var(--space-4);
+}
+
+.hidden {
+  display: none !important;
+}
 
 /* ============================================
    レスポンシブ: デスクトップ
@@ -1600,29 +1792,55 @@ tr.row-entered td strong {
     align-items: center;
     padding: var(--space-4);
   }
+
   .modal {
     border-radius: var(--radius-lg);
   }
+
   .modal-footer .btn {
     flex: none;
   }
+
   .app-main {
     padding: var(--space-6);
   }
+
   .screen-title {
     font-size: var(--font-size-2xl);
   }
+
   .card {
     padding: var(--space-6);
   }
+
   .toast-container {
     top: var(--space-6);
     right: var(--space-6);
   }
 
   /* PC時: エントリー関連の画面全体を中央寄せ＆最大幅指定 */
+  /* ドロー表(#screen-bracket)は全幅のSVGが必要なため除外 */
+  #screen-data,
   #screen-ranking,
-  #screen-entry {
+  #screen-entry,
+  #screen-draw,
+  #screen-schedule,
+  #screen-backup,
+  #screen-manual {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* データ画面: PC時はファイル読込を1列で整える */
+  #screen-data .data-load-grid {
+    grid-template-columns: 1fr;
+    max-width: 600px;
+  }
+
+  /* ドロー表画面: ドロー表共有やボール必要数など周辺カードは幅制限 */
+  #screen-bracket>.card.no-print,
+  #screen-bracket>.toolbar {
     max-width: 900px;
     margin-left: auto;
     margin-right: auto;
@@ -1678,23 +1896,27 @@ tr.row-entered td strong {
     padding: 6px 4px;
     font-size: 12px;
   }
+
   #entry-table th:nth-child(1),
   #entry-table td:nth-child(1) {
     width: 28%;
   }
+
   #entry-table th:nth-child(2),
   #entry-table td:nth-child(2) {
     width: 22%;
   }
+
   #entry-table .btn-sm {
     padding: 2px 6px;
     font-size: 10px;
   }
 
   /* 大会選択欄モバイル対応 */
-  #screen-ranking .card > div[style] {
+  #screen-ranking .card>div[style] {
     gap: 8px !important;
   }
+
   #tournament-select {
     max-width: 100%;
     font-size: 13px;
@@ -1778,6 +2000,7 @@ tr.row-entered td strong {
   .ranking-category-toggle {
     margin-bottom: 8px;
   }
+
   .category-btn {
     padding: 6px 16px;
     font-size: 12px;
@@ -1796,19 +2019,37 @@ tr.row-entered td strong {
 
   /* ランキングテーブル: スマホ時の列幅 (4列: 氏名/所属/ポイント/操作) */
   .ranking-auto-width th:nth-child(1),
-  .ranking-auto-width td:nth-child(1) { width: 28%; padding-left: 12px; }
+  .ranking-auto-width td:nth-child(1) {
+    width: 28%;
+    padding-left: 12px;
+  }
+
   .ranking-auto-width th:nth-child(2),
-  .ranking-auto-width td:nth-child(2) { width: 22%; }
+  .ranking-auto-width td:nth-child(2) {
+    width: 22%;
+  }
+
   .ranking-auto-width th.col-points,
-  .ranking-auto-width td.col-points { width: 16%; }
-  .ranking-auto-width th:last-child { width: 34%; padding-right: 20px; }
-  .ranking-auto-width td:last-child { width: 34%; padding-right: 2px; }
+  .ranking-auto-width td.col-points {
+    width: 16%;
+  }
+
+  .ranking-auto-width th:last-child {
+    width: 34%;
+    padding-right: 20px;
+  }
+
+  .ranking-auto-width td:last-child {
+    width: 34%;
+    padding-right: 2px;
+  }
 
   .ranking-auto-width th,
   .ranking-auto-width td {
     padding: 6px 3px;
     font-size: 11px;
   }
+
   .ranking-auto-width th {
     text-align: center;
   }
@@ -1851,6 +2092,7 @@ tr.row-entered td strong {
     opacity: 0;
     transform: translateY(24px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1899,18 +2141,26 @@ tr.row-entered td strong {
 }
 
 @media (min-width: 769px) and (orientation: landscape) {
+
   /* 5列モード: 氏名/ふりがな/所属/ポイント/操作 */
   .ranking-auto-width th:nth-child(1),
-  .ranking-auto-width td:nth-child(1) { width: 25%; }
+  .ranking-auto-width td:nth-child(1) {
+    width: 25%;
+  }
+
   .ranking-auto-width .col-furigana {
     display: table-cell;
     font-size: 12px;
     color: #6b7280;
     width: 25%;
   }
+
   /* 所属（3列目）*/
   .ranking-auto-width th:nth-child(3),
-  .ranking-auto-width td:nth-child(3) { width: 22%; }
+  .ranking-auto-width td:nth-child(3) {
+    width: 22%;
+  }
+
   .ranking-auto-width .furigana-inline {
     display: none;
   }
@@ -1928,6 +2178,7 @@ tr.row-entered td strong {
   width: 28%;
   padding-right: 24px;
 }
+
 .ranking-auto-width td:last-child {
   width: 28%;
   padding-right: 4px;
@@ -1937,6 +2188,7 @@ tr.row-entered td strong {
 .tournament-nowrap {
   white-space: nowrap;
 }
+
 .tournament-nowrap th,
 .tournament-nowrap td {
   white-space: nowrap;
@@ -1962,30 +2214,36 @@ tr.row-entered td strong {
   width: 30%;
   padding-left: 10px;
 }
+
 #entry-table td:nth-child(1) {
   white-space: normal;
   word-break: break-all;
 }
+
 #entry-table th:nth-child(2),
 #entry-table td:nth-child(2) {
   width: 22%;
 }
+
 #entry-table td:nth-child(2) {
   white-space: normal;
   word-break: break-all;
 }
+
 /* ポイント列 */
 #entry-table th:nth-child(3),
 #entry-table td:nth-child(3) {
   width: 14%;
   text-align: center;
 }
+
 /* 操作列 */
 #entry-table th:last-child {
   width: 34%;
   text-align: center;
   padding-right: 24px;
 }
+
 #entry-table td:last-child {
   width: 34%;
   text-align: center;
@@ -2002,20 +2260,24 @@ tr.row-entered td strong {
 #entry-table.entry-doubles td:nth-child(1) {
   width: 28%;
 }
+
 #entry-table.entry-doubles th:nth-child(2),
 #entry-table.entry-doubles td:nth-child(2) {
   width: 20%;
 }
+
 #entry-table.entry-doubles th:nth-child(3),
 #entry-table.entry-doubles td:nth-child(3) {
   width: 10%;
   text-align: center;
 }
+
 #entry-table.entry-doubles th:nth-child(4),
 #entry-table.entry-doubles td:nth-child(4) {
   width: 10%;
   text-align: center;
 }
+
 #entry-table.entry-doubles th:nth-child(5),
 #entry-table.entry-doubles td:nth-child(5) {
   width: 33%;
@@ -2064,7 +2326,7 @@ tr.row-entered td strong {
   transition: transform 0.2s ease;
 }
 
-details[open] > .collapsible-toggle::before {
+details[open]>.collapsible-toggle::before {
   transform: rotate(90deg);
 }
 
@@ -2098,6 +2360,7 @@ details[open] > .collapsible-toggle::before {
   .manual-content ol {
     padding-left: 1.2em;
   }
+
   .manual-content .card {
     padding: var(--space-3);
   }
@@ -2116,18 +2379,21 @@ details[open] > .collapsible-toggle::before {
   padding: 10px 14px;
   margin-bottom: 12px;
 }
+
 .draw-status-bar h4 {
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 8px;
   color: var(--color-text);
 }
+
 .draw-status-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
 }
+
 .draw-status-chip {
   display: inline-flex;
   align-items: center;
@@ -2140,19 +2406,23 @@ details[open] > .collapsible-toggle::before {
   transition: all 0.15s ease;
   text-decoration: none;
 }
+
 .draw-status-chip:hover {
   transform: scale(1.05);
 }
+
 .draw-status-chip.status-lottery {
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #f59e0b;
 }
+
 .draw-status-chip.status-confirmed {
   background: #d1fae5;
   color: #065f46;
   border: 1px solid #10b981;
 }
+
 .draw-status-chip .chip-clear {
   display: inline-flex;
   align-items: center;
@@ -2160,7 +2430,7 @@ details[open] > .collapsible-toggle::before {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   color: inherit;
   font-size: 10px;
   line-height: 1;
@@ -2168,8 +2438,9 @@ details[open] > .collapsible-toggle::before {
   border: none;
   padding: 0;
 }
+
 .draw-status-chip .chip-clear:hover {
-  background: rgba(0,0,0,0.25);
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* データ状況サマリーチップ */
@@ -2182,11 +2453,13 @@ details[open] > .collapsible-toggle::before {
   font-size: 12px;
   font-weight: 600;
 }
+
 .data-summary-chip small {
   font-weight: 400;
   color: inherit;
   opacity: 0.8;
 }
+
 .data-summary-chip .chip-clear {
   display: inline-flex;
   align-items: center;
@@ -2194,7 +2467,7 @@ details[open] > .collapsible-toggle::before {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   color: inherit;
   font-size: 10px;
   line-height: 1;
@@ -2202,19 +2475,23 @@ details[open] > .collapsible-toggle::before {
   border: none;
   padding: 0;
 }
+
 .data-summary-chip .chip-clear:hover {
-  background: rgba(0,0,0,0.25);
+  background: rgba(0, 0, 0, 0.25);
 }
+
 .chip-entry {
   background: #e0f2fe;
   color: #0369a1;
   border: 1px solid #7dd3fc;
 }
+
 .chip-draw {
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #f59e0b;
 }
+
 .chip-confirmed {
   background: #d1fae5;
   color: #065f46;
@@ -2225,7 +2502,7 @@ details[open] > .collapsible-toggle::before {
 .roulette-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(10,40,80,0.7) 0%, rgba(0,0,0,0.8) 100%);
+  background: radial-gradient(ellipse at center, rgba(10, 40, 80, 0.7) 0%, rgba(0, 0, 0, 0.8) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2234,10 +2511,17 @@ details[open] > .collapsible-toggle::before {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
+
 @keyframes rouletteFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
 .roulette-popup {
   background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
   border-radius: 20px;
@@ -2245,38 +2529,63 @@ details[open] > .collapsible-toggle::before {
   min-width: 320px;
   max-width: 420px;
   text-align: center;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.8);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   animation: roulettePopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   overflow: hidden;
 }
+
 @keyframes roulettePopIn {
-  from { opacity: 0; transform: scale(0.5) translateY(30px) rotate(-2deg); }
-  60% { opacity: 1; transform: scale(1.03) translateY(-4px) rotate(0.5deg); }
-  to { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); }
+  from {
+    opacity: 0;
+    transform: scale(0.5) translateY(30px) rotate(-2deg);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.03) translateY(-4px) rotate(0.5deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0) rotate(0deg);
+  }
 }
+
 .roulette-popup::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 5px;
   background: linear-gradient(90deg, #0ea5e9, #2563eb, #7c3aed, #2563eb, #0ea5e9);
   background-size: 300% 100%;
   animation: rouletteShimmer 2s ease infinite;
 }
+
 .roulette-popup::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 0; right: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   height: 3px;
   background: linear-gradient(90deg, #0ea5e9, #2563eb, #7c3aed, #2563eb, #0ea5e9);
   background-size: 300% 100%;
   animation: rouletteShimmer 2s ease infinite reverse;
 }
+
 @keyframes rouletteShimmer {
-  0% { background-position: 300% 0; }
-  100% { background-position: -300% 0; }
+  0% {
+    background-position: 300% 0;
+  }
+
+  100% {
+    background-position: -300% 0;
+  }
 }
+
 .roulette-title {
   font-size: 15px;
   font-weight: 700;
@@ -2285,12 +2594,14 @@ details[open] > .collapsible-toggle::before {
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
+
 .roulette-player-name {
   font-size: 14px;
   color: #374151;
   margin-bottom: 20px;
   font-weight: 500;
 }
+
 .roulette-number-display {
   font-size: 56px;
   font-weight: 900;
@@ -2300,47 +2611,77 @@ details[open] > .collapsible-toggle::before {
   line-height: 1.2;
   letter-spacing: 3px;
   transition: color 0.3s, text-shadow 0.3s;
-  text-shadow: 0 2px 8px rgba(26,90,142,0.15);
+  text-shadow: 0 2px 8px rgba(26, 90, 142, 0.15);
 }
+
 .roulette-number-display.spinning {
   animation: rouletteSpin 0.08s steps(1) infinite;
 }
+
 @keyframes rouletteSpin {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
+
 .roulette-no-label {
   font-size: 24px;
   font-weight: 600;
   color: #6b7280;
   margin-right: 4px;
 }
+
 .roulette-number-display.decided .roulette-no-label {
   color: #16a34a;
 }
+
 .roulette-number-display.decided {
   color: #16a34a;
-  text-shadow: 0 0 20px rgba(22,163,74,0.3), 0 4px 12px rgba(22,163,74,0.15);
+  text-shadow: 0 0 20px rgba(22, 163, 74, 0.3), 0 4px 12px rgba(22, 163, 74, 0.15);
   animation: rouletteDecided 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
 @keyframes rouletteDecided {
-  0% { transform: scale(1.5); opacity: 0.5; }
-  40% { transform: scale(0.9); }
-  70% { transform: scale(1.05); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+
+  40% {
+    transform: scale(0.9);
+  }
+
+  70% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
+
 .roulette-hint {
   font-size: 12px;
   color: #9ca3af;
   margin-top: 12px;
 }
+
 .roulette-result-summary {
   font-size: 15px;
   font-weight: 700;
   color: #1a5a8e;
   line-height: 1.6;
 }
+
 .roulette-result-row {
   display: flex;
   align-items: center;
@@ -2348,6 +2689,7 @@ details[open] > .collapsible-toggle::before {
   gap: 8px;
   margin: 4px 0;
 }
+
 .roulette-result-row .seed-label {
   background: #e6f1fb;
   color: #1a5a8e;
@@ -2356,17 +2698,20 @@ details[open] > .collapsible-toggle::before {
   font-size: 13px;
   font-weight: 600;
 }
+
 .roulette-result-row .position-label {
   font-size: 16px;
   font-weight: 700;
   color: #16a34a;
 }
+
 .roulette-complete {
   color: #16a34a;
   font-weight: 700;
   font-size: 16px;
   animation: roulettePopIn 0.35s ease;
 }
+
 .roulette-close-btn {
   margin-top: 16px;
   padding: 8px 28px;
@@ -2379,6 +2724,7 @@ details[open] > .collapsible-toggle::before {
   cursor: pointer;
   transition: opacity 0.2s;
 }
+
 .roulette-close-btn:hover {
   opacity: 0.85;
 }
@@ -2387,7 +2733,7 @@ details[open] > .collapsible-toggle::before {
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(255,255,255,0.85);
+  background: rgba(255, 255, 255, 0.85);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2395,13 +2741,15 @@ details[open] > .collapsible-toggle::before {
   z-index: 9998;
   animation: rouletteFadeIn 0.2s ease-out;
 }
+
 .loading-overlay .loading-card {
   background: #fff;
   border-radius: 16px;
   padding: 32px 40px;
   text-align: center;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
 }
+
 .loading-spinner {
   width: 48px;
   height: 48px;
@@ -2411,14 +2759,19 @@ details[open] > .collapsible-toggle::before {
   animation: loadingSpin 0.8s linear infinite;
   margin: 0 auto 16px;
 }
+
 @keyframes loadingSpin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
+
 .loading-overlay .loading-text {
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
 }
+
 .loading-progress-bar-container {
   width: 220px;
   height: 8px;
@@ -2427,6 +2780,7 @@ details[open] > .collapsible-toggle::before {
   margin: 16px auto 8px;
   overflow: hidden;
 }
+
 .loading-progress-bar {
   height: 100%;
   width: 0%;
@@ -2434,12 +2788,14 @@ details[open] > .collapsible-toggle::before {
   border-radius: 999px;
   transition: width 0.4s ease;
 }
+
 .loading-percent {
   font-size: 20px;
   font-weight: 700;
   color: var(--color-primary);
   margin-bottom: 4px;
 }
+
 .loading-overlay .loading-sub {
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -2467,7 +2823,10 @@ details[open] > .collapsible-toggle::before {
 
 /* --- アクセシビリティ: モーション低減設定 --- */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -2498,6 +2857,7 @@ details[open] > .collapsible-toggle::before {
   border-collapse: collapse;
   font-size: 12px;
 }
+
 .schedule-grid th,
 .schedule-grid td {
   border: 1px solid #d1d5db;
@@ -2506,6 +2866,7 @@ details[open] > .collapsible-toggle::before {
   white-space: nowrap;
   min-width: 72px;
 }
+
 .schedule-grid th {
   background: #f0f5fa;
   font-weight: 600;
@@ -2513,12 +2874,14 @@ details[open] > .collapsible-toggle::before {
   top: 0;
   z-index: 1;
 }
+
 .schedule-grid th:first-child {
   position: sticky;
   left: 0;
   z-index: 2;
   min-width: 70px;
 }
+
 .schedule-grid td:first-child {
   position: sticky;
   left: 0;
@@ -2527,6 +2890,7 @@ details[open] > .collapsible-toggle::before {
   z-index: 1;
   min-width: 70px;
 }
+
 .schedule-cell {
   border-radius: 4px;
   padding: 3px 6px;
@@ -2536,27 +2900,84 @@ details[open] > .collapsible-toggle::before {
   transition: opacity 0.2s;
   line-height: 1.3;
 }
+
 .schedule-cell:hover {
   opacity: 0.8;
 }
-.schedule-cell-ms { background: #dbeafe; color: #1e40af; }
-.schedule-cell-ls { background: #fce7f3; color: #9d174d; }
-.schedule-cell-m45s { background: #d1fae5; color: #065f46; }
-.schedule-cell-m55s { background: #fef3c7; color: #92400e; }
-.schedule-cell-m65s { background: #e0e7ff; color: #3730a3; }
-.schedule-cell-l45s { background: #fde68a; color: #78350f; }
-.schedule-cell-default { background: #f3f4f6; color: #374151; }
-.schedule-court-header { min-width: 70px !important; }
-.schedule-time-header { min-width: 90px !important; }
-.schedule-court-cell { font-weight: 600; background: #f8fafc; }
-.schedule-match-cell { padding: 4px 8px; white-space: normal !important; min-width: 80px; }
-.schedule-empty-cell { background: #fafafa; }
-.schedule-cell-event { font-size: 11px; font-weight: 600; white-space: nowrap; }
-.schedule-cell-round { font-size: 10px; color: #666; }
+
+.schedule-cell-ms {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.schedule-cell-ls {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.schedule-cell-m45s {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.schedule-cell-m55s {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.schedule-cell-m65s {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.schedule-cell-l45s {
+  background: #fde68a;
+  color: #78350f;
+}
+
+.schedule-cell-default {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.schedule-court-header {
+  min-width: 70px !important;
+}
+
+.schedule-time-header {
+  min-width: 90px !important;
+}
+
+.schedule-court-cell {
+  font-weight: 600;
+  background: #f8fafc;
+}
+
+.schedule-match-cell {
+  padding: 4px 8px;
+  white-space: normal !important;
+  min-width: 80px;
+}
+
+.schedule-empty-cell {
+  background: #fafafa;
+}
+
+.schedule-cell-event {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.schedule-cell-round {
+  font-size: 10px;
+  color: #666;
+}
+
 .schedule-cell-selected {
   outline: 3px solid #1565C0 !important;
   outline-offset: -2px;
-  box-shadow: 0 0 8px rgba(21,101,192,0.4);
+  box-shadow: 0 0 8px rgba(21, 101, 192, 0.4);
 }
 
 /* --- マニュアル v2 スタイル --- */
@@ -2565,9 +2986,11 @@ details[open] > .collapsible-toggle::before {
   padding-bottom: 24px;
   border-bottom: 1px solid #e5e7eb;
 }
+
 .manual-guide-section:last-child {
   border-bottom: none;
 }
+
 .manual-guide-section h4 {
   font-size: 16px;
   font-weight: 700;
@@ -2576,6 +2999,7 @@ details[open] > .collapsible-toggle::before {
   padding-left: 12px;
   border-left: 4px solid #2b7ec6;
 }
+
 .manual-diagram {
   background: #f8f9fa;
   border: 1px solid #e5e7eb;
@@ -2585,15 +3009,18 @@ details[open] > .collapsible-toggle::before {
   text-align: center;
   overflow-x: auto;
 }
+
 .manual-diagram svg {
   max-width: 100%;
   height: auto;
 }
+
 .manual-steps {
   counter-reset: manual-step;
   padding-left: 0;
   list-style: none;
 }
+
 .manual-steps li {
   counter-increment: manual-step;
   padding: 8px 0 8px 36px;
@@ -2601,6 +3028,7 @@ details[open] > .collapsible-toggle::before {
   font-size: 14px;
   line-height: 1.6;
 }
+
 .manual-steps li::before {
   content: counter(manual-step);
   position: absolute;
@@ -2617,6 +3045,7 @@ details[open] > .collapsible-toggle::before {
   align-items: center;
   justify-content: center;
 }
+
 .manual-tip {
   background: #fff8e1;
   border-left: 4px solid #ff9800;
@@ -2626,9 +3055,11 @@ details[open] > .collapsible-toggle::before {
   font-size: 13px;
   line-height: 1.6;
 }
+
 .manual-tip strong {
   color: #e65100;
 }
+
 .manual-warning {
   background: #ffeef0;
   border-left: 4px solid #dc3545;
@@ -2638,35 +3069,42 @@ details[open] > .collapsible-toggle::before {
   font-size: 13px;
   line-height: 1.6;
 }
+
 .manual-warning strong {
   color: #dc3545;
 }
+
 .manual-faq-item {
   margin-bottom: 16px;
   padding: 16px;
   background: #f8f9fa;
   border-radius: 8px;
 }
+
 .manual-faq-item .faq-q {
   font-weight: 700;
   color: #2b7ec6;
   margin-bottom: 8px;
   font-size: 14px;
 }
+
 .manual-faq-item .faq-q::before {
   content: "Q. ";
   font-weight: 800;
 }
+
 .manual-faq-item .faq-a {
   font-size: 13px;
   line-height: 1.7;
   color: #333;
 }
+
 .manual-faq-item .faq-a::before {
   content: "A. ";
   font-weight: 700;
   color: #28a745;
 }
+
 .manual-faq-category {
   font-size: 15px;
   font-weight: 700;
@@ -2675,6 +3113,7 @@ details[open] > .collapsible-toggle::before {
   padding-bottom: 6px;
   border-bottom: 2px solid #e5e7eb;
 }
+
 .manual-faq-category:first-child {
   margin-top: 0;
 }

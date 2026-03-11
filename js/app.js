@@ -5923,21 +5923,10 @@ window.App = {
       btnExport.addEventListener('click', () => this._exportFuriganaExcel());
     }
 
-    // JSON出力
-    const btnExportJson = document.getElementById('btn-furigana-export-json');
-    if (btnExportJson) {
-      btnExportJson.addEventListener('click', () => this._exportFuriganaJSON());
-    }
-
-    // JSON取込
-    const fileImportJson = document.getElementById('file-furigana-import-json');
-    if (fileImportJson) {
-      fileImportJson.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files[0]) {
-          this._importFuriganaJSON(e.target.files[0]);
-          e.target.value = '';
-        }
-      });
+    // ふりがな自動付与 (kuromoji.js)
+    const btnAutoAssign = document.getElementById('btn-furigana-auto-assign');
+    if (btnAutoAssign) {
+      btnAutoAssign.addEventListener('click', () => this._autoAssignFuriganaKuromoji());
     }
 
     // 全件クリア
@@ -6759,115 +6748,125 @@ window.App = {
   },
 
   /**
-   * ふりがなデータをJSON出力（GitHub管理用）
+   * kuromoji.jsを利用してふりがな自動付与
    */
-  _exportFuriganaJSON() {
-    if (this._furiganaData.length === 0) {
-      this.showMessage('エクスポートするデータがありません', 'info');
+  async _autoAssignFuriganaKuromoji() {
+    if (typeof kuromoji === 'undefined') {
+      this.showMessage('形態素解析ライブラリ(kuromoji.js)が読み込まれていません', 'error');
       return;
     }
 
-    const sorted = [...this._furiganaData].sort((a, b) =>
-      (a.furigana || '').localeCompare(b.furigana || '', 'ja')
-    );
+    // ふりがな未設定 または ？を含むデータを抽出
+    const targets = this._furiganaData.filter(d => !d.furigana || d.furigana.includes('？'));
+    if (targets.length === 0) {
+      this.showMessage('ふりがなが未設定のデータはありません', 'info');
+      return;
+    }
 
-    const exportData = {
-      version: '1.0',
-      lastUpdated: new Date().toISOString().split('T')[0],
-      entries: sorted.map(d => ({
-        id: d.id,
-        name: d.name,
-        furigana: d.furigana || '',
-        source: d.source || '',
-        affiliation: d.affiliation || '',
-        eventCodes: d.eventCodes || (d.eventCode ? [d.eventCode] : []),
-        rankingPoints: d.rankingPoints || 0,
-        rankingPosition: d.rankingPosition || 0,
-        lastUpdated: d.lastUpdated || '',
-        furiganaEdited: d.furiganaEdited || false,
-      })),
-    };
+    const noFuriganaCount = targets.filter(d => !d.furigana).length;
+    const partialCount = targets.length - noFuriganaCount;
+    let confirmMsg = `対象 ${targets.length} 件に対して自動付与を実行しますか？`;
+    if (noFuriganaCount > 0) confirmMsg += `\n・未設定: ${noFuriganaCount} 件`;
+    if (partialCount > 0) confirmMsg += `\n・？を含む（部分未設定）: ${partialCount} 件`;
+    confirmMsg += '\n※初回実行時は辞書のダウンロードに数秒かかります。';
 
-    const jsonStr = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'furigana.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    this.showMessage('JSONファイルを出力しました（data/furigana.json として保存してください）', 'success');
-  },
+    if (!confirm(confirmMsg)) {
+      return;
+    }
 
-  /**
-   * JSONファイルからふりがなデータを取込
-   */
-  async _importFuriganaJSON(file) {
+    const btn = document.getElementById('btn-furigana-auto-assign');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '辞書読込中...';
+    }
+
     try {
-      const text = await file.text();
-      const json = JSON.parse(text);
+      // Build tokenizer
+      const tokenizer = await new Promise((resolve, reject) => {
+        kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict' }).build((err, t) => {
+          if (err) reject(err);
+          else resolve(t);
+        });
+      });
 
-      if (!json || !Array.isArray(json.entries)) {
-        this.showMessage('無効なJSONファイルです', 'error');
-        return;
-      }
+      if (btn) btn.textContent = '解析中...';
 
-      let imported = 0;
       let updated = 0;
       const now = new Date().toISOString();
 
-      for (const entry of json.entries) {
-        if (!entry.name) continue;
-        const existing = this._furiganaData.find(d => d.name === entry.name);
+      // カタカナをひらがなに変換するヘルパー
+      const kataToHira = (str) => {
+        return str.replace(/[ァ-ヶ]/g, (match) => {
+          return String.fromCharCode(match.charCodeAt(0) - 0x60);
+        });
+      };
 
-        if (existing) {
-          // 既存: ふりがな未設定の場合のみ更新
-          if (!existing.furigana && entry.furigana) {
-            existing.furigana = entry.furigana;
-            existing.source = entry.source || 'spreadsheet';
-            existing.lastUpdated = now;
+      // 名前の各パートを個別にトークナイズしてふりがなを取得するヘルパー
+      const tokenizePart = (text) => {
+        const tokens = tokenizer.tokenize(text);
+        let result = '';
+        for (const token of tokens) {
+          result += token.reading || token.surface_form;
+        }
+        return kataToHira(result);
+      };
+
+      for (const target of targets) {
+        if (!target.name) continue;
+
+        // 氏名をスペースで分割（姓・名を個別に解析）
+        const nameParts = target.name.split(/[\s　]+/).filter(p => p);
+        if (nameParts.length === 0) continue;
+
+        if (target.furigana && target.furigana.includes('？')) {
+          // ？を含む場合：既存ふりがなの？部分のみを置換
+          const furiganaParts = target.furigana.split(/[\s　]+/);
+          const newParts = [];
+          for (let i = 0; i < Math.max(furiganaParts.length, nameParts.length); i++) {
+            const fp = furiganaParts[i] || '';
+            const np = nameParts[i] || '';
+            if (fp.includes('？') && np) {
+              // ？を含むパートは再解析
+              newParts.push(tokenizePart(np));
+            } else if (fp) {
+              newParts.push(fp);
+            } else if (np) {
+              newParts.push(tokenizePart(np));
+            }
+          }
+          const newFurigana = newParts.join('\u3000');
+          if (newFurigana && newFurigana !== target.furigana) {
+            target.furigana = newFurigana;
+            target.source = 'auto';
+            target.lastUpdated = now;
             updated++;
           }
-          // ランキング情報は常に更新
-          if (entry.affiliation) existing.affiliation = entry.affiliation;
-          // Migrate eventCodes
-          const importedCodes = entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []);
-          if (!existing.eventCodes) existing.eventCodes = existing.eventCode ? [existing.eventCode] : [];
-          delete existing.eventCode;
-          for (const code of importedCodes) {
-            if (code && !existing.eventCodes.includes(code)) existing.eventCodes.push(code);
-          }
-          if (entry.rankingPoints) existing.rankingPoints = entry.rankingPoints;
-          if (entry.rankingPosition) existing.rankingPosition = entry.rankingPosition;
         } else {
-          this._furiganaData.push({
-            id: this._furiganaNextId++,
-            name: entry.name,
-            furigana: entry.furigana || '',
-            source: entry.source || 'spreadsheet',
-            affiliation: entry.affiliation || '',
-            eventCodes: entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []),
-            rankingPoints: entry.rankingPoints || 0,
-            rankingPosition: entry.rankingPosition || 0,
-            lastUpdated: entry.lastUpdated || now,
-            furiganaEdited: entry.furiganaEdited || false,
-          });
-          imported++;
+          // ふりがな未設定：各パートを個別に解析して全角スペースで結合
+          const furiganaParts = nameParts.map(part => tokenizePart(part));
+          const furiganaResult = furiganaParts.join('\u3000');
+          if (furiganaResult) {
+            target.furigana = furiganaResult;
+            target.source = 'auto';
+            target.lastUpdated = now;
+            updated++;
+          }
         }
       }
 
       this._saveFuriganaData();
       this._syncFuriganaToRankingLoader();
       this._renderFuriganaTable();
+      this.showMessage(`${updated} 件のふりがなを自動付与しました`, 'success');
 
-      let msg = imported + '件を新規取込';
-      if (updated > 0) msg += '、' + updated + '件を更新';
-      this.showMessage(msg, 'success');
     } catch (err) {
-      console.error('JSON取込エラー:', err);
-      this.showMessage('JSONの取込に失敗しました: ' + err.message, 'error');
+      console.error('kuromoji.jsエラー:', err);
+      this.showMessage('自動付与に失敗しました: ' + err.message, 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '🪄 ふりがな自動付与 (AI)';
+      }
     }
   },
 

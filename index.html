@@ -13,6 +13,7 @@
   <title>鳥取市テニス協会 ドロー会議システム</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/print.css">
+  <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
 </head>
 
 <body>
@@ -29,7 +30,7 @@
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
       <div class="header-version">
-        <span class="version-number">Ver.2.0</span>
+        <span class="version-number">Ver.2.2</span>
         <span class="version-date">2026.3.11</span>
       </div>
     </div>
@@ -295,16 +296,19 @@
         <!-- 操作ボタン -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
           <button id="btn-furigana-sync-ranking" class="btn btn-primary">ランキングと同期</button>
-          <label class="btn btn-secondary" style="cursor:pointer;">
+          <label class="btn btn-success" style="cursor:pointer;">
             Excel取込
             <input type="file" id="file-furigana-import" accept=".xlsx,.xls,.csv" style="display:none;">
           </label>
-          <button id="btn-furigana-export" class="btn btn-secondary">Excel出力</button>
-          <button id="btn-furigana-export-json" class="btn btn-secondary">JSON出力</button>
-          <label class="btn btn-secondary" style="cursor:pointer;">
-            JSON取込
-            <input type="file" id="file-furigana-import-json" accept=".json" style="display:none;">
-          </label>
+          <button id="btn-furigana-export" class="btn btn-success">Excel出力</button>
+
+          <div style="width:1px;background:#ccc;margin:0 4px;"></div><!-- 区切り線 -->
+
+          <button id="btn-furigana-auto-assign" class="btn btn-primary"
+            style="background-color:#6f42c1;border-color:#6f42c1;">
+            🪄 ふりがな自動付与 (AI)
+          </button>
+
           <button id="btn-furigana-clear" class="btn btn-danger" style="margin-left:auto;opacity:0.85;">全件クリア</button>
         </div>
 
@@ -2235,7 +2239,12 @@
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>2.1</strong></td>
+                  <td><strong>2.2</strong></td>
+                  <td>2026.3.11</td>
+                  <td>AI（kuromoji.js）を活用したふりがなの自動付与機能を実装。JSON取込/出力機能を廃止。</td>
+                </tr>
+                <tr>
+                  <td>2.1</td>
                   <td>2026.3.11</td>
                   <td>ふりがなDB編集モーダル化、折り返し禁止表示、エントリー画面に「男子全員」「女子全員」「全選手DB」タブ追加、並べ替え機能、ミックスD/団体戦対応、マニュアル更新</td>
                 </tr>

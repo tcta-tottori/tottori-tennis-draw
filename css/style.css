@@ -1620,14 +1620,9 @@ tr.row-entered td strong {
     right: var(--space-6);
   }
 
-  /* PC時: エントリーテーブルを中央寄せ */
-  #screen-ranking .table-wrapper,
-  #screen-entry .table-wrapper {
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  #screen-ranking .ranking-sticky-filter {
+  /* PC時: エントリー関連の画面全体を中央寄せ＆最大幅指定 */
+  #screen-ranking,
+  #screen-entry {
     max-width: 900px;
     margin-left: auto;
     margin-right: auto;

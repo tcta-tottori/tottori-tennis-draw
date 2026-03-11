@@ -721,9 +721,17 @@ window.App = {
       });
       RankingLoader.addToFuriganaMap(player.name, furigana);
       // ふりがなDBにも自動登録
-      if (player.name && furigana && !this._furiganaData.find(d => d.name === player.name)) {
-        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana, source: 'auto', affiliation: player.affiliation || '', eventCode: player.eventCode || '', rankingPoints: player.points || 0, rankingPosition: player.rank || 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
-        this._saveFuriganaData();
+      if (player.name && furigana) {
+        const existingFuri = this._furiganaData.find(d => d.name === player.name);
+        if (existingFuri) {
+          if (!existingFuri.eventCodes) existingFuri.eventCodes = existingFuri.eventCode ? [existingFuri.eventCode] : [];
+          delete existingFuri.eventCode;
+          if (player.eventCode && !existingFuri.eventCodes.includes(player.eventCode)) existingFuri.eventCodes.push(player.eventCode);
+          this._saveFuriganaData();
+        } else {
+          this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana, source: 'auto', affiliation: player.affiliation || '', eventCodes: player.eventCode ? [player.eventCode] : [], rankingPoints: player.points || 0, rankingPosition: player.rank || 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
+          this._saveFuriganaData();
+        }
       }
 
       // 黄色ハイライト後に上下から潰れて消える
@@ -804,9 +812,17 @@ window.App = {
       });
       RankingLoader.addToFuriganaMap(player.name, furigana);
       // ふりがなDBにも自動登録
-      if (player.name && furigana && !this._furiganaData.find(d => d.name === player.name)) {
-        this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana, source: 'auto', affiliation: player.affiliation || '', eventCode: player.eventCode || '', rankingPoints: player.points || 0, rankingPosition: player.rank || 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
-        this._saveFuriganaData();
+      if (player.name && furigana) {
+        const existingFuri = this._furiganaData.find(d => d.name === player.name);
+        if (existingFuri) {
+          if (!existingFuri.eventCodes) existingFuri.eventCodes = existingFuri.eventCode ? [existingFuri.eventCode] : [];
+          delete existingFuri.eventCode;
+          if (player.eventCode && !existingFuri.eventCodes.includes(player.eventCode)) existingFuri.eventCodes.push(player.eventCode);
+          this._saveFuriganaData();
+        } else {
+          this._furiganaData.push({ id: this._furiganaNextId++, name: player.name, furigana: furigana, source: 'auto', affiliation: player.affiliation || '', eventCodes: player.eventCode ? [player.eventCode] : [], rankingPoints: player.points || 0, rankingPosition: player.rank || 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
+          this._saveFuriganaData();
+        }
       }
       this._renderRankingRows();
     } else {
@@ -1462,10 +1478,20 @@ window.App = {
     // リストにない人はふりがなマップに自動追加
     RankingLoader.addToFuriganaMap(name, furigana);
 
-    // ふりがなDBにも自動登録（未登録の場合のみ）
-    if (name && furigana && !this._furiganaData.find(d => d.name === name)) {
-      this._furiganaData.push({ id: this._furiganaNextId++, name: name, furigana: furigana, source: 'manual', affiliation: '', eventCode: '', rankingPoints: 0, rankingPosition: 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
-      this._saveFuriganaData();
+    // ふりがなDBにも自動登録（未登録の場合は新規追加、既存の場合はeventCodes更新）
+    if (name && furigana) {
+      const existingFuri = this._furiganaData.find(d => d.name === name);
+      if (existingFuri) {
+        if (!existingFuri.eventCodes) existingFuri.eventCodes = existingFuri.eventCode ? [existingFuri.eventCode] : [];
+        delete existingFuri.eventCode;
+        const evtCode = (data && data.eventCode) || '';
+        if (evtCode && !existingFuri.eventCodes.includes(evtCode)) existingFuri.eventCodes.push(evtCode);
+        this._saveFuriganaData();
+      } else {
+        const evtCode = (data && data.eventCode) || '';
+        this._furiganaData.push({ id: this._furiganaNextId++, name: name, furigana: furigana, source: 'manual', affiliation: '', eventCodes: evtCode ? [evtCode] : [], rankingPoints: 0, rankingPosition: 0, lastUpdated: new Date().toISOString(), furiganaEdited: false });
+        this._saveFuriganaData();
+      }
     }
 
     this._editingEntryId = null;
@@ -5624,6 +5650,8 @@ window.App = {
   _furiganaPage: 1,
   _furiganaPageSize: 50,
   _furiganaEditingId: null,
+  _furiganaSortKey: 'furigana-asc',
+  _furiganaEventFilter: 'all',
   FURIGANA_STORAGE_KEY: 'drawSystem_furigana',
 
   /**
@@ -5794,6 +5822,26 @@ window.App = {
       });
     }
 
+    // Sort dropdown
+    const sortSelect = document.getElementById('furigana-sort');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', (e) => {
+        this._furiganaSortKey = e.target.value;
+        this._furiganaPage = 1;
+        this._renderFuriganaTable();
+      });
+    }
+
+    // Event filter
+    const eventFilter = document.getElementById('furigana-filter-event');
+    if (eventFilter) {
+      eventFilter.addEventListener('change', (e) => {
+        this._furiganaEventFilter = e.target.value;
+        this._furiganaPage = 1;
+        this._renderFuriganaTable();
+      });
+    }
+
     // 起動時にGitHub JSONを読み込み試行
     this._loadFuriganaFromGitHub();
 
@@ -5885,9 +5933,15 @@ window.App = {
         if (existing) {
           // 既存エントリーを更新（ランキング情報のみ。ふりがなは手動編集済みなら上書きしない）
           existing.affiliation = player.affiliation || existing.affiliation || '';
-          existing.eventCode = eventCode;
-          existing.rankingPoints = player.points || 0;
-          existing.rankingPosition = player.rank || 0;
+          if (!existing.eventCodes) existing.eventCodes = existing.eventCode ? [existing.eventCode] : [];
+          if (!existing.eventCodes.includes(eventCode)) existing.eventCodes.push(eventCode);
+          delete existing.eventCode; // migrate old field
+          if (!existing.rankingPosition || (player.rank && player.rank < existing.rankingPosition)) {
+            existing.rankingPosition = player.rank || 0;
+          }
+          if (!existing.rankingPoints || (player.points && player.points > existing.rankingPoints)) {
+            existing.rankingPoints = player.points || 0;
+          }
           existing.lastUpdated = now;
           updated++;
         } else {
@@ -5899,7 +5953,7 @@ window.App = {
             furigana: autoResult.furigana,
             source: autoResult.success ? 'auto' : 'ranking',
             affiliation: player.affiliation || '',
-            eventCode: eventCode,
+            eventCodes: [eventCode],
             rankingPoints: player.points || 0,
             rankingPosition: player.rank || 0,
             lastUpdated: now,
@@ -5980,7 +6034,7 @@ window.App = {
             furigana: entry.furigana || '',
             source: entry.source || 'spreadsheet',
             affiliation: entry.affiliation || '',
-            eventCode: entry.eventCode || '',
+            eventCodes: entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []),
             rankingPoints: entry.rankingPoints || 0,
             rankingPosition: entry.rankingPosition || 0,
             lastUpdated: entry.lastUpdated || '',
@@ -6043,7 +6097,7 @@ window.App = {
       furigana: furigana,
       source: 'manual',
       affiliation: '',
-      eventCode: '',
+      eventCodes: [],
       rankingPoints: 0,
       rankingPosition: 0,
       lastUpdated: new Date().toISOString(),
@@ -6108,8 +6162,31 @@ window.App = {
   _getFilteredFurigana() {
     let data = [...this._furiganaData];
 
-    // ふりがなでソート（あいうえお順）
-    data.sort((a, b) => (a.furigana || '').localeCompare(b.furigana || '', 'ja'));
+    // 動的ソート
+    const sortKey = this._furiganaSortKey || 'furigana-asc';
+    switch (sortKey) {
+      case 'furigana-asc':
+        data.sort((a, b) => (a.furigana || '').localeCompare(b.furigana || '', 'ja'));
+        break;
+      case 'furigana-desc':
+        data.sort((a, b) => (b.furigana || '').localeCompare(a.furigana || '', 'ja'));
+        break;
+      case 'name-asc':
+        data.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+        break;
+      case 'name-desc':
+        data.sort((a, b) => (b.name || '').localeCompare(a.name || '', 'ja'));
+        break;
+      case 'affiliation':
+        data.sort((a, b) => (a.affiliation || '').localeCompare(b.affiliation || '', 'ja'));
+        break;
+      case 'newest':
+        data.sort((a, b) => (b.lastUpdated || '').localeCompare(a.lastUpdated || ''));
+        break;
+      case 'oldest':
+        data.sort((a, b) => (a.lastUpdated || '').localeCompare(b.lastUpdated || ''));
+        break;
+    }
 
     // テキストフィルター
     if (this._furiganaFilter) {
@@ -6130,6 +6207,15 @@ window.App = {
       } else if (this._furiganaSourceFilter === 'manual') {
         data = data.filter(d => d.source === 'manual');
       }
+    }
+
+    // イベントフィルター
+    if (this._furiganaEventFilter && this._furiganaEventFilter !== 'all') {
+      const evtCode = this._furiganaEventFilter;
+      data = data.filter(d => {
+        const codes = d.eventCodes || (d.eventCode ? [d.eventCode] : []);
+        return codes.includes(evtCode);
+      });
     }
 
     return data;
@@ -6179,17 +6265,20 @@ window.App = {
 
     if (pageData.length === 0) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="8" style="text-align:center;color:#999;padding:24px;">データがありません</td>';
+      tr.innerHTML = '<td colspan="7" style="text-align:center;color:#999;padding:24px;">データがありません</td>';
       tbody.appendChild(tr);
     } else {
       pageData.forEach((entry, idx) => {
         const tr = document.createElement('tr');
         const rowNum = start + idx + 1;
 
-        // イベントコードから種目名の短縮形を取得
-        const evtInfo = entry.eventCode ? (AppConfig.EVENTS.find(e => e.code === entry.eventCode) || {}) : {};
-        const evtShort = evtInfo.shortName || entry.eventCode || '-';
-        const rankDisplay = entry.rankingPosition ? String(entry.rankingPosition) + '位' : '-';
+        // Build event badges
+        const eventCodes = entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []);
+        const evtBadges = eventCodes.length > 0 ? eventCodes.map(code => {
+          const evt = (typeof AppConfig !== 'undefined' && AppConfig.EVENTS) ? AppConfig.EVENTS.find(e => e.code === code) : null;
+          const label = evt ? evt.shortName : code;
+          return '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:#e8f0fe;color:#1a56db;margin:1px;">' + (this._escapeHtml ? this._escapeHtml(label) : label) + '</span>';
+        }).join('') : '-';
 
         if (this._furiganaEditingId === entry.id) {
           // 編集モード
@@ -6197,9 +6286,8 @@ window.App = {
             '<td>' + rowNum + '</td>' +
             '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.name) + '" data-field="name" style="padding:4px 8px;font-size:13px;"></td>' +
             '<td><input type="text" class="form-input" value="' + this._escapeHtml(entry.furigana || '') + '" data-field="furigana" style="padding:4px 8px;font-size:13px;"></td>' +
-            '<td>' + this._esc(evtShort) + '</td>' +
+            '<td>' + evtBadges + '</td>' +
             '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-            '<td>' + rankDisplay + '</td>' +
             '<td>' + this._furiganaSourceBadge(entry) + '</td>' +
             '<td>' +
               '<button class="btn btn-primary btn-furigana-save" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">保存</button>' +
@@ -6244,9 +6332,8 @@ window.App = {
             '<td>' + rowNum + '</td>' +
             '<td>' + this._esc(entry.name) + '</td>' +
             '<td>' + this._esc(entry.furigana || '') + '</td>' +
-            '<td>' + this._esc(evtShort) + '</td>' +
+            '<td>' + evtBadges + '</td>' +
             '<td>' + this._esc(entry.affiliation || '') + '</td>' +
-            '<td>' + rankDisplay + '</td>' +
             '<td>' + this._furiganaSourceBadge(entry) + '</td>' +
             '<td>' +
               '<button class="btn btn-secondary btn-furigana-edit" data-id="' + entry.id + '" style="padding:4px 10px;font-size:12px;margin-right:4px;">編集</button>' +
@@ -6392,7 +6479,7 @@ window.App = {
             furigana: furigana,
             source: 'spreadsheet',
             affiliation: '',
-            eventCode: '',
+            eventCodes: [],
             rankingPoints: 0,
             rankingPosition: 0,
             lastUpdated: new Date().toISOString(),
@@ -6436,12 +6523,16 @@ window.App = {
 
     const aoa = [['氏名', 'ふりがな', '所属', '種目', 'ランキング', 'ソース']];
     for (const entry of sorted) {
-      const evtInfo = entry.eventCode ? (AppConfig.EVENTS.find(e => e.code === entry.eventCode) || {}) : {};
+      const codes = entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []);
+      const evtDisplay = codes.map(code => {
+        const evtInfo = AppConfig.EVENTS.find(e => e.code === code);
+        return evtInfo ? evtInfo.shortName : code;
+      }).join(', ');
       aoa.push([
         entry.name,
         entry.furigana || '',
         entry.affiliation || '',
-        evtInfo.shortName || entry.eventCode || '',
+        evtDisplay,
         entry.rankingPosition || '',
         entry.source || '',
       ]);
@@ -6477,7 +6568,7 @@ window.App = {
         furigana: d.furigana || '',
         source: d.source || '',
         affiliation: d.affiliation || '',
-        eventCode: d.eventCode || '',
+        eventCodes: d.eventCodes || (d.eventCode ? [d.eventCode] : []),
         rankingPoints: d.rankingPoints || 0,
         rankingPosition: d.rankingPosition || 0,
         lastUpdated: d.lastUpdated || '',
@@ -6529,7 +6620,13 @@ window.App = {
           }
           // ランキング情報は常に更新
           if (entry.affiliation) existing.affiliation = entry.affiliation;
-          if (entry.eventCode) existing.eventCode = entry.eventCode;
+          // Migrate eventCodes
+          const importedCodes = entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []);
+          if (!existing.eventCodes) existing.eventCodes = existing.eventCode ? [existing.eventCode] : [];
+          delete existing.eventCode;
+          for (const code of importedCodes) {
+            if (code && !existing.eventCodes.includes(code)) existing.eventCodes.push(code);
+          }
           if (entry.rankingPoints) existing.rankingPoints = entry.rankingPoints;
           if (entry.rankingPosition) existing.rankingPosition = entry.rankingPosition;
         } else {
@@ -6539,7 +6636,7 @@ window.App = {
             furigana: entry.furigana || '',
             source: entry.source || 'spreadsheet',
             affiliation: entry.affiliation || '',
-            eventCode: entry.eventCode || '',
+            eventCodes: entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []),
             rankingPoints: entry.rankingPoints || 0,
             rankingPosition: entry.rankingPosition || 0,
             lastUpdated: entry.lastUpdated || now,

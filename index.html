@@ -54,7 +54,7 @@
 
       <!-- ランキング・名簿リスト -->
       <details class="card collapsible-section" style="margin-bottom: 24px;" open>
-        <summary class="card-title collapsible-toggle">ランキング・名簿リスト</summary>
+        <summary class="card-title collapsible-toggle">ランキングデータ読み込み</summary>
 
         <!-- Google スプレッドシートから読み込み -->
         <div style="background:#f0f7ff;border:1px solid #d0e3f5;border-radius:10px;padding:16px 18px;margin-bottom:16px;">
@@ -272,11 +272,11 @@
       </details>
 
       <!-- ふりがなデータベース -->
-      <div class="card" style="margin-top:24px;">
-        <h3 class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <details class="card collapsible-section" style="margin-top:24px;">
+        <summary class="card-title collapsible-toggle" style="display:flex;align-items:center;justify-content:space-between;">
           ふりがなデータベース
           <span id="furigana-count-badge" style="font-size:13px;font-weight:normal;color:#666;">登録数: 0件</span>
-        </h3>
+        </summary>
         <p style="font-size:13px;color:#666;margin-bottom:12px;">
           選手名とふりがなを管理します。ランキングデータと自動連携し、新規選手は自動追加されます。
         </p>
@@ -313,9 +313,32 @@
           <button id="btn-furigana-add" class="btn btn-primary" style="white-space:nowrap;">追加</button>
         </div>
 
+        <!-- 並び替え -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;color:#666;white-space:nowrap;">並び替え:</span>
+          <select id="furigana-sort" class="form-input" style="width:auto;min-width:160px;">
+            <option value="furigana-asc">ふりがな（あいうえお順）</option>
+            <option value="furigana-desc">ふりがな（逆順）</option>
+            <option value="name-asc">氏名（あいうえお順）</option>
+            <option value="name-desc">氏名（逆順）</option>
+            <option value="affiliation">所属順</option>
+            <option value="newest">新しい順</option>
+            <option value="oldest">古い順</option>
+          </select>
+        </div>
+
         <!-- フィルタ・検索 -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
           <input type="text" class="form-input" id="furigana-search" placeholder="氏名・ふりがなで検索..." style="flex:1;min-width:200px;">
+          <select id="furigana-filter-event" class="form-input" style="width:auto;min-width:120px;">
+            <option value="all">全種目</option>
+            <option value="ms">一般男子S</option>
+            <option value="ls">一般女子S</option>
+            <option value="m45s">45歳以上男子S</option>
+            <option value="m55s">55歳以上男子S</option>
+            <option value="m65s">65歳以上男子S</option>
+            <option value="l45s">45歳以上女子S</option>
+          </select>
           <select id="furigana-filter-source" class="form-input" style="width:auto;min-width:140px;">
             <option value="all">すべて表示</option>
             <option value="auto">自動付与のみ</option>
@@ -332,9 +355,8 @@
                 <th style="width:40px;">#</th>
                 <th>氏名</th>
                 <th>ふりがな</th>
-                <th style="width:60px;">種別</th>
+                <th>登録種目</th>
                 <th>所属</th>
-                <th style="width:80px;">ランキング</th>
                 <th style="width:60px;">ソース</th>
                 <th style="width:90px;">操作</th>
               </tr>
@@ -346,7 +368,7 @@
 
         <!-- ページネーション -->
         <div id="furigana-pagination" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;"></div>
-      </div>
+      </details>
     </section>
 
     <!-- 画面: エントリー（旧：選手一覧） -->

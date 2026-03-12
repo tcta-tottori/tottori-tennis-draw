@@ -5531,6 +5531,8 @@ window.App = {
       });
     }
 
+
+
     // コピーボタン
     const btnCopy = document.getElementById('btn-cloud-copy-code');
     if (btnCopy) {
@@ -5941,6 +5943,23 @@ window.App = {
     const btnExport = document.getElementById('btn-furigana-export');
     if (btnExport) {
       btnExport.addEventListener('click', () => this._exportFuriganaExcel());
+    }
+
+    // Excel出力（未設定のみ）
+    const btnExportMissing = document.getElementById('btn-furigana-export-missing');
+    if (btnExportMissing) {
+      btnExportMissing.addEventListener('click', () => this._exportMissingFuriganaExcel());
+    }
+
+    // ふりがなクリアボタン
+    const btnFuriganaClear = document.getElementById('btn-furigana-clear');
+    if (btnFuriganaClear) {
+      btnFuriganaClear.addEventListener('click', () => {
+        if (confirm('すべてのふりがなデータをクリアしますか？この操作は元に戻せません。')) {
+          this._clearFuriganaData();
+          this.showMessage('ふりがなデータをクリアしました', 'info');
+        }
+      });
     }
 
     // ふりがな自動付与 (kuromoji.js)
@@ -6802,15 +6821,11 @@ window.App = {
           // 重複チェック（名前で判定）
           const existing = this._furiganaData.find(d => d.name === name);
           if (existing) {
-            // 既存エントリーにふりがなが無い場合は上書き
-            if (!existing.furigana) {
-              existing.furigana = furigana;
-              existing.source = 'spreadsheet';
-              existing.lastUpdated = new Date().toISOString();
-              imported++;
-            } else {
-              skipped++;
-            }
+            // エクセルデータを優先し、常に上書きする
+            existing.furigana = furigana;
+            existing.source = 'spreadsheet';
+            existing.lastUpdated = new Date().toISOString();
+            imported++;
             continue;
           }
 
@@ -6885,6 +6900,52 @@ window.App = {
     XLSX.utils.book_append_sheet(wb, ws, 'ふりがな');
     XLSX.writeFile(wb, 'ふりがなデータ.xlsx');
     this.showMessage('Excelファイルを出力しました', 'success');
+  },
+
+  /**
+   * ふりがな未設定・異常値のみをExcel出力
+   */
+  _exportMissingFuriganaExcel() {
+    if (typeof XLSX === 'undefined') {
+      this.showMessage('SheetJSが読み込まれていません', 'error');
+      return;
+    }
+    
+    // 未設定 または ？を含むデータを抽出
+    const targets = this._furiganaData.filter(d => !d.furigana || d.furigana.includes('？'));
+
+    if (targets.length === 0) {
+      this.showMessage('ふりがなが未設定のデータはありません', 'info');
+      return;
+    }
+
+    const sorted = [...targets].sort((a, b) =>
+      (a.furigana || '').localeCompare(b.furigana || '', 'ja')
+    );
+
+    const aoa = [['氏名', 'ふりがな', '所属', '種目', 'ランキング', 'ソース']];
+    for (const entry of sorted) {
+      const codes = entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []);
+      const evtDisplay = codes.map(code => {
+        const evtInfo = AppConfig.EVENTS.find(e => e.code === code);
+        return evtInfo ? evtInfo.shortName : code;
+      }).join(', ');
+      aoa.push([
+        entry.name,
+        entry.furigana || '',
+        entry.affiliation || '',
+        evtDisplay,
+        entry.rankingPosition || '',
+        entry.source || '',
+      ]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 10 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '未設定ふりがな');
+    XLSX.writeFile(wb, 'ふりがな未設定データ.xlsx');
+    this.showMessage('未設定のExcelファイルを出力しました', 'success');
   },
 
   /**

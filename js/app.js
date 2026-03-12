@@ -6921,13 +6921,17 @@ window.App = {
     }
 
     try {
-      // Build tokenizer
-      const tokenizer = await new Promise((resolve, reject) => {
-        kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict' }).build((err, t) => {
-          if (err) reject(err);
-          else resolve(t);
+      // Build or reuse tokenizer
+      if (!this._kuromojiTokenizer) {
+        if (btn) btn.textContent = '辞書読込中... (初回のみ数秒かかります)';
+        this._kuromojiTokenizer = await new Promise((resolve, reject) => {
+          kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict' }).build((err, t) => {
+            if (err) reject(err);
+            else resolve(t);
+          });
         });
-      });
+      }
+      const tokenizer = this._kuromojiTokenizer;
 
       if (btn) btn.textContent = '解析中...';
 
@@ -6935,7 +6939,7 @@ window.App = {
       let processed = 0;
       const total = targets.length;
       const now = new Date().toISOString();
-      const CHUNK_SIZE = 10;
+      const CHUNK_SIZE = 50; // Increased chunk size for better performance
 
       // カタカナをひらがなに変換するヘルパー
       const kataToHira = (str) => {
@@ -6961,7 +6965,7 @@ window.App = {
         // UI更新とフリーズ回避のための非同期待機（チャンク境界ごと）
         if (i > 0 && i % CHUNK_SIZE === 0) {
           if (btn) btn.textContent = `解析中... (${processed}/${total})`;
-          await new Promise(resolve => setTimeout(resolve, 10)); // UIスレッドを一時解放
+          await new Promise(resolve => setTimeout(resolve, 0)); // 最小待機時間でUIスレッドを一時解放
         }
 
         if (!target.name) continue;

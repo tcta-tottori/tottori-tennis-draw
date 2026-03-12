@@ -6888,14 +6888,9 @@ window.App = {
   },
 
   /**
-   * kuromoji.jsを利用してふりがな自動付与
+   * Workerを利用してふりがな自動付与
    */
   async _autoAssignFuriganaKuromoji() {
-    if (typeof kuromoji === 'undefined') {
-      this.showMessage('形態素解析ライブラリ(kuromoji.js)が読み込まれていません', 'error');
-      return;
-    }
-
     // ふりがな未設定 または ？を含むデータを抽出
     const targets = this._furiganaData.filter(d => !d.furigana || d.furigana.includes('？'));
     if (targets.length === 0) {
@@ -6921,17 +6916,40 @@ window.App = {
     }
 
     try {
-      // Build or reuse tokenizer
-      if (!this._kuromojiTokenizer) {
+      // 1. Initialize or get Worker Wrapper
+      if (!this._kuromojiWorkerWrapper) {
         if (btn) btn.textContent = '辞書読込中... (初回のみ数秒かかります)';
-        this._kuromojiTokenizer = await new Promise((resolve, reject) => {
-          kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict' }).build((err, t) => {
-            if (err) reject(err);
-            else resolve(t);
+        
+        this._kuromojiWorkerWrapper = {
+          worker: new Worker('./js/kuromoji_worker.js'),
+          callbacks: {} // To store resolving promises mapped to IDs
+        };
+
+        // Handle Worker Messages
+        this._kuromojiWorkerWrapper.worker.onmessage = (e) => {
+          const { type, error, results, id } = e.data;
+          if (this._kuromojiWorkerWrapper.callbacks[id]) {
+            if (type.endsWith('_error')) {
+              this._kuromojiWorkerWrapper.callbacks[id].reject(new Error(error));
+            } else {
+              this._kuromojiWorkerWrapper.callbacks[id].resolve(results);
+            }
+            delete this._kuromojiWorkerWrapper.callbacks[id];
+          }
+        };
+
+        // Promisify message sending
+        this._sendWorkerMessage = (type, payload) => {
+          return new Promise((resolve, reject) => {
+            const id = Date.now() + Math.random().toString();
+            this._kuromojiWorkerWrapper.callbacks[id] = { resolve, reject };
+            this._kuromojiWorkerWrapper.worker.postMessage({ type, payload, id });
           });
-        });
+        };
+
+        // Pre-warm / initialize dictionary
+        await this._sendWorkerMessage('init', null);
       }
-      const tokenizer = this._kuromojiTokenizer;
 
       if (btn) btn.textContent = '解析中...';
 
@@ -6939,74 +6957,59 @@ window.App = {
       let processed = 0;
       const total = targets.length;
       const now = new Date().toISOString();
-      const CHUNK_SIZE = 50; // Increased chunk size for better performance
+      const CHUNK_SIZE = 50; // Parse in chunks to update UI periodically
 
-      // カタカナをひらがなに変換するヘルパー
-      const kataToHira = (str) => {
-        return str.replace(/[ァ-ヶ]/g, (match) => {
-          return String.fromCharCode(match.charCodeAt(0) - 0x60);
-        });
-      };
-
-      // 名前の各パートを個別にトークナイズしてふりがなを取得するヘルパー
-      const tokenizePart = (text) => {
-        const tokens = tokenizer.tokenize(text);
-        let result = '';
-        for (const token of tokens) {
-          result += token.reading || token.surface_form;
-        }
-        return kataToHira(result);
-      };
-
-      for (let i = 0; i < total; i++) {
-        const target = targets[i];
-        processed++;
+      for (let i = 0; i < total; i += CHUNK_SIZE) {
+        const chunk = targets.slice(i, i + CHUNK_SIZE);
         
-        // UI更新とフリーズ回避のための非同期待機（チャンク境界ごと）
-        if (i > 0 && i % CHUNK_SIZE === 0) {
-          if (btn) btn.textContent = `解析中... (${processed}/${total})`;
-          await new Promise(resolve => setTimeout(resolve, 0)); // 最小待機時間でUIスレッドを一時解放
-        }
+        // UI updates
+        if (btn) btn.textContent = `解析中... (${processed}/${total})`;
+        
+        // We only extract the names that need full processing for now to keep the payload clean
+        const namesToParse = chunk.map(t => t.name);
+        
+        // Send batch to worker
+        const furiganaResults = await this._sendWorkerMessage('tokenize', namesToParse);
+        
+        // Apply results back to targets
+        for (let j = 0; j < chunk.length; j++) {
+          const target = chunk[j];
+          const newFurigana = furiganaResults[j];
 
-        if (!target.name) continue;
-
-        // 氏名をスペースで分割（姓・名を個別に解析）
-        const nameParts = target.name.split(/[\s　]+/).filter(p => p);
-        if (nameParts.length === 0) continue;
-
-        if (target.furigana && target.furigana.includes('？')) {
-          // ？を含む場合：既存ふりがなの？部分のみを置換
-          const furiganaParts = target.furigana.split(/[\s　]+/);
-          const newParts = [];
-          for (let k = 0; k < Math.max(furiganaParts.length, nameParts.length); k++) {
-            const fp = furiganaParts[k] || '';
-            const np = nameParts[k] || '';
-            if (fp.includes('？') && np) {
-              // ？を含むパートは再解析
-              newParts.push(tokenizePart(np));
-            } else if (fp) {
-              newParts.push(fp);
-            } else if (np) {
-              newParts.push(tokenizePart(np));
+          // Same logic: if it has "？", merge with what the tokenizer outputs.
+          if (target.furigana && target.furigana.includes('？')) {
+             const existingParts = target.furigana.split(/[\s　]+/);
+             const newPartsArray = newFurigana ? newFurigana.split(/[\s　]+/) : [];
+             const mergedParts = [];
+             
+             for (let k = 0; k < Math.max(existingParts.length, newPartsArray.length); k++) {
+                const ep = existingParts[k] || '';
+                const np = newPartsArray[k] || '';
+                if (ep.includes('？') && np) {
+                  mergedParts.push(np); // Use tokenizer output
+                } else if (ep) {
+                  mergedParts.push(ep); // Keep existing
+                } else {
+                  mergedParts.push(np);
+                }
+             }
+             const finalFurigana = mergedParts.join('\u3000');
+             if (finalFurigana && finalFurigana !== target.furigana) {
+               target.furigana = finalFurigana;
+               target.source = 'auto';
+               target.lastUpdated = now;
+               updated++;
+             }
+          } else {
+            // Unset
+            if (newFurigana) {
+               target.furigana = newFurigana;
+               target.source = 'auto';
+               target.lastUpdated = now;
+               updated++;
             }
           }
-          const newFurigana = newParts.join('\u3000');
-          if (newFurigana && newFurigana !== target.furigana) {
-            target.furigana = newFurigana;
-            target.source = 'auto';
-            target.lastUpdated = now;
-            updated++;
-          }
-        } else {
-          // ふりがな未設定：各パートを個別に解析して全角スペースで結合
-          const furiganaParts = nameParts.map(part => tokenizePart(part));
-          const furiganaResult = furiganaParts.join('\u3000');
-          if (furiganaResult) {
-            target.furigana = furiganaResult;
-            target.source = 'auto';
-            target.lastUpdated = now;
-            updated++;
-          }
+          processed++;
         }
       }
 
@@ -7016,7 +7019,7 @@ window.App = {
       this.showMessage(`${updated} 件のふりがなを自動付与しました`, 'success');
 
     } catch (err) {
-      console.error('kuromoji.jsエラー:', err);
+      console.error('Worker Kuromoji Error:', err);
       this.showMessage('自動付与に失敗しました: ' + err.message, 'error');
     } finally {
       if (btn) {

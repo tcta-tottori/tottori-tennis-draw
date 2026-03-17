@@ -28,6 +28,13 @@
         <span class="header-org">鳥取市テニス協会</span>
         <h1 class="app-title"><span class="title-line1">ドロー会議</span><span class="title-line2">システム</span></h1>
       </div>
+      <a href="https://tcta-tottori.github.io/tournament-management-app/"
+         target="_blank" rel="noopener noreferrer"
+         class="header-cross-link"
+         title="大会運営システムを開く">
+        <span class="cross-link-text">大会運営</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
       <div class="header-version">
         <span class="version-badge">v2.2</span>
         <span class="version-date">2026.3.11 更新</span>
@@ -53,6 +60,23 @@
     <!-- 画面1: データ読込 -->
     <section id="screen-data" class="screen active">
       <h2 class="screen-title">データ管理</h2>
+
+      <!-- 大会運営システム連携 -->
+      <div class="card" style="margin-bottom:24px;background:linear-gradient(135deg,#e8f5e9 0%,#f1f8e9 100%);border:1px solid #a5d6a7;">
+        <h3 class="card-title" style="color:#1b5e20;display:flex;align-items:center;gap:8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          大会運営システム連携
+        </h3>
+        <p style="font-size:12px;color:#555;margin-bottom:12px;">
+          大会運営システムとランキング・ふりがなデータを共有します。同じブラウザで両システムを使用している場合に利用できます。
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button id="btn-sync-tournament-system" class="btn btn-primary" style="padding:10px 20px;font-size:14px;font-weight:700;">
+            大会運営システムからデータを取得
+          </button>
+        </div>
+        <div id="sync-tournament-status" style="margin-top:10px;display:none;padding:10px 14px;border-radius:8px;font-size:13px;"></div>
+      </div>
 
       <!-- ランキング・名簿リスト -->
       <details class="card collapsible-section" style="margin-bottom: 24px;" open>

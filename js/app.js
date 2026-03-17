@@ -233,11 +233,110 @@ window.App = {
     this._updateGSLinkButtons();
     if (gsRankingUrl) gsRankingUrl.addEventListener('input', () => this._updateGSLinkButtons());
 
+    // 大会運営システム連携ボタン
+    const btnSyncTournament = document.getElementById('btn-sync-tournament-system');
+    if (btnSyncTournament) {
+      btnSyncTournament.addEventListener('click', () => this._syncFromTournamentSystem());
+    }
+
     // ふりがな管理の初期化（データ画面に統合）
     this._initFuriganaInDataScreen();
 
     // 大会一覧の初期化（データ読込画面に統合）
     this.initTournamentsScreen();
+  },
+
+  /**
+   * 大会運営システムからデータを取得（localStorage経由）
+   * 大会運営システムが drawSystem_rankingBackup / drawSystem_furigana に書き込んだデータを
+   * RankingLoader に反映し、ふりがなDBも更新する。
+   */
+  _syncFromTournamentSystem() {
+    const statusEl = document.getElementById('sync-tournament-status');
+    const showStatus = (message, type) => {
+      if (!statusEl) return;
+      statusEl.style.display = 'block';
+      const colors = {
+        success: { bg: '#e8f5e9', border: '#a5d6a7', text: '#1b5e20' },
+        error: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b' },
+        info: { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af' },
+      };
+      const c = colors[type] || colors.info;
+      statusEl.style.background = c.bg;
+      statusEl.style.border = '1px solid ' + c.border;
+      statusEl.style.color = c.text;
+      statusEl.textContent = message;
+    };
+
+    try {
+      const details = [];
+      let updated = false;
+
+      // 1. rankingBackup を確認・反映
+      const rankingRaw = localStorage.getItem('drawSystem_rankingBackup');
+      if (rankingRaw) {
+        try {
+          const backup = JSON.parse(rankingRaw);
+          if (backup.rankings && backup.allPlayers) {
+            RankingLoader.rankings = backup.rankings || {};
+            RankingLoader.allPlayers = backup.allPlayers || [];
+            RankingLoader.furiganaMap = backup.furiganaMap || {};
+            RankingLoader.listMembers = backup.listMembers || [];
+
+            const total = RankingLoader.allPlayers.length;
+            const eventCount = Object.keys(RankingLoader.rankings).length;
+            details.push('ランキング: ' + total + '名 (' + eventCount + '種目)');
+            updated = true;
+
+            // ランキング表示を更新
+            const status = RankingLoader.getStatus();
+            this._updateRankingStatus(status);
+            const gsRankingStatus = document.getElementById('gs-ranking-status');
+            if (gsRankingStatus) {
+              const now = new Date().toLocaleString('ja-JP');
+              gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">大会運営システムから同期: ' + total + '名 (' + now + ')</span>';
+            }
+          }
+        } catch (e) {
+          details.push('ランキングデータの解析エラー');
+        }
+      }
+
+      // 2. furigana データを確認・反映
+      const furiganaRaw = localStorage.getItem('drawSystem_furigana');
+      if (furiganaRaw) {
+        try {
+          const furiganaData = JSON.parse(furiganaRaw);
+          if (Array.isArray(furiganaData) && furiganaData.length > 0) {
+            this._furiganaData = furiganaData;
+            if (furiganaData.length > 0) {
+              this._furiganaNextId = Math.max(...furiganaData.map(d => d.id || 0)) + 1;
+            }
+            this._syncFuriganaToRankingLoader();
+            this._renderFuriganaTable();
+            details.push('ふりがな: ' + furiganaData.length + '件');
+            updated = true;
+          }
+        } catch (e) {
+          details.push('ふりがなデータの解析エラー');
+        }
+      }
+
+      // 3. ふりがなをランキングと同期
+      if (updated) {
+        this._syncFuriganaWithRanking();
+        this._refreshDataSummary();
+      }
+
+      if (!updated) {
+        showStatus('大会運営システムのデータが見つかりません。先に大会運営システムから「ドロー会議システムへ同期」を実行してください。', 'error');
+      } else {
+        showStatus('同期完了: ' + details.join(' / '), 'success');
+        this.showMessage('大会運営システムからデータを取得しました (' + details.join(', ') + ')', 'success');
+      }
+    } catch (err) {
+      showStatus('同期に失敗しました: ' + err.message, 'error');
+    }
   },
 
   _updateGSLinkButtons() {

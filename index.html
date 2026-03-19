@@ -1112,6 +1112,60 @@
         </div>
       </div>
 
+      <!-- Google ドライブ バックアップセクション -->
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Google ドライブ バックアップ</span>
+          <span id="gdrive-backup-status" style="font-size:12px;font-weight:normal;">未接続</span>
+        </h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          Google ドライブの共有フォルダ <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">鳥取テニス協会バックアップ/ドロー会議システム</code> にバックアップを保存・管理します。
+        </p>
+
+        <div id="gdrive-setup" style="margin-bottom:12px;">
+          <div id="gdrive-clientid-setup">
+            <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px;">OAuth 2.0 Client ID</label>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+              <input type="text" id="gdrive-client-id-input" class="form-input" placeholder="xxxx.apps.googleusercontent.com" style="flex:1;">
+              <button id="btn-gdrive-connect" class="btn btn-primary" style="background:#3b82f6;">Google で認証</button>
+            </div>
+            <div style="font-size:11px;color:#888;line-height:1.6;">
+              <p>1. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" style="color:#3b82f6;">Google Cloud Console</a> でプロジェクトを作成</p>
+              <p>2. Google Drive API を有効化 → OAuth 同意画面を設定</p>
+              <p>3. 認証情報 → OAuth 2.0 クライアント ID を作成（承認済み JavaScript 生成元にアプリ URL を追加）</p>
+            </div>
+          </div>
+          <div id="gdrive-reconnect-setup" style="display:none;">
+            <button id="btn-gdrive-reconnect" class="btn btn-primary" style="background:#3b82f6;">Google ドライブに再接続</button>
+            <button id="btn-gdrive-reset-clientid" class="btn btn-secondary" style="font-size:12px;margin-left:8px;">Client ID を変更</button>
+          </div>
+        </div>
+
+        <div id="gdrive-backup-controls" style="display:none;margin-bottom:16px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+            <button id="btn-gdrive-backup-save" style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">Google ドライブにエクスポート</button>
+            <button id="btn-gdrive-backup-import-latest" style="background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">Google ドライブからインポート（最新）</button>
+            <button id="btn-gdrive-backup-refresh" class="btn btn-secondary" style="font-size:12px;padding:6px 12px;">一覧更新</button>
+            <a id="gdrive-folder-link" href="#" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#3b82f6;text-decoration:none;display:none;">ドライブで開く ↗</a>
+            <button id="btn-gdrive-disconnect" class="btn btn-danger-text" style="font-size:12px;margin-left:auto;">切断</button>
+          </div>
+          <div class="table-wrapper" style="max-height:240px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
+            <table class="data-table table-sm">
+              <thead>
+                <tr>
+                  <th>ファイル名</th>
+                  <th>更新日時</th>
+                  <th>サイズ</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="gdrive-backup-list-body">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- クラウド共有セクション -->
       <div class="card" style="margin-bottom:16px;">
         <h3 class="card-title" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"
@@ -2446,6 +2500,7 @@
   <script src="js/cloud-share.js"></script>
   <script src="js/github_sync.js"></script>
   <script src="js/github_backup.js"></script>
+  <script src="js/google_drive_backup.js"></script>
   <script src="js/app.js"></script>
   <script>
     // Service Worker登録（オフライン対応）

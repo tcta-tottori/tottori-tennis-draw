@@ -4367,6 +4367,9 @@ window.App = {
     // --- クラウド共有 初期化 ---
     this._initCloudShare();
 
+    // --- Google ドライブ バックアップ 初期化 ---
+    this._initGoogleDriveBackup();
+
     // --- GitHub 全データバックアップ 初期化 ---
     this._initGitHubBackup();
 
@@ -7221,6 +7224,261 @@ window.App = {
     if (!name) return null;
     const entry = this._furiganaData.find(d => d.name === name);
     return entry ? entry.furigana : null;
+  },
+
+  // ================================================================
+  // Google ドライブ バックアップ
+  // ================================================================
+
+  _initGoogleDriveBackup() {
+    const statusEl = document.getElementById('gdrive-backup-status');
+    const setupArea = document.getElementById('gdrive-setup');
+    const clientIdSetup = document.getElementById('gdrive-clientid-setup');
+    const reconnectSetup = document.getElementById('gdrive-reconnect-setup');
+    const controlsArea = document.getElementById('gdrive-backup-controls');
+    const clientIdInput = document.getElementById('gdrive-client-id-input');
+    const btnConnect = document.getElementById('btn-gdrive-connect');
+    const btnReconnect = document.getElementById('btn-gdrive-reconnect');
+    const btnResetClientId = document.getElementById('btn-gdrive-reset-clientid');
+    const btnDisconnect = document.getElementById('btn-gdrive-disconnect');
+    const btnSave = document.getElementById('btn-gdrive-backup-save');
+    const btnImportLatest = document.getElementById('btn-gdrive-backup-import-latest');
+    const btnRefresh = document.getElementById('btn-gdrive-backup-refresh');
+    const folderLink = document.getElementById('gdrive-folder-link');
+
+    if (!btnConnect) return;
+
+    const savedClientId = GoogleDriveBackup.getSavedClientId();
+
+    // 保存済み Client ID がある場合の表示切り替え
+    if (savedClientId) {
+      if (clientIdSetup) clientIdSetup.style.display = 'none';
+      if (reconnectSetup) reconnectSetup.style.display = 'block';
+
+      // トークンが有効ならば自動接続
+      if (GoogleDriveBackup.isTokenValid()) {
+        this._gdriveConnect(GoogleDriveBackup.getSavedToken());
+      }
+    }
+
+    // Client ID 入力 → 接続
+    const doConnect = async (clientId) => {
+      try {
+        await GoogleDriveBackup.loadGisScript();
+        const token = await GoogleDriveBackup.requestAccessToken(clientId);
+        GoogleDriveBackup.saveClientId(clientId);
+        this._gdriveConnect(token);
+        this.showMessage('Google ドライブに接続しました', 'success');
+      } catch (e) {
+        this.showMessage('接続失敗: ' + (e.message || e), 'error');
+      }
+    };
+
+    btnConnect.addEventListener('click', async () => {
+      const clientId = clientIdInput.value.trim();
+      if (!clientId) return;
+      btnConnect.disabled = true;
+      btnConnect.textContent = '認証中...';
+      await doConnect(clientId);
+      btnConnect.disabled = false;
+      btnConnect.textContent = 'Google で認証';
+    });
+
+    if (btnReconnect) {
+      btnReconnect.addEventListener('click', async () => {
+        btnReconnect.disabled = true;
+        btnReconnect.textContent = '接続中...';
+        try {
+          await GoogleDriveBackup.loadGisScript();
+          const token = await GoogleDriveBackup.requestAccessToken(savedClientId);
+          this._gdriveConnect(token);
+          this.showMessage('Google ドライブに再接続しました', 'success');
+        } catch (e) {
+          this.showMessage('接続失敗: ' + (e.message || e), 'error');
+        } finally {
+          btnReconnect.disabled = false;
+          btnReconnect.textContent = 'Google ドライブに再接続';
+        }
+      });
+    }
+
+    if (btnResetClientId) {
+      btnResetClientId.addEventListener('click', () => {
+        GoogleDriveBackup.clearClientId();
+        GoogleDriveBackup.clearToken();
+        if (clientIdSetup) clientIdSetup.style.display = 'block';
+        if (reconnectSetup) reconnectSetup.style.display = 'none';
+        if (setupArea) setupArea.style.display = 'block';
+        if (controlsArea) controlsArea.style.display = 'none';
+        if (statusEl) { statusEl.textContent = '未接続'; statusEl.style.color = ''; }
+      });
+    }
+
+    if (btnDisconnect) {
+      btnDisconnect.addEventListener('click', () => {
+        const token = GoogleDriveBackup.getSavedToken();
+        if (token) GoogleDriveBackup.revokeToken(token);
+        if (setupArea) setupArea.style.display = 'block';
+        if (controlsArea) controlsArea.style.display = 'none';
+        if (clientIdSetup) clientIdSetup.style.display = 'none';
+        if (reconnectSetup) reconnectSetup.style.display = 'block';
+        if (statusEl) { statusEl.textContent = '未接続'; statusEl.style.color = ''; }
+      });
+    }
+
+    // エクスポート
+    if (btnSave) {
+      btnSave.addEventListener('click', async () => {
+        const token = GoogleDriveBackup.getSavedToken();
+        if (!token) { this.showMessage('Google ドライブに接続してください', 'error'); return; }
+        btnSave.disabled = true;
+        btnSave.textContent = 'エクスポート中...';
+        try {
+          const data = await this._buildAllBackupData();
+          const now = new Date();
+          const fileName = `full-backup-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.json`;
+          await GoogleDriveBackup.uploadBackup(token, fileName, data);
+          this.showMessage('Google ドライブに保存しました: ' + fileName, 'success');
+          await this._refreshGDriveBackupList();
+        } catch (e) {
+          this.showMessage('保存失敗: ' + e.message, 'error');
+        } finally {
+          btnSave.disabled = false;
+          btnSave.textContent = 'Google ドライブにエクスポート';
+        }
+      });
+    }
+
+    // 最新インポート
+    if (btnImportLatest) {
+      btnImportLatest.addEventListener('click', async () => {
+        const token = GoogleDriveBackup.getSavedToken();
+        if (!token) { this.showMessage('Google ドライブに接続してください', 'error'); return; }
+        btnImportLatest.disabled = true;
+        btnImportLatest.textContent = '取得中...';
+        try {
+          const files = await GoogleDriveBackup.listBackups(token);
+          if (!files || files.length === 0) {
+            this.showMessage('バックアップが見つかりません', 'error');
+            return;
+          }
+          const latest = files[0];
+          if (!confirm(`最新のバックアップ「${latest.name}」からインポートしますか？\n現在のデータは全て上書きされます。`)) return;
+          this._showLoadingOverlay('最新バックアップをインポート中...');
+          const data = await GoogleDriveBackup.downloadBackup(token, latest);
+          await this._restoreAllBackupData(data);
+          this.showMessage('最新バックアップからインポートしました。画面をリロードします。', 'success');
+          setTimeout(() => location.reload(), 2000);
+        } catch (e) {
+          this.showMessage('インポート失敗: ' + e.message, 'error');
+        } finally {
+          this._hideLoadingOverlay();
+          btnImportLatest.disabled = false;
+          btnImportLatest.textContent = 'Google ドライブからインポート（最新）';
+        }
+      });
+    }
+
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', () => this._refreshGDriveBackupList());
+    }
+  },
+
+  async _gdriveConnect(token) {
+    const setupArea = document.getElementById('gdrive-setup');
+    const controlsArea = document.getElementById('gdrive-backup-controls');
+    const statusEl = document.getElementById('gdrive-backup-status');
+    const folderLink = document.getElementById('gdrive-folder-link');
+
+    if (setupArea) setupArea.style.display = 'none';
+    if (controlsArea) controlsArea.style.display = 'block';
+
+    try {
+      const email = await GoogleDriveBackup.getUserEmail(token);
+      if (statusEl) {
+        statusEl.textContent = email || '接続完了';
+        statusEl.style.color = '#28a745';
+      }
+    } catch {
+      if (statusEl) { statusEl.textContent = '接続完了'; statusEl.style.color = '#28a745'; }
+    }
+
+    try {
+      const link = await GoogleDriveBackup.getSharedFolderLink(token);
+      if (folderLink) {
+        folderLink.href = link;
+        folderLink.style.display = 'inline';
+      }
+    } catch { /* ignore */ }
+
+    await this._refreshGDriveBackupList();
+  },
+
+  async _refreshGDriveBackupList() {
+    const tbody = document.getElementById('gdrive-backup-list-body');
+    if (!tbody) return;
+    const token = GoogleDriveBackup.getSavedToken();
+    if (!token) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">未接続</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">読込中...</td></tr>';
+
+    try {
+      const files = await GoogleDriveBackup.listBackups(token);
+      tbody.innerHTML = '';
+      if (files.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">バックアップはありません</td></tr>';
+        return;
+      }
+      files.forEach(file => {
+        const tr = document.createElement('tr');
+        const sizeKB = Math.round(Number(file.size) / 1024);
+        const modTime = file.modifiedTime ? new Date(file.modifiedTime).toLocaleString('ja-JP') : '-';
+        tr.innerHTML = `
+          <td style="font-size:12px;">${file.name}</td>
+          <td style="font-size:12px;">${modTime}</td>
+          <td style="font-size:12px;">${sizeKB} KB</td>
+          <td>
+            <button class="btn btn-sm btn-primary btn-restore" style="padding:2px 8px;">復元</button>
+            <button class="btn btn-sm btn-danger btn-delete" style="padding:2px 8px;margin-left:4px;">削除</button>
+          </td>
+        `;
+        tr.querySelector('.btn-restore').addEventListener('click', () => this._restoreFromGDrive(file));
+        tr.querySelector('.btn-delete').addEventListener('click', () => this._deleteFromGDrive(file));
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#dc3545;">一覧取得エラー: ${e.message}</td></tr>`;
+    }
+  },
+
+  async _restoreFromGDrive(file) {
+    if (!confirm(`Google ドライブ上のバックアップ「${file.name}」から復元しますか？\n現在のデータは全て上書きされます。`)) return;
+    const token = GoogleDriveBackup.getSavedToken();
+    this._showLoadingOverlay('データを復元中...');
+    try {
+      const data = await GoogleDriveBackup.downloadBackup(token, file);
+      await this._restoreAllBackupData(data);
+      this.showMessage('Google ドライブから復元しました。画面をリロードしてください。', 'success');
+      setTimeout(() => location.reload(), 2000);
+    } catch (e) {
+      this.showMessage('復元失敗: ' + e.message, 'error');
+    } finally {
+      this._hideLoadingOverlay();
+    }
+  },
+
+  async _deleteFromGDrive(file) {
+    if (!confirm(`バックアップ「${file.name}」を削除しますか？`)) return;
+    const token = GoogleDriveBackup.getSavedToken();
+    try {
+      await GoogleDriveBackup.deleteBackup(token, file);
+      this.showMessage('削除しました', 'success');
+      await this._refreshGDriveBackupList();
+    } catch (e) {
+      this.showMessage('削除失敗: ' + e.message, 'error');
+    }
   },
 
   // ================================================================

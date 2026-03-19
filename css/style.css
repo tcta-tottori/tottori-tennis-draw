@@ -108,37 +108,12 @@ body {
   position: sticky;
   top: 0;
   z-index: 101;
-  background: linear-gradient(135deg, #0a1628 0%, #1a3a5c 45%, #0d2847 100%);
-  box-shadow:
-    0 2px 20px rgba(10, 22, 40, 0.5),
-    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  background: linear-gradient(135deg, #4db8e8 0%, #2b96d4 30%, #1a7cb8 60%, #1568a0 100%);
+  box-shadow: 0 2px 12px rgba(21, 104, 160, 0.3);
   overflow: hidden;
 }
 
-/* テニスボールアクセント（右上） */
-.app-header::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 16px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #d4e847, #c6d63b, #a8b82f);
-  box-shadow:
-    0 0 8px rgba(196, 214, 59, 0.5),
-    0 0 20px rgba(196, 214, 59, 0.2),
-    0 0 40px rgba(196, 214, 59, 0.1);
-  z-index: 3;
-  animation: ballPulse 3s ease-in-out infinite;
-}
-
-@keyframes ballPulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(196, 214, 59, 0.5), 0 0 20px rgba(196, 214, 59, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(196, 214, 59, 0.7), 0 0 28px rgba(196, 214, 59, 0.3); }
-}
-
-/* コートライン装飾（ヘッダー全体） */
+/* 砂丘風紋装飾（ヘッダー全体） */
 .header-fumon {
   position: absolute;
   left: 0;
@@ -149,8 +124,38 @@ body {
   overflow: hidden;
 }
 
-/* 横方向コートライン */
 .header-fumon::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -20%;
+  width: 100%;
+  height: 140%;
+  background:
+    repeating-radial-gradient(ellipse 300% 60% at 50% 60%,
+      transparent 0px,
+      transparent 8px,
+      rgba(255, 255, 255, 0.05) 9px,
+      rgba(255, 255, 255, 0.05) 10px,
+      transparent 11px,
+      transparent 20px),
+    repeating-radial-gradient(ellipse 250% 50% at 30% 40%,
+      transparent 0px,
+      transparent 12px,
+      rgba(255, 255, 255, 0.04) 13px,
+      rgba(255, 255, 255, 0.04) 14px,
+      transparent 15px,
+      transparent 26px),
+    repeating-radial-gradient(ellipse 200% 55% at 70% 55%,
+      transparent 0px,
+      transparent 10px,
+      rgba(255, 255, 255, 0.03) 11px,
+      rgba(255, 255, 255, 0.03) 12px,
+      transparent 13px,
+      transparent 22px);
+}
+
+.header-fumon::after {
   content: '';
   position: absolute;
   left: 0;
@@ -158,48 +163,22 @@ body {
   width: 100%;
   height: 100%;
   background:
-    /* サービスライン（横線） */
-    linear-gradient(0deg,
-      transparent 0%,
-      transparent 30%,
-      rgba(255, 255, 255, 0.04) 30%,
-      rgba(255, 255, 255, 0.04) 30.5%,
-      transparent 30.5%,
-      transparent 70%,
-      rgba(255, 255, 255, 0.04) 70%,
-      rgba(255, 255, 255, 0.04) 70.5%,
-      transparent 70.5%),
-    /* センターライン（縦線） */
-    linear-gradient(90deg,
-      transparent 0%,
-      transparent 49.7%,
-      rgba(255, 255, 255, 0.03) 49.7%,
-      rgba(255, 255, 255, 0.03) 50.3%,
-      transparent 50.3%),
-    /* サイドライン（左） */
-    linear-gradient(90deg,
-      rgba(255, 255, 255, 0.025) 0%,
-      rgba(255, 255, 255, 0.025) 0.4%,
-      transparent 0.4%,
-      transparent 99.6%,
-      rgba(255, 255, 255, 0.025) 99.6%);
-}
-
-/* ネットライン装飾 */
-.header-fumon::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.08) 10%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.08) 90%,
-    transparent 100%);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.05);
+    repeating-linear-gradient(175deg,
+      transparent 0px,
+      transparent 14px,
+      rgba(255, 255, 255, 0.04) 15px,
+      rgba(255, 255, 255, 0.07) 16px,
+      rgba(255, 255, 255, 0.04) 17px,
+      transparent 18px,
+      transparent 32px),
+    repeating-linear-gradient(10deg,
+      transparent 0px,
+      transparent 20px,
+      rgba(255, 255, 255, 0.03) 21px,
+      rgba(255, 255, 255, 0.05) 22px,
+      rgba(255, 255, 255, 0.03) 23px,
+      transparent 24px,
+      transparent 40px);
 }
 
 .header-top {
@@ -223,17 +202,15 @@ body {
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
-  background: linear-gradient(135deg, rgba(27, 77, 62, 0.35), rgba(27, 77, 62, 0.18));
-  border: 1px solid rgba(27, 77, 62, 0.35);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   transition: background 0.2s, color 0.2s;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
 }
 .header-cross-link:hover {
-  background: linear-gradient(135deg, rgba(27, 77, 62, 0.5), rgba(27, 77, 62, 0.3));
+  background: rgba(255, 255, 255, 0.25);
   color: #fff;
 }
 .header-cross-link svg { flex-shrink: 0; }
@@ -251,7 +228,6 @@ body {
   align-self: center;
   flex-shrink: 0;
   gap: 3px;
-  margin-right: 20px;
 }
 
 .header-version .version-badge {
@@ -259,19 +235,17 @@ body {
   font-size: 11px;
   font-weight: 700;
   color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 10px;
   padding: 1px 10px;
   letter-spacing: 0.5px;
   line-height: 1.5;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .header-version .version-date {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1;
   text-align: right;
 }
@@ -287,8 +261,6 @@ body {
   flex-shrink: 0;
   overflow: hidden;
   animation: logoFadeIn 0.6s ease-out;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.08);
 }
 
 @keyframes logoFadeIn {
@@ -322,22 +294,19 @@ body {
 
 .header-org {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
-  letter-spacing: 0.2em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .app-title {
   font-size: var(--font-size-lg);
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   line-height: 1.3;
-  text-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(100, 160, 220, 0.15);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   white-space: nowrap;
 }
 
@@ -345,7 +314,7 @@ body {
   display: inline;
 }
 
-/* --- タブバーメニュー（ダークブルーグラスモーフィズム） --- */
+/* --- タブバーメニュー（ヘッダー色合わせ） --- */
 .tab-bar {
   position: -webkit-sticky;
   position: sticky;
@@ -354,13 +323,9 @@ body {
   display: flex;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  background: rgba(10, 22, 40, 0.85);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.3),
-    0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  background: linear-gradient(135deg, #1a7cb8 0%, #1568a0 40%, #125a8a 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(21, 104, 160, 0.3);
   scrollbar-width: none;
 }
 
@@ -369,10 +334,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(90deg,
-    rgba(26, 58, 92, 0.3) 0%,
-    rgba(13, 40, 71, 0.1) 50%,
-    rgba(26, 58, 92, 0.3) 100%);
+  background: none;
 }
 
 .tab-bar::-webkit-scrollbar {
@@ -387,30 +349,29 @@ body {
   font-family: var(--font-family);
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+  transition: all 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   position: relative;
   z-index: 1;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  text-shadow: none;
-  letter-spacing: 0.03em;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .tab-bar .tab-btn:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .tab-bar .tab-btn.active {
   color: #ffffff;
   font-weight: 700;
-  border-bottom-color: rgba(180, 210, 255, 0.9);
-  background: rgba(255, 255, 255, 0.08);
-  text-shadow: 0 0 10px rgba(180, 210, 255, 0.25);
+  border-bottom-color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* --- メインコンテンツ --- */

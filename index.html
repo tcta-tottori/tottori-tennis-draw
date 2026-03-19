@@ -1070,6 +1070,48 @@
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:16px;">
+        <h3 class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>GitHub バックアップ</span>
+          <span id="github-backup-status" style="font-size:12px;font-weight:normal;">未接続</span>
+        </h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          GitHubリポジトリに全データのバックアップを保存・管理します。
+        </p>
+        
+        <div id="github-backup-setup" style="margin-bottom:12px;">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input type="password" id="github-backup-token" class="form-input" placeholder="GitHub Personal Access Token (PAT)" style="flex:1;">
+            <button id="btn-github-backup-connect" class="btn btn-primary">接続</button>
+          </div>
+          <p style="font-size:11px;color:#888;">
+            ※設定はブラウザに保存されます。トークンには 'repo' 権限が必要です。
+          </p>
+        </div>
+
+        <div id="github-backup-controls" style="display:none;margin-bottom:16px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+            <button id="btn-github-backup-save" style="background:#111;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">GitHubにエクスポート</button>
+            <button id="btn-github-backup-import-latest" style="background:#111;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">GitHubからインポート（最新）</button>
+            <button id="btn-github-backup-refresh" class="btn btn-secondary" style="font-size:12px;padding:6px 12px;">一覧更新</button>
+            <button id="btn-github-backup-disconnect" class="btn btn-danger-text" style="font-size:12px;margin-left:auto;">切断</button>
+          </div>
+          <div class="table-wrapper" style="max-height:240px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
+            <table class="data-table table-sm">
+              <thead>
+                <tr>
+                  <th>ファイル名</th>
+                  <th>サイズ</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="github-backup-list-body">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- クラウド共有セクション -->
       <div class="card" style="margin-bottom:16px;">
         <h3 class="card-title" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;"
@@ -2403,6 +2445,7 @@
   <script src="js/schedule-engine.js"></script>
   <script src="js/cloud-share.js"></script>
   <script src="js/github_sync.js"></script>
+  <script src="js/github_backup.js"></script>
   <script src="js/app.js"></script>
   <script>
     // Service Worker登録（オフライン対応）

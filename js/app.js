@@ -3971,6 +3971,17 @@ window.App = {
       this.showMessage('確定済みのドローがありません', 'error');
       return;
     }
+    // 選択中の大会情報を含める
+    let tournament = null;
+    if (this._confirmedTournamentId) {
+      tournament = TournamentStore.getById(this._confirmedTournamentId);
+    }
+    if (!tournament) {
+      // フォールバック: 大会名から検索
+      const all = TournamentStore.getAll();
+      const name = AppConfig.TOURNAMENT_NAME || '';
+      tournament = all.find(t => t.name === name) || all[0] || null;
+    }
     const data = {
       type: 'draw-share',
       version: 1,
@@ -3978,6 +3989,15 @@ window.App = {
       exportedAt: new Date().toISOString(),
       drawResults: confirmed,
       confirmedEvents: { ...this.confirmedEvents },
+      tournament: tournament ? {
+        id: tournament.id,
+        name: tournament.name,
+        date: tournament.date || '',
+        dayOfWeek: tournament.dayOfWeek || '',
+        venue: tournament.venue || '',
+        reserveDate: tournament.reserveDate || '',
+        reserveVenue: tournament.reserveVenue || '',
+      } : null,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -4346,6 +4366,9 @@ window.App = {
 
     // --- クラウド共有 初期化 ---
     this._initCloudShare();
+
+    // --- GitHub 全データバックアップ 初期化 ---
+    this._initGitHubBackup();
 
     const btnClearAll = document.getElementById('btn-backup-clear-all');
     if (btnClearAll) btnClearAll.addEventListener('click', () => {
@@ -7198,6 +7221,222 @@ window.App = {
     if (!name) return null;
     const entry = this._furiganaData.find(d => d.name === name);
     return entry ? entry.furigana : null;
+  },
+
+  // ================================================================
+  // GitHub 全データバックアップ
+  // ================================================================
+
+  _initGitHubBackup() {
+    const tokenInput = document.getElementById('github-backup-token');
+    const btnConnect = document.getElementById('btn-github-backup-connect');
+    const btnDisconnect = document.getElementById('btn-github-backup-disconnect');
+    const btnSave = document.getElementById('btn-github-backup-save');
+    const btnRefresh = document.getElementById('btn-github-backup-refresh');
+    const setupArea = document.getElementById('github-backup-setup');
+    const controlsArea = document.getElementById('github-backup-controls');
+    const statusEl = document.getElementById('github-backup-status');
+
+    if (GitHubBackup.config.token) {
+      this._githubBackupConnect(GitHubBackup.config.token);
+    }
+
+    if (btnConnect) {
+      btnConnect.addEventListener('click', async () => {
+        const token = tokenInput.value.trim();
+        if (!token) return;
+        btnConnect.disabled = true;
+        btnConnect.textContent = '接続中...';
+        try {
+          const ok = await GitHubBackup.validateToken(token);
+          if (ok) {
+            GitHubBackup.saveToken(token);
+            this._githubBackupConnect(token);
+            this.showMessage('GitHubに接続しました', 'success');
+          } else {
+            this.showMessage('トークンが無効、または権限が不足しています', 'error');
+          }
+        } catch (e) {
+          this.showMessage('接続エラー: ' + e.message, 'error');
+        } finally {
+          btnConnect.disabled = false;
+          btnConnect.textContent = '接続';
+        }
+      });
+    }
+
+    if (btnDisconnect) {
+      btnDisconnect.addEventListener('click', () => {
+        GitHubBackup.saveToken('');
+        setupArea.style.display = 'block';
+        controlsArea.style.display = 'none';
+        statusEl.textContent = '未接続';
+        statusEl.style.color = '';
+      });
+    }
+
+    if (btnSave) {
+      btnSave.addEventListener('click', async () => {
+        btnSave.disabled = true;
+        btnSave.textContent = 'エクスポート中...';
+        try {
+          const data = await this._buildAllBackupData();
+          const now = new Date();
+          const fileName = `full-backup-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.json`;
+          
+          await GitHubBackup.uploadBackup(fileName, data);
+          this.showMessage('GitHubに保存しました: ' + fileName, 'success');
+          await this._refreshGitHubBackupList();
+        } catch (e) {
+          this.showMessage('保存失敗: ' + e.message, 'error');
+        } finally {
+          btnSave.disabled = false;
+          btnSave.textContent = 'GitHubにエクスポート';
+        }
+      });
+    }
+
+    const btnImportLatest = document.getElementById('btn-github-backup-import-latest');
+    if (btnImportLatest) {
+      btnImportLatest.addEventListener('click', async () => {
+        btnImportLatest.disabled = true;
+        btnImportLatest.textContent = '取得中...';
+        try {
+          const files = await GitHubBackup.listBackups();
+          if (!files || files.length === 0) {
+            this.showMessage('バックアップが見つかりません', 'error');
+            return;
+          }
+          const latest = files[0];
+          if (!confirm(`最新のバックアップ「${latest.name}」からインポートしますか？\n現在のデータは全て上書きされます。`)) return;
+          this._showLoadingOverlay('最新バックアップをインポート中...');
+          const data = await GitHubBackup.downloadBackup(latest);
+          await this._restoreAllBackupData(data);
+          this.showMessage('最新バックアップからインポートしました。画面をリロードします。', 'success');
+          setTimeout(() => location.reload(), 2000);
+        } catch (e) {
+          this.showMessage('インポート失敗: ' + e.message, 'error');
+        } finally {
+          this._hideLoadingOverlay();
+          btnImportLatest.disabled = false;
+          btnImportLatest.textContent = 'GitHubからインポート（最新）';
+        }
+      });
+    }
+
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', () => this._refreshGitHubBackupList());
+    }
+  },
+
+  async _githubBackupConnect(token) {
+    const setupArea = document.getElementById('github-backup-setup');
+    const controlsArea = document.getElementById('github-backup-controls');
+    const statusEl = document.getElementById('github-backup-status');
+    
+    if (setupArea) setupArea.style.display = 'none';
+    if (controlsArea) controlsArea.style.display = 'block';
+    if (statusEl) {
+      statusEl.textContent = '接続完了';
+      statusEl.style.color = '#28a745';
+    }
+    await this._refreshGitHubBackupList();
+  },
+
+  async _refreshGitHubBackupList() {
+    const tbody = document.getElementById('github-backup-list-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#888;">読込中...</td></tr>';
+
+    try {
+      const files = await GitHubBackup.listBackups();
+      tbody.innerHTML = '';
+      if (files.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#888;">バックアップはありません</td></tr>';
+        return;
+      }
+
+      files.forEach(file => {
+        const tr = document.createElement('tr');
+        const sizeKB = Math.round(file.size / 1024);
+        tr.innerHTML = `
+          <td style="font-size:12px;">${file.name}</td>
+          <td style="font-size:12px;">${sizeKB} KB</td>
+          <td>
+            <button class="btn btn-sm btn-primary btn-restore" style="padding:2px 8px;">復元</button>
+            <button class="btn btn-sm btn-danger btn-delete" style="padding:2px 8px;margin-left:4px;">削除</button>
+          </td>
+        `;
+
+        tr.querySelector('.btn-restore').addEventListener('click', () => this._restoreFromGitHub(file));
+        tr.querySelector('.btn-delete').addEventListener('click', () => this._deleteFromGitHub(file));
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#dc3545;">一覧取得エラー: ${e.message}</td></tr>`;
+    }
+  },
+
+  async _restoreFromGitHub(file) {
+    if (!confirm(`GitHub上のバックアップ「${file.name}」から復元しますか？\n現在のデータは全て上書きされます。`)) return;
+    
+    this._showLoadingOverlay('データを復元中...');
+    try {
+      const data = await GitHubBackup.downloadBackup(file);
+      await this._restoreAllBackupData(data);
+      this.showMessage('GitHubから復元しました。画面をリロードしてください。', 'success');
+      setTimeout(() => location.reload(), 2000);
+    } catch (e) {
+      this.showMessage('復元失敗: ' + e.message, 'error');
+    } finally {
+      this._hideLoadingOverlay();
+    }
+  },
+
+  async _deleteFromGitHub(file) {
+    if (!confirm(`バックアップ「${file.name}」を削除しますか？`)) return;
+    try {
+      await GitHubBackup.deleteBackup(file);
+      this.showMessage('削除しました', 'success');
+      await this._refreshGitHubBackupList();
+    } catch (e) {
+      this.showMessage('削除失敗: ' + e.message, 'error');
+    }
+  },
+
+  /**
+   * 全データバックアップ用データの生成
+   */
+  async _buildAllBackupData() {
+    return {
+      version: '2.3',
+      exportedAt: new Date().toISOString(),
+      entries: EntryStore.entries,
+      tournaments: TournamentStore.tournaments,
+      rankingBackup: JSON.parse(localStorage.getItem('drawSystem_rankingBackup') || '{}'),
+      furigana: JSON.parse(localStorage.getItem('drawSystem_furigana') || '[]'),
+      drawResults: this.drawResults,
+      confirmedEvents: this.confirmedEvents
+    };
+  },
+
+  /**
+   * 全データバックアップからの復元
+   */
+  async _restoreAllBackupData(data) {
+    if (!data || !data.entries) throw new Error('無効なバックアップデータです');
+
+    localStorage.setItem('drawSystem_entries', JSON.stringify(data.entries));
+    localStorage.setItem('drawSystem_tournaments', JSON.stringify(data.tournaments || []));
+    localStorage.setItem('drawSystem_rankingBackup', JSON.stringify(data.rankingBackup || {}));
+    localStorage.setItem('drawSystem_furigana', JSON.stringify(data.furigana || []));
+    localStorage.setItem('drawSystem_drawResults', JSON.stringify(data.drawResults || {}));
+    
+    // インメモリのデータを更新
+    EntryStore.entries = data.entries;
+    TournamentStore.tournaments = data.tournaments || [];
+    this.drawResults = data.drawResults || {};
+    this.confirmedEvents = data.confirmedEvents || {};
   },
 };
 

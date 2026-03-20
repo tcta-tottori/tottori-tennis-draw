@@ -13,6 +13,8 @@ window.AppConfig = {
   EVENT_CATEGORIES: [
     { key: 'singles', name: 'シングルス' },
     { key: 'doubles', name: 'ダブルス' },
+    { key: 'mixed_doubles', name: 'ミックスダブルス' },
+    { key: 'team', name: '団体戦' },
   ],
 
   EVENTS: [
@@ -36,6 +38,10 @@ window.AppConfig = {
     { code: 'l55d',  name: '女子55歳以上ダブルス',       shortName: '女子55D',    category: 'doubles' },
     { code: 'mbd',   name: '男子B級ダブルス',            shortName: '男子BD',     category: 'doubles' },
     { code: 'lbd',   name: '女子B級ダブルス',            shortName: '女子BD',     category: 'doubles' },
+    // ミックスダブルス
+    { code: 'xd',    name: 'ミックスダブルス',           shortName: 'ミックスD',  category: 'mixed_doubles' },
+    // 団体戦
+    { code: 'tm',    name: '団体戦',                     shortName: '団体',       category: 'team' },
   ],
 
   SEED_RULES: {

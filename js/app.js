@@ -1615,7 +1615,13 @@ window.App = {
       btnAdd.addEventListener('click', () => this._showEntryModal());
     }
 
-    // モーダル内の種目セレクト（refreshEntryTable内で動的に更新）
+    // モーダル内の種目セレクト（変更時に団体戦フォームを切替）
+    const entryEventSelect = document.getElementById('entry-event');
+    if (entryEventSelect) {
+      entryEventSelect.addEventListener('change', () => {
+        this._updateTeamFormVisibility(entryEventSelect.value, this._editingEntryId);
+      });
+    }
 
     // 保存ボタン
     const btnSave = document.getElementById('btn-entry-save');
@@ -1723,7 +1729,64 @@ window.App = {
     // サジェストリストクリア
     this._clearSuggestions();
 
+    // 団体戦フォーム切替
+    const evtSelect = document.getElementById('entry-event');
+    const selectedEvt = evtSelect ? evtSelect.value : '';
+    this._updateTeamFormVisibility(selectedEvt, entryId);
+
     modal.style.display = '';
+  },
+
+  /**
+   * 団体戦用フォームフィールドの表示切替
+   */
+  _updateTeamFormVisibility(eventCode, entryId) {
+    const isTeam = eventCode && EntryStore.isTeamEvent(eventCode);
+    const nameLabel = document.querySelector('label[for="entry-name"]');
+    const clubGroup = document.getElementById('entry-club')?.closest('.form-group');
+    const pointGroup = document.getElementById('entry-point')?.closest('.form-group');
+    const furiganaGroup = document.getElementById('entry-furigana')?.closest('.form-group');
+
+    // 団体戦メンバー入力エリア（動的生成）
+    let teamMembersGroup = document.getElementById('entry-team-members-group');
+    if (isTeam && !teamMembersGroup) {
+      teamMembersGroup = document.createElement('div');
+      teamMembersGroup.id = 'entry-team-members-group';
+      teamMembersGroup.className = 'form-group';
+      teamMembersGroup.innerHTML =
+        '<label for="entry-team-members">メンバー（1行1名）</label>' +
+        '<textarea id="entry-team-members" rows="5" class="form-control" placeholder="山田 太郎&#10;佐藤 花子&#10;..."></textarea>';
+      const form = document.getElementById('entry-name')?.closest('form') || document.getElementById('entry-name')?.parentElement?.parentElement;
+      if (form) form.appendChild(teamMembersGroup);
+    }
+
+    if (isTeam) {
+      if (nameLabel) nameLabel.textContent = 'チーム名';
+      if (clubGroup) clubGroup.style.display = 'none';
+      if (pointGroup) pointGroup.style.display = 'none';
+      if (furiganaGroup) furiganaGroup.style.display = 'none';
+      if (teamMembersGroup) {
+        teamMembersGroup.style.display = '';
+        // 既存エントリーのメンバーを復元
+        const membersTextarea = document.getElementById('entry-team-members');
+        if (membersTextarea && entryId) {
+          const entry = EntryStore.getById(entryId);
+          if (entry && entry.teamMembers) {
+            membersTextarea.value = entry.teamMembers.map(m => typeof m === 'string' ? m : m.name).join('\n');
+          } else {
+            membersTextarea.value = '';
+          }
+        } else if (membersTextarea) {
+          membersTextarea.value = '';
+        }
+      }
+    } else {
+      if (nameLabel) nameLabel.textContent = '氏名';
+      if (clubGroup) clubGroup.style.display = '';
+      if (pointGroup) pointGroup.style.display = '';
+      if (furiganaGroup) furiganaGroup.style.display = '';
+      if (teamMembersGroup) teamMembersGroup.style.display = 'none';
+    }
   },
 
   _saveEntry() {
@@ -1743,6 +1806,16 @@ window.App = {
     }
 
     const data = { name, furigana, affiliation: affiliation || 'フリー', eventCode, points };
+
+    // 団体戦: メンバー情報を保存
+    if (EntryStore.isTeamEvent(eventCode)) {
+      const membersTextarea = document.getElementById('entry-team-members');
+      if (membersTextarea) {
+        const memberLines = membersTextarea.value.split('\n').map(l => l.trim()).filter(l => l);
+        data.teamMembers = memberLines.map(name => ({ name }));
+      }
+      data.affiliation = name; // チーム名を所属としても使用
+    }
 
     if (this._editingEntryId) {
       EntryStore.update(this._editingEntryId, data);
@@ -1932,19 +2005,25 @@ window.App = {
       entryEventSelect.innerHTML = '<option value="">選択してください</option>';
       // 大会の試合種目でフィルタ＆ソート
       const tournEvts = this._selectedTournamentEvents || '';
-      const hasSingles = !tournEvts || /シングルス/i.test(tournEvts);
-      const hasDoubles = !tournEvts || /ダブルス/i.test(tournEvts);
+      const hasSingles = !tournEvts || /シングルス|単/i.test(tournEvts);
+      const hasDoubles = !tournEvts || /(?<!ミックス)ダブルス|(?<!ミックス)複/i.test(tournEvts);
+      const hasMixed = !tournEvts || /ミックス/i.test(tournEvts);
+      const hasTeam = !tournEvts || /団体|対抗/i.test(tournEvts);
       const sortedEvents = [...AppConfig.EVENTS].sort((a, b) => {
-        const ga = a.code.startsWith('m') ? 0 : 1;
-        const gb = b.code.startsWith('m') ? 0 : 1;
+        const ga = a.code.startsWith('m') || a.code === 'xd' || a.code === 'tm' ? 0 : 1;
+        const gb = b.code.startsWith('m') || b.code === 'xd' || b.code === 'tm' ? 0 : 1;
         if (ga !== gb) return ga - gb;
         return AppConfig.EVENTS.indexOf(a) - AppConfig.EVENTS.indexOf(b);
       });
       for (const evt of sortedEvents) {
         const isSingles = evt.category === 'singles';
         const isDoubles = evt.category === 'doubles';
+        const isMixed = evt.category === 'mixed_doubles';
+        const isTeam = evt.category === 'team';
         if (tournEvts && !hasSingles && isSingles) continue;
         if (tournEvts && !hasDoubles && isDoubles) continue;
+        if (tournEvts && !hasMixed && isMixed) continue;
+        if (tournEvts && !hasTeam && isTeam) continue;
         const opt = document.createElement('option');
         opt.value = evt.code;
         opt.textContent = evt.name;
@@ -1964,10 +2043,12 @@ window.App = {
 
     const targetCode = filter || (entryEventCodes.length === 1 ? entryEventCodes[0] : '');
     let isDoubles = false;
+    let isTeam = false;
     try {
       isDoubles = !!(targetCode && EntryStore.isDoublesEvent(targetCode));
+      isTeam = !!(targetCode && EntryStore.isTeamEvent(targetCode));
     } catch (e) {
-      console.warn('isDoublesEvent error:', e);
+      console.warn('isDoublesEvent/isTeamEvent error:', e);
     }
 
     // テーブルヘッダーを切り替え
@@ -1976,8 +2057,12 @@ window.App = {
     // 男女判定（種目コードで色分け）
     const isMaleEvent = targetCode && targetCode.startsWith('m');
     const isFemaleEvent = targetCode && targetCode.startsWith('l');
+    const isMixedEvent = targetCode === 'xd';
     if (thead) {
-      if (isDoubles) {
+      if (isTeam) {
+        thead.innerHTML = '<tr><th>チーム名</th><th>メンバー</th><th>操作</th></tr>';
+        if (entryTable) entryTable.classList.remove('entry-doubles');
+      } else if (isDoubles) {
         thead.innerHTML = '<tr><th>氏名</th><th>所属</th><th>個人pt</th><th>合計pt</th><th>操作</th></tr>';
         if (entryTable) entryTable.classList.add('entry-doubles');
       } else {
@@ -1985,13 +2070,27 @@ window.App = {
         if (entryTable) entryTable.classList.remove('entry-doubles');
       }
       // 男女別ヘッダー色
-      if (isMaleEvent) {
-        thead.querySelector('tr').style.background = '#e3f2fd';
+      const headerTr = thead.querySelector('tr');
+      if (isMixedEvent) {
+        headerTr.style.background = '#f3e5f5';
+      } else if (isMaleEvent) {
+        headerTr.style.background = '#e3f2fd';
       } else if (isFemaleEvent) {
-        thead.querySelector('tr').style.background = '#fce4ec';
+        headerTr.style.background = '#fce4ec';
+      } else if (isTeam) {
+        headerTr.style.background = '#e8f5e9';
       }
     }
 
+    // 団体戦の場合
+    if (isTeam && targetCode) {
+      try {
+        this._renderTeamEntryTable(tbody, targetCode, totalCount);
+      } catch (e) {
+        console.error('団体戦エントリー表示エラー:', e);
+        isTeam = false;
+      }
+    }
     // ダブルスの場合はペア単位で表示
     if (isDoubles && targetCode) {
       try {
@@ -2001,7 +2100,7 @@ window.App = {
         isDoubles = false; // フォールバック: シングルスとして表示
       }
     }
-    if (!isDoubles) {
+    if (!isDoubles && !isTeam) {
       // シングルス: ランキング順（ポイント降順）でソート
       entries.sort((a, b) => (b.points || 0) - (a.points || 0));
       tbody.innerHTML = '';
@@ -2133,9 +2232,11 @@ window.App = {
     // ペアごとに2行でグループ表示（男女別色分け）
     const dblIsMale = eventCode.startsWith('m');
     const dblIsFemale = eventCode.startsWith('l');
+    const dblIsMixed = eventCode === 'xd';
     pairs.forEach((pair, pairIdx) => {
       const isIncomplete = pair.incomplete;
-      const bgColor = isIncomplete ? '#ffebee' : (pairIdx % 2 === 0 ? (dblIsFemale ? '#fff5f7' : '#f0f7ff') : '#ffffff');
+      const evenColor = dblIsMixed ? '#f3e5f5' : (dblIsFemale ? '#fff5f7' : '#f0f7ff');
+      const bgColor = isIncomplete ? '#ffebee' : (pairIdx % 2 === 0 ? evenColor : '#ffffff');
       pair.entries.forEach((entry, entryIdx) => {
         const tr = document.createElement('tr');
         if (pairIdx < 15) {
@@ -2218,6 +2319,74 @@ window.App = {
         separatorTr.innerHTML = '<td colspan="5" style="padding:0;height:2px;background:#cbd5e1;"></td>';
         tbody.appendChild(separatorTr);
       }
+    });
+  },
+
+  /**
+   * 団体戦エントリーテーブル表示
+   */
+  _renderTeamEntryTable(tbody, eventCode, totalCountEl) {
+    const entries = EntryStore.getByEvent(eventCode);
+    tbody.innerHTML = '';
+    if (totalCountEl) totalCountEl.textContent = entries.length + 'チーム';
+
+    // シード・ドロー情報
+    const seedInfoEl = document.getElementById('entry-seed-info');
+    if (seedInfoEl) {
+      seedInfoEl.innerHTML = '';
+      if (entries.length > 3) {
+        const drawSize = DrawEngine.getDrawSize(entries.length);
+        let html = '<div class="draw-info-grid">' +
+          '<div class="draw-info-item"><span class="draw-info-label">チーム数</span><span class="draw-info-value">' + entries.length + '</span></div>' +
+          '<div class="draw-info-item"><span class="draw-info-label">ドローサイズ</span><span class="draw-info-value">' + drawSize + '</span></div>' +
+          '<div class="draw-info-item"><span class="draw-info-label">BYE</span><span class="draw-info-value">' + (drawSize - entries.length) + '</span></div>' +
+          '<div class="draw-info-item"><span class="draw-info-label">シード</span><span class="draw-info-value">なし</span></div>' +
+          '</div>';
+        seedInfoEl.innerHTML = html;
+      }
+    }
+
+    entries.forEach((entry, idx) => {
+      const tr = document.createElement('tr');
+      if (idx < 30) {
+        tr.classList.add('row-enter');
+        tr.style.animationDelay = (idx * 20) + 'ms';
+      }
+      tr.style.backgroundColor = idx % 2 === 0 ? '#e8f5e9' : '#ffffff';
+
+      // メンバー表示
+      const members = entry.teamMembers || [];
+      const memberText = members.length > 0
+        ? members.map(m => this._esc(m.name || m)).join(', ')
+        : '<span style="color:#999;">未登録</span>';
+
+      tr.innerHTML =
+        '<td><strong>' + this._esc(entry.name) + '</strong></td>' +
+        '<td style="font-size:12px;">' + memberText + '</td>' +
+        '<td class="action-cell"></td>';
+
+      const actionCell = tr.querySelector('.action-cell');
+
+      const btnEdit = document.createElement('button');
+      btnEdit.className = 'btn btn-sm btn-secondary';
+      btnEdit.textContent = '編集';
+      btnEdit.addEventListener('click', () => this._showEntryModal(entry.id));
+      actionCell.appendChild(btnEdit);
+
+      const btnDel = document.createElement('button');
+      btnDel.className = 'btn btn-sm btn-danger';
+      btnDel.textContent = '削除';
+      btnDel.style.marginLeft = '4px';
+      btnDel.addEventListener('click', () => {
+        if (confirm(entry.name + ' を削除しますか？')) {
+          EntryStore.remove(entry.id);
+          this.refreshEntryTable();
+          this.showMessage('チームを削除しました', 'info');
+        }
+      });
+      actionCell.appendChild(btnDel);
+
+      tbody.appendChild(tr);
     });
   },
 
@@ -2554,12 +2723,17 @@ window.App = {
     select.innerHTML = '';
     let firstCode = '';
     for (const evt of AppConfig.EVENTS) {
-      const isDoubles = evt.category === 'doubles';
+      const isDoubles = (evt.category === 'doubles' || evt.category === 'mixed_doubles');
+      const isTeam = evt.category === 'team';
       let count, label;
       if (isDoubles) {
         const pairs = EntryStore.getDoublesPairs(evt.code).filter(p => !p.incomplete);
         count = pairs.length;
         label = evt.name + ' (' + count + 'ペア)';
+      } else if (isTeam) {
+        const entries = EntryStore.getByEvent(evt.code);
+        count = entries.length;
+        label = evt.name + ' (' + count + 'チーム)';
       } else {
         const entries = EntryStore.getByEvent(evt.code);
         count = entries.length;
@@ -2616,8 +2790,9 @@ window.App = {
 
     const eventCode = select.value;
     const isDoubles = EntryStore.isDoublesEvent(eventCode);
+    const isTeam = EntryStore.isTeamEvent(eventCode);
 
-    // ダブルスの場合はペア単位で処理
+    // ダブルス/ミックスの場合はペア単位で処理、団体戦はチーム単位
     let drawEntries;
     if (isDoubles) {
       const allPairs = EntryStore.getDoublesPairs(eventCode);
@@ -2642,13 +2817,22 @@ window.App = {
         points: p.points,
         seed: 0,
       }));
+    } else if (isTeam) {
+      drawEntries = EntryStore.getByEvent(eventCode).map(e => ({
+        name: e.name,
+        furigana: e.furigana || '',
+        affiliation: e.affiliation || '',
+        points: 0,
+        seed: 0,
+      }));
     } else {
       drawEntries = EntryStore.getByEvent(eventCode);
     }
 
     if (drawEntries.length <= 3) {
       if (lotterySection) lotterySection.style.display = 'none';
-      this.showMessage(isDoubles ? '完全なペアが4組以上必要です' : 'エントリーが4名以上必要です', 'error');
+      const label = isDoubles ? '完全なペアが4組以上必要です' : (isTeam ? 'チームが4つ以上必要です' : 'エントリーが4名以上必要です');
+      this.showMessage(label, 'error');
       return;
     }
 
@@ -2663,8 +2847,8 @@ window.App = {
     // シード情報バーを更新
     const seedInfoBar = document.getElementById('draw-seed-info');
     if (seedInfoBar) {
-      const entryLabel = isDoubles ? 'ペア数' : 'エントリー';
-      const entryUnit = isDoubles ? '' : '名';
+      const entryLabel = isDoubles ? 'ペア数' : (isTeam ? 'チーム数' : 'エントリー');
+      const entryUnit = isDoubles ? '' : (isTeam ? '' : '名');
       let html = '<div class="draw-info-grid">' +
         '<div class="draw-info-item"><span class="draw-info-label">' + entryLabel + '</span><span class="draw-info-value">' + drawEntries.length + entryUnit + '</span></div>' +
         '<div class="draw-info-item"><span class="draw-info-label">ドローサイズ</span><span class="draw-info-value">' + drawSize + '</span></div>' +
@@ -3151,7 +3335,7 @@ window.App = {
     if (!wrapper || !this._manualDraw || !this._currentDrawData) return;
 
     const evt = AppConfig.EVENTS.find(e => e.code === this._currentDrawData.eventCode);
-    const isDoubles = evt ? evt.category === 'doubles' : false;
+    const isDoubles = evt ? (evt.category === 'doubles' || evt.category === 'mixed_doubles') : false;
     const drawData = {
       draw: this._manualDraw,
       drawSize: this._currentDrawData.drawSize,
@@ -3269,7 +3453,7 @@ window.App = {
 
     // ダブルスかどうか判定
     const evt = this._currentDrawData ? AppConfig.EVENTS.find(e => e.code === this._currentDrawData.eventCode) : null;
-    const isDoubles = evt ? evt.category === 'doubles' : false;
+    const isDoubles = evt ? (evt.category === 'doubles' || evt.category === 'mixed_doubles') : false;
 
     if (isDoubles) {
       // ダブルス: affiliation1, affiliation2 を使って片方でも一致すればNG
@@ -3542,7 +3726,7 @@ window.App = {
     // 各ペアの対戦相手と所属が被らないように配置
 
     const evt = this._currentDrawData ? AppConfig.EVENTS.find(e => e.code === this._currentDrawData.eventCode) : null;
-    const isDoubles = evt ? evt.category === 'doubles' : false;
+    const isDoubles = evt ? (evt.category === 'doubles' || evt.category === 'mixed_doubles') : false;
 
     // 2エントリー間で所属衝突があるかチェック
     const hasAffiliationCollision = (a, b) => {
@@ -3931,7 +4115,7 @@ window.App = {
         entries: result.entries,
         seeds: result.seeds,
         entryCount: result.entryCount,
-        isDoubles: evtDef ? evtDef.category === 'doubles' : false,
+        isDoubles: evtDef ? (evtDef.category === 'doubles' || evtDef.category === 'mixed_doubles') : false,
       }, { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode });
 
       // SVGを画面に収める（viewBoxを維持しつつ幅100%にスケール）
@@ -4140,7 +4324,7 @@ window.App = {
       date: AppConfig.TOURNAMENT_DATE || '',
       venue: AppConfig.TOURNAMENT_VENUE || '',
       matchFormat: AppConfig.MATCH_FORMAT || '',
-      isDoubles: evtDef ? evtDef.category === 'doubles' : false,
+      isDoubles: evtDef ? (evtDef.category === 'doubles' || evtDef.category === 'mixed_doubles') : false,
       confirmed: !!isConfirmed,
       scheduleMap: this._getScheduleMap(),
       eventCode: select.value,
@@ -4258,7 +4442,7 @@ window.App = {
         entries: result.entries,
         seeds: result.seeds,
         entryCount: result.entryCount,
-        isDoubles: evtInfo ? evtInfo.category === 'doubles' : false,
+        isDoubles: evtInfo ? (evtInfo.category === 'doubles' || evtInfo.category === 'mixed_doubles') : false,
       }, { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode });
     }
 
@@ -4270,7 +4454,7 @@ window.App = {
 
     // エントリーリスト表示
     const evtDef = AppConfig.EVENTS.find(e => e.code === eventCode);
-    const isDoubles = evtDef ? evtDef.category === 'doubles' : false;
+    const isDoubles = evtDef ? (evtDef.category === 'doubles' || evtDef.category === 'mixed_doubles') : false;
     if (entryList) {
       entryList.style.display = '';
       const tbody = document.getElementById('bracket-entry-body');
@@ -6093,73 +6277,19 @@ window.App = {
       btnAutoAssign.addEventListener('click', () => this._autoAssignFuriganaKuromoji());
     }
 
-    // GitHub同期設定
-    const btnGhSettings = document.getElementById('btn-github-settings');
-    const modalGhSettings = document.getElementById('modal-github-settings');
-    if (btnGhSettings && modalGhSettings) {
-      btnGhSettings.addEventListener('click', () => {
-        document.getElementById('github-repo').value = GitHubSync.config.repo;
-        document.getElementById('github-pat').value = GitHubSync.config.pat;
-        document.getElementById('github-file-path').value = GitHubSync.config.filePath;
-        modalGhSettings.style.display = 'flex';
+    // Google Drive ふりがな保存ボタン
+    const btnFuriganaGDriveUpload = document.getElementById('btn-furigana-gdrive-upload');
+    if (btnFuriganaGDriveUpload) {
+      btnFuriganaGDriveUpload.addEventListener('click', async () => {
+        await this._uploadFuriganaToGDrive();
       });
     }
 
-    const btnGhSave = document.getElementById('btn-github-save');
-    if (btnGhSave) {
-      btnGhSave.addEventListener('click', async () => {
-        const repo = document.getElementById('github-repo').value.trim();
-        const pat = document.getElementById('github-pat').value.trim();
-        const path = document.getElementById('github-file-path').value.trim();
-        GitHubSync.saveConfig(repo, pat, path);
-        if (modalGhSettings) modalGhSettings.style.display = 'none';
-        this.showMessage('GitHub連携設定を保存しました', 'success');
-        
-        // 保存直後にアップロードを試行
-        if (this._furiganaData.length > 0) {
-          try {
-            this.showMessage('GitHubへデータを同期しています...', 'info');
-            await GitHubSync.uploadData(this._furiganaData);
-            this.showMessage('GitHubへの同期が完了しました', 'success');
-          } catch (e) {
-            this.showMessage('GitHub同期エラー: ' + e.message, 'error');
-          }
-        }
-      });
-    }
-
-    const btnGhLoad = document.getElementById('btn-github-load');
-    if (btnGhLoad) {
-      btnGhLoad.addEventListener('click', async () => {
-        const repo = document.getElementById('github-repo').value.trim();
-        const pat = document.getElementById('github-pat').value.trim();
-        const path = document.getElementById('github-file-path').value.trim();
-        GitHubSync.saveConfig(repo, pat, path);
-
-        try {
-          btnGhLoad.disabled = true;
-          btnGhLoad.textContent = '取得中...';
-          const data = await GitHubSync.downloadData();
-          if (data && Array.isArray(data)) {
-            this._furiganaData = data;
-            if (data.length > 0) {
-              this._furiganaNextId = Math.max(...data.map(d => d.id || 0)) + 1;
-            }
-            // ローカルストレージにも保存
-            localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
-            this._syncFuriganaToRankingLoader();
-            this._renderFuriganaTable();
-            this.showMessage(`GitHubから ${data.length} 件のデータを取得しました`, 'success');
-            if (modalGhSettings) modalGhSettings.style.display = 'none';
-          } else {
-            this.showMessage('GitHub上にデータが見つかりませんでした', 'info');
-          }
-        } catch (e) {
-          this.showMessage('GitHub取得エラー: ' + e.message, 'error');
-        } finally {
-          btnGhLoad.disabled = false;
-          btnGhLoad.textContent = '手動取得';
-        }
+    // Google Drive ふりがな読込ボタン
+    const btnFuriganaGDriveLoad = document.getElementById('btn-furigana-gdrive-load');
+    if (btnFuriganaGDriveLoad) {
+      btnFuriganaGDriveLoad.addEventListener('click', async () => {
+        await this._loadFuriganaFromGDrive();
       });
     }
 
@@ -6243,8 +6373,8 @@ window.App = {
       });
     }
 
-    // 起動時にGitHub JSONを読み込み試行
-    this._loadFuriganaFromGitHub();
+    // 起動時にGoogle Driveからふりがなデータを自動読み込み
+    this._autoLoadFuriganaFromGDrive();
 
     // ふりがな編集モーダルの初期化
     this._initFuriganaEditModal();
@@ -6286,20 +6416,21 @@ window.App = {
     }
     this._updateFuriganaCountDisplay();
 
-    // 非同期でGitHubへ同期
-    if (typeof GitHubSync !== 'undefined' && GitHubSync.isValid()) {
+    // 非同期でGoogle Driveへ同期（トークンがある場合のみ）
+    if (typeof GoogleDriveBackup !== 'undefined' && GoogleDriveBackup.isTokenValid()) {
       const syncStatus = document.getElementById('furigana-sync-status');
       if (syncStatus) {
         syncStatus.style.display = 'block';
-        syncStatus.textContent = 'GitHubへ同期中...';
+        syncStatus.textContent = 'Google Driveへ同期中...';
         syncStatus.style.backgroundColor = '#f0f4ff';
         syncStatus.style.color = '#3b82f6';
       }
-      
-      GitHubSync.uploadData(this._furiganaData)
+
+      const token = GoogleDriveBackup.getSavedToken();
+      this._doUploadFuriganaToGDrive(token)
         .then(() => {
           if (syncStatus) {
-            syncStatus.textContent = '✓ GitHub同期完了 (' + new Date().toLocaleTimeString('ja-JP') + ')';
+            syncStatus.textContent = '✓ Google Drive同期完了 (' + new Date().toLocaleTimeString('ja-JP') + ')';
             syncStatus.style.backgroundColor = '#f0fdf4';
             syncStatus.style.color = '#15803d';
             setTimeout(() => { syncStatus.style.display = 'none'; }, 5000);
@@ -6307,7 +6438,7 @@ window.App = {
         })
         .catch(e => {
           if (syncStatus) {
-            syncStatus.textContent = '⚠ GitHub同期失敗: ' + e.message;
+            syncStatus.textContent = '⚠ Google Drive同期失敗: ' + e.message;
             syncStatus.style.backgroundColor = '#fef2f2';
             syncStatus.style.color = '#b91c1c';
           }
@@ -6316,24 +6447,59 @@ window.App = {
   },
 
   /**
-   * 起動時にGitHubから自動取得
+   * 起動時にGoogle Driveから自動取得（トークンが有効な場合のみ）
    */
-  async _autoLoadFuriganaFromGitHub() {
-    if (typeof GitHubSync === 'undefined' || !GitHubSync.isValid()) return;
+  async _autoLoadFuriganaFromGDrive() {
+    if (typeof GoogleDriveBackup === 'undefined' || !GoogleDriveBackup.isTokenValid()) return;
     try {
-      const data = await GitHubSync.downloadData();
-      if (data && Array.isArray(data)) {
-        this._furiganaData = data;
-        if (data.length > 0) {
-          this._furiganaNextId = Math.max(...data.map(d => d.id || 0)) + 1;
+      const token = GoogleDriveBackup.getSavedToken();
+      const folderId = await GoogleDriveBackup.getBackupFolderId(token);
+      const q = `'${folderId}' in parents and name='furigana.json' and trashed=false`;
+      const params = new URLSearchParams({ q, fields: 'files(id,name,modifiedTime)', pageSize: '1' });
+      const res = await fetch(`${GoogleDriveBackup.DRIVE_API}/files?${params}`, { headers: GoogleDriveBackup._headers(token) });
+      if (!res.ok) return;
+      const result = await res.json();
+      const file = result.files?.[0];
+      if (!file) return;
+
+      const dataRes = await fetch(`${GoogleDriveBackup.DRIVE_API}/files/${file.id}?alt=media`, { headers: GoogleDriveBackup._headers(token) });
+      if (!dataRes.ok) return;
+      const data = await dataRes.json();
+      if (!data || !Array.isArray(data) || data.length === 0) return;
+
+      // マージ: Google Driveのデータのうちローカルに存在しないものを追加
+      let merged = 0;
+      for (const entry of data) {
+        if (!entry.name) continue;
+        const existing = this._furiganaData.find(d => d.name === entry.name);
+        if (!existing) {
+          this._furiganaData.push({
+            id: this._furiganaNextId++,
+            name: entry.name,
+            furigana: entry.furigana || '',
+            source: entry.source || 'gdrive',
+            affiliation: entry.affiliation || '',
+            eventCodes: entry.eventCodes || [],
+            rankingPoints: entry.rankingPoints || 0,
+            rankingPosition: entry.rankingPosition || 0,
+            lastUpdated: entry.lastUpdated || '',
+            furiganaEdited: entry.furiganaEdited || false,
+          });
+          merged++;
+        } else if (!existing.furigana && entry.furigana) {
+          existing.furigana = entry.furigana;
+          existing.source = entry.source || existing.source;
+          merged++;
         }
+      }
+      if (merged > 0) {
         localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
         this._syncFuriganaToRankingLoader();
         this._renderFuriganaTable();
-        console.log('GitHubからふりがなデータを自動同期しました');
+        console.log('Google Driveからふりがなデータを ' + merged + '件マージしました');
       }
     } catch (e) {
-      console.warn('起動時のGitHub自動同期に失敗しました:', e);
+      console.warn('起動時のGoogle Drive自動同期に失敗しました:', e);
     }
   },
 
@@ -6467,52 +6633,123 @@ window.App = {
   },
 
   /**
-   * GitHub管理のfurigana.jsonからデータを読み込み（起動時）
+   * Google Driveにふりがなデータをアップロード（内部ヘルパー）
    */
-  async _loadFuriganaFromGitHub() {
-    try {
-      const response = await fetch('./data/furigana.json');
-      if (!response.ok) return;
-      const json = await response.json();
-      if (!json || !Array.isArray(json.entries) || json.entries.length === 0) return;
+  async _doUploadFuriganaToGDrive(token) {
+    const folderId = await GoogleDriveBackup.getBackupFolderId(token);
+    // 既存の furigana.json を検索して削除（最新を1ファイルで管理）
+    const q = `'${folderId}' in parents and name='furigana.json' and trashed=false`;
+    const params = new URLSearchParams({ q, fields: 'files(id)', pageSize: '5' });
+    const listRes = await fetch(`${GoogleDriveBackup.DRIVE_API}/files?${params}`, { headers: GoogleDriveBackup._headers(token) });
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      for (const f of (listData.files || [])) {
+        await fetch(`${GoogleDriveBackup.DRIVE_API}/files/${f.id}`, { method: 'DELETE', headers: GoogleDriveBackup._headers(token) });
+      }
+    }
+    // 新規アップロード
+    await GoogleDriveBackup.uploadBackup(token, 'furigana.json', this._furiganaData);
+  },
 
-      // マージ: JSONのエントリーのうち、ローカルに存在しないものを追加
-      let merged = 0;
-      for (const entry of json.entries) {
-        if (!entry.name) continue;
-        const existing = this._furiganaData.find(d => d.name === entry.name);
-        if (!existing) {
-          this._furiganaData.push({
-            id: this._furiganaNextId++,
-            name: entry.name,
-            furigana: entry.furigana || '',
-            source: entry.source || 'spreadsheet',
-            affiliation: entry.affiliation || '',
-            eventCodes: entry.eventCodes || (entry.eventCode ? [entry.eventCode] : []),
-            rankingPoints: entry.rankingPoints || 0,
-            rankingPosition: entry.rankingPosition || 0,
-            lastUpdated: entry.lastUpdated || '',
-            furiganaEdited: entry.furiganaEdited || false,
-          });
-          merged++;
-        } else {
-          // 既存エントリーで、ふりがなが空かつJSONにふりがながある場合は補完
-          if (!existing.furigana && entry.furigana) {
+  /**
+   * Google Driveにふりがなデータを手動保存（ボタン操作）
+   */
+  async _uploadFuriganaToGDrive() {
+    const btn = document.getElementById('btn-furigana-gdrive-upload');
+    try {
+      let token = GoogleDriveBackup.getSavedToken();
+      if (!token) {
+        // トークンがない場合は認証フロー
+        const clientId = GoogleDriveBackup.getSavedClientId();
+        if (!clientId) {
+          this.showMessage('バックアップ画面でGoogle DriveのClient IDを設定してください', 'error');
+          return;
+        }
+        await GoogleDriveBackup.loadGisScript();
+        token = await GoogleDriveBackup.requestAccessToken(clientId);
+      }
+      if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+      await this._doUploadFuriganaToGDrive(token);
+      this.showMessage('ふりがなデータをGoogle Driveに保存しました（' + this._furiganaData.length + '件）', 'success');
+    } catch (e) {
+      this.showMessage('Google Drive保存失敗: ' + e.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#fff"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L3.45 44.7c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#fff"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85L73.55 76.8z" fill="#fff"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#fff"/><path d="M59.85 53H27.5l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2L59.85 53z" fill="#fff"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#fff"/></svg>Driveに保存'; }
+    }
+  },
+
+  /**
+   * Google Driveからふりがなデータを手動読込（ボタン操作）
+   */
+  async _loadFuriganaFromGDrive() {
+    const btn = document.getElementById('btn-furigana-gdrive-load');
+    try {
+      let token = GoogleDriveBackup.getSavedToken();
+      if (!token) {
+        const clientId = GoogleDriveBackup.getSavedClientId();
+        if (!clientId) {
+          this.showMessage('バックアップ画面でGoogle DriveのClient IDを設定してください', 'error');
+          return;
+        }
+        await GoogleDriveBackup.loadGisScript();
+        token = await GoogleDriveBackup.requestAccessToken(clientId);
+      }
+      if (btn) { btn.disabled = true; btn.textContent = '読込中...'; }
+
+      const folderId = await GoogleDriveBackup.getBackupFolderId(token);
+      const q = `'${folderId}' in parents and name='furigana.json' and trashed=false`;
+      const params = new URLSearchParams({ q, fields: 'files(id,name,modifiedTime)', pageSize: '1' });
+      const res = await fetch(`${GoogleDriveBackup.DRIVE_API}/files?${params}`, { headers: GoogleDriveBackup._headers(token) });
+      if (!res.ok) throw new Error('Google Drive API エラー (' + res.status + ')');
+      const result = await res.json();
+      const file = result.files?.[0];
+      if (!file) {
+        this.showMessage('Google Driveにふりがなデータが見つかりません。先に「Driveに保存」してください。', 'info');
+        return;
+      }
+
+      const dataRes = await fetch(`${GoogleDriveBackup.DRIVE_API}/files/${file.id}?alt=media`, { headers: GoogleDriveBackup._headers(token) });
+      if (!dataRes.ok) throw new Error('ダウンロード失敗 (' + dataRes.status + ')');
+      const data = await dataRes.json();
+
+      if (!Array.isArray(data)) throw new Error('データ形式が不正です');
+
+      // マージ or 上書き
+      const mode = this._furiganaData.length > 0
+        ? confirm('現在 ' + this._furiganaData.length + '件のデータがあります。\n\n「OK」= マージ（統合）\n「キャンセル」= 上書き（Google Driveのデータで置換）')
+          ? 'merge' : 'overwrite'
+        : 'overwrite';
+
+      if (mode === 'overwrite') {
+        this._furiganaData = data;
+        if (data.length > 0) {
+          this._furiganaNextId = Math.max(...data.map(d => d.id || 0)) + 1;
+        }
+      } else {
+        let merged = 0;
+        for (const entry of data) {
+          if (!entry.name) continue;
+          const existing = this._furiganaData.find(d => d.name === entry.name);
+          if (!existing) {
+            this._furiganaData.push({ ...entry, id: this._furiganaNextId++ });
+            merged++;
+          } else if (!existing.furigana && entry.furigana) {
             existing.furigana = entry.furigana;
-            existing.source = entry.source || existing.source;
             merged++;
           }
         }
       }
-      if (merged > 0) {
-        this._saveFuriganaData();
-        this._syncFuriganaToRankingLoader();
-        this._renderFuriganaTable();
-        console.log('furigana.json から ' + merged + '件マージしました');
-      }
+
+      localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
+      this._syncFuriganaToRankingLoader();
+      this._renderFuriganaTable();
+      this._updateFuriganaCountDisplay();
+      const modTime = file.modifiedTime ? new Date(file.modifiedTime).toLocaleString('ja-JP') : '';
+      this.showMessage('Google Driveから ' + data.length + '件のふりがなデータを読み込みました' + (modTime ? ' (' + modTime + ')' : ''), 'success');
     } catch (e) {
-      // ファイルが存在しない場合は無視
-      console.log('data/furigana.json の読み込みをスキップ:', e.message);
+      this.showMessage('Google Drive読込失敗: ' + e.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#fff"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L3.45 44.7c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#fff"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85L73.55 76.8z" fill="#fff"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#fff"/><path d="M59.85 53H27.5l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2L59.85 53z" fill="#fff"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#fff"/></svg>Driveから読込'; }
     }
   },
 

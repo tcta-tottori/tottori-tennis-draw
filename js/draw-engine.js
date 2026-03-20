@@ -463,10 +463,11 @@ window.DrawEngine = {
     const results = {};
 
     for (const evt of AppConfig.EVENTS) {
-      const isDoubles = evt.category === 'doubles';
+      const isPairEvent = evt.category === 'doubles' || evt.category === 'mixed_doubles';
+      const isTeam = evt.category === 'team';
       let drawEntries;
 
-      if (isDoubles) {
+      if (isPairEvent) {
         const pairs = EntryStore.getDoublesPairs(evt.code).filter(p => !p.incomplete);
         if (pairs.length <= 3) continue;
         drawEntries = pairs.map(p => ({
@@ -474,6 +475,17 @@ window.DrawEngine = {
           furigana: p.furigana,
           affiliation: p.affiliation,
           points: p.points,
+          seed: 0,
+        }));
+      } else if (isTeam) {
+        drawEntries = EntryStore.getByEvent(evt.code);
+        if (!drawEntries || drawEntries.length <= 3) continue;
+        // 団体戦: チーム名をnameとして使用、シードなし
+        drawEntries = drawEntries.map(e => ({
+          name: e.name,
+          furigana: e.furigana || '',
+          affiliation: e.affiliation || '',
+          points: 0,
           seed: 0,
         }));
       } else {
@@ -515,13 +527,37 @@ window.DrawEngine = {
     const evt = AppConfig.EVENTS.find(e => e.code === eventCode);
     if (!evt) return null;
 
-    const entries = EntryStore.getByEvent(eventCode);
-    if (!entries || entries.length <= 3) {
-      return null;
+    const isPairEvent = evt.category === 'doubles' || evt.category === 'mixed_doubles';
+    const isTeam = evt.category === 'team';
+    let drawEntries;
+
+    if (isPairEvent) {
+      const pairs = EntryStore.getDoublesPairs(eventCode).filter(p => !p.incomplete);
+      if (pairs.length <= 3) return null;
+      drawEntries = pairs.map(p => ({
+        name: p.name,
+        furigana: p.furigana,
+        affiliation: p.affiliation,
+        points: p.points,
+        seed: 0,
+      }));
+    } else if (isTeam) {
+      const entries = EntryStore.getByEvent(eventCode);
+      if (!entries || entries.length <= 3) return null;
+      drawEntries = entries.map(e => ({
+        name: e.name,
+        furigana: e.furigana || '',
+        affiliation: e.affiliation || '',
+        points: 0,
+        seed: 0,
+      }));
+    } else {
+      drawEntries = EntryStore.getByEvent(eventCode);
+      if (!drawEntries || drawEntries.length <= 3) return null;
     }
 
-    const drawSize = this.getDrawSize(entries.length);
-    const sorted = [...entries].sort((a, b) => (b.points || 0) - (a.points || 0));
+    const drawSize = this.getDrawSize(drawEntries.length);
+    const sorted = [...drawEntries].sort((a, b) => (b.points || 0) - (a.points || 0));
     const withSeeds = this.assignSeeds(sorted, drawSize);
     const draw = this.createDrawArray(withSeeds, drawSize);
     const seeds = withSeeds.filter(p => p.seed > 0).sort((a, b) => a.seed - b.seed);
@@ -533,7 +569,7 @@ window.DrawEngine = {
       seeds: seeds,
       eventName: evt.name,
       eventCode: evt.code,
-      entryCount: entries.length,
+      entryCount: drawEntries.length,
     };
   },
 };

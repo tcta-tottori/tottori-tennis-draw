@@ -137,7 +137,8 @@ window.EntryStore = {
     const updatableFields = [
       'name', 'furigana', 'affiliation', 'eventCode',
       'rank', 'points', 'fee', 'paid', 'confirmed', 'notes',
-      'partner', 'partnerAffiliation', 'partnerPoints', 'pairId'
+      'partner', 'partnerAffiliation', 'partnerPoints', 'pairId',
+      'teamMembers'
     ];
 
     for (const field of updatableFields) {
@@ -272,11 +273,28 @@ window.EntryStore = {
   },
 
   /**
-   * ダブルスの種目かどうか判定
+   * ペア種目（ダブルス・ミックスダブルス）かどうか判定
+   * ドロー生成やエントリー表示でペアリングが必要な種目
    */
   isDoublesEvent(eventCode) {
     const evt = AppConfig.EVENTS.find(e => e.code === eventCode);
-    return evt ? evt.category === 'doubles' : false;
+    return evt ? (evt.category === 'doubles' || evt.category === 'mixed_doubles') : false;
+  },
+
+  /**
+   * ミックスダブルスかどうか判定
+   */
+  isMixedDoublesEvent(eventCode) {
+    const evt = AppConfig.EVENTS.find(e => e.code === eventCode);
+    return evt ? evt.category === 'mixed_doubles' : false;
+  },
+
+  /**
+   * 団体戦かどうか判定
+   */
+  isTeamEvent(eventCode) {
+    const evt = AppConfig.EVENTS.find(e => e.code === eventCode);
+    return evt ? evt.category === 'team' : false;
   },
 
   /**

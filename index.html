@@ -333,9 +333,18 @@
             🪄 ふりがな自動付与 (AI)
           </button>
           
-          <button id="btn-github-settings" class="btn btn-secondary" style="margin-left:auto;">GitHub設定</button>
+          <div style="width:1px;background:#ccc;margin:0 4px;"></div><!-- 区切り線 -->
 
-          <button id="btn-furigana-clear" class="btn btn-danger" style="opacity:0.85;">全件クリア</button>
+          <button id="btn-furigana-gdrive-upload" class="btn btn-primary" style="background:#3b82f6;border-color:#3b82f6;">
+            <svg style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#fff"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L3.45 44.7c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#fff"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85L73.55 76.8z" fill="#fff"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#fff"/><path d="M59.85 53H27.5l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2L59.85 53z" fill="#fff"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#fff"/></svg>
+            Driveに保存
+          </button>
+          <button id="btn-furigana-gdrive-load" class="btn btn-primary" style="background:#3b82f6;border-color:#3b82f6;">
+            <svg style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#fff"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L3.45 44.7c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#fff"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85L73.55 76.8z" fill="#fff"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#fff"/><path d="M59.85 53H27.5l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2L59.85 53z" fill="#fff"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#fff"/></svg>
+            Driveから読込
+          </button>
+
+          <button id="btn-furigana-clear" class="btn btn-danger" style="opacity:0.85;margin-left:auto;">全件クリア</button>
         </div>
 
         <!-- 同期ステータス -->

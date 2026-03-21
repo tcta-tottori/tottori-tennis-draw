@@ -8,11 +8,44 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#7c3aed">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" id="dynamic-favicon" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
   <title>鳥取市テニス協会 ドロー会議システム</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/print.css">
+  <script>
+  // 紫背景 + ロゴのファビコンを動的生成
+  (function() {
+    var img = new Image();
+    img.onload = function() {
+      var s = 64;
+      var c = document.createElement('canvas');
+      c.width = s; c.height = s;
+      var ctx = c.getContext('2d');
+      // 紫グラデーション背景（角丸）
+      var r = 12;
+      var g = ctx.createLinearGradient(0, 0, s, s);
+      g.addColorStop(0, '#8b5cf6');
+      g.addColorStop(1, '#5b21b6');
+      ctx.beginPath();
+      ctx.moveTo(r, 0);
+      ctx.lineTo(s - r, 0); ctx.quadraticCurveTo(s, 0, s, r);
+      ctx.lineTo(s, s - r); ctx.quadraticCurveTo(s, s, s - r, s);
+      ctx.lineTo(r, s); ctx.quadraticCurveTo(0, s, 0, s - r);
+      ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+      // ロゴを中央に配置（パディング付き）
+      var pad = 6;
+      ctx.drawImage(img, pad, pad, s - pad * 2, s - pad * 2);
+      // ファビコン適用
+      var link = document.getElementById('dynamic-favicon');
+      if (link) { link.href = c.toDataURL('image/png'); }
+    };
+    img.src = 'logo.png';
+  })();
+  </script>
 </head>
 
 <body>

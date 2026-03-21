@@ -140,8 +140,7 @@ body {
 }
 
 /* =========================================
-   海面の煌めきアニメーション
-   上品で落ち着いた光の反射
+   水面の光反射アニメーション (Canvas)
    ========================================= */
 .header-sea-shimmer {
   position: absolute;
@@ -149,42 +148,10 @@ body {
   pointer-events: none;
   overflow: hidden;
 }
-
-.shimmer-light {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center,
-    rgba(255,255,255,0.5) 0%,
-    rgba(255,255,255,0.2) 30%,
-    transparent 70%);
-  filter: blur(1px);
-  opacity: 0;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-
-/* 個別の煌めき — サイズ・位置・速度をばらす */
-.shimmer-1  { width: 30px; height: 12px; top: 18%; left: 8%;   animation: shimmerFade 4.0s 0.0s infinite; }
-.shimmer-2  { width: 22px; height: 8px;  top: 55%; left: 22%;  animation: shimmerFade 3.5s 0.8s infinite; }
-.shimmer-3  { width: 40px; height: 14px; top: 30%; left: 38%;  animation: shimmerFade 5.0s 1.5s infinite; }
-.shimmer-4  { width: 18px; height: 7px;  top: 70%; left: 52%;  animation: shimmerFade 3.8s 2.2s infinite; }
-.shimmer-5  { width: 35px; height: 10px; top: 15%; left: 65%;  animation: shimmerFade 4.5s 0.5s infinite; }
-.shimmer-6  { width: 25px; height: 9px;  top: 48%; left: 78%;  animation: shimmerFade 3.2s 1.8s infinite; }
-.shimmer-7  { width: 28px; height: 11px; top: 35%; left: 92%;  animation: shimmerFade 4.8s 3.0s infinite; }
-.shimmer-8  { width: 20px; height: 6px;  top: 62%; left: 12%;  animation: shimmerFade 3.6s 2.8s infinite; }
-.shimmer-9  { width: 32px; height: 13px; top: 22%; left: 48%;  animation: shimmerFade 5.2s 1.0s infinite; }
-.shimmer-10 { width: 16px; height: 5px;  top: 75%; left: 35%;  animation: shimmerFade 3.0s 3.5s infinite; }
-.shimmer-11 { width: 24px; height: 8px;  top: 42%; left: 5%;   animation: shimmerFade 4.2s 2.0s infinite; }
-.shimmer-12 { width: 36px; height: 12px; top: 58%; left: 85%;  animation: shimmerFade 4.6s 0.3s infinite; }
-
-@keyframes shimmerFade {
-  0%   { opacity: 0;    transform: scale(0.8) translateX(0); }
-  15%  { opacity: 0.6;  transform: scale(1)   translateX(2px); }
-  30%  { opacity: 0.25; transform: scale(1.05) translateX(4px); }
-  50%  { opacity: 0.55; transform: scale(0.95) translateX(3px); }
-  70%  { opacity: 0.15; transform: scale(1.02) translateX(5px); }
-  85%  { opacity: 0.45; transform: scale(0.98) translateX(2px); }
-  100% { opacity: 0;    transform: scale(0.8)  translateX(0); }
+.header-sea-shimmer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .header-top {

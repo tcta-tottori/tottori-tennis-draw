@@ -55,16 +55,20 @@
     <div class="header-mesh"></div>
     <!-- ネットパターン -->
     <div class="header-net-pattern"></div>
-    <!-- テニスボールバウンドアニメーション（全て左→右） -->
-    <div class="header-tennis-anim">
-      <div class="tennis-ball ball-a"></div>
-      <div class="ball-shadow shadow-a"></div>
-      <div class="tennis-ball ball-b"></div>
-      <div class="ball-shadow shadow-b"></div>
-      <div class="tennis-ball ball-c"></div>
-      <div class="ball-shadow shadow-c"></div>
-      <div class="tennis-ball ball-d"></div>
-      <div class="ball-shadow shadow-d"></div>
+    <!-- 海面の煌めきアニメーション -->
+    <div class="header-sea-shimmer">
+      <div class="shimmer-light shimmer-1"></div>
+      <div class="shimmer-light shimmer-2"></div>
+      <div class="shimmer-light shimmer-3"></div>
+      <div class="shimmer-light shimmer-4"></div>
+      <div class="shimmer-light shimmer-5"></div>
+      <div class="shimmer-light shimmer-6"></div>
+      <div class="shimmer-light shimmer-7"></div>
+      <div class="shimmer-light shimmer-8"></div>
+      <div class="shimmer-light shimmer-9"></div>
+      <div class="shimmer-light shimmer-10"></div>
+      <div class="shimmer-light shimmer-11"></div>
+      <div class="shimmer-light shimmer-12"></div>
     </div>
     <div class="header-top">
       <div class="header-logo">
@@ -81,10 +85,10 @@
         <span class="cross-link-text">大会運営</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
-      <div class="header-version">
+      <button class="header-version" id="btn-version-info" title="バージョン情報・更新履歴">
         <span class="version-badge">v2.2</span>
-        <span class="version-date">2026.3.11 更新</span>
-      </div>
+        <span class="version-date">2026.3.21 更新</span>
+      </button>
     </div>
   </header>
 
@@ -2557,6 +2561,106 @@
   <script src="js/github_backup.js"></script>
   <script src="js/google_drive_backup.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- バージョン情報モーダル -->
+  <div class="version-modal-overlay" id="version-modal-overlay">
+    <div class="version-modal">
+      <div class="version-modal-header">
+        <h2>更新履歴</h2>
+        <button class="version-modal-close" id="version-modal-close">&times;</button>
+      </div>
+      <div class="version-modal-body">
+        <!-- 2026年3月 -->
+        <div class="version-group open">
+          <button class="version-group-header">
+            <span class="vg-arrow">▶</span>
+            2026年3月
+          </button>
+          <div class="version-group-body">
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">3/21</span>
+                <span class="version-tag design">デザイン</span>
+              </div>
+              <div class="version-entry-text">紫ベースのカラースキームに全面変更。海面の煌めきアニメーション導入。バージョン情報ポップアップ追加。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">3/21</span>
+                <span class="version-tag improve">改善</span>
+              </div>
+              <div class="version-entry-text">ファビコンを紫背景+テニス協会ロゴに変更し、大会運営システムと視覚的に区別。</div>
+            </div>
+          </div>
+        </div>
+        <!-- 2026年2月 -->
+        <div class="version-group">
+          <button class="version-group-header">
+            <span class="vg-arrow">▶</span>
+            2026年2月
+          </button>
+          <div class="version-group-body">
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">2/15</span>
+                <span class="version-tag new">新機能</span>
+              </div>
+              <div class="version-entry-text">Google ドライブ連携によるデータバックアップ機能を追加。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">2/1</span>
+                <span class="version-tag improve">改善</span>
+              </div>
+              <div class="version-entry-text">ドロー抽選ロジックの最適化とシード配置の改善。</div>
+            </div>
+          </div>
+        </div>
+        <!-- 2026年1月 -->
+        <div class="version-group">
+          <button class="version-group-header">
+            <span class="vg-arrow">▶</span>
+            2026年1月
+          </button>
+          <div class="version-group-body">
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">1/20</span>
+                <span class="version-tag new">新機能</span>
+              </div>
+              <div class="version-entry-text">ドロー会議システム v2.0 リリース。PWA対応・オフライン機能を実装。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // バージョン情報モーダル
+  (function() {
+    var btn = document.getElementById('btn-version-info');
+    var overlay = document.getElementById('version-modal-overlay');
+    var closeBtn = document.getElementById('version-modal-close');
+    if (!btn || !overlay) return;
+    btn.addEventListener('click', function() {
+      overlay.classList.add('active');
+    });
+    closeBtn.addEventListener('click', function() {
+      overlay.classList.remove('active');
+    });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.classList.remove('active');
+    });
+    // アコーディオン
+    overlay.querySelectorAll('.version-group-header').forEach(function(header) {
+      header.addEventListener('click', function() {
+        this.parentElement.classList.toggle('open');
+      });
+    });
+  })();
+  </script>
+
   <script>
     // Service Worker登録（オフライン対応）
     if ('serviceWorker' in navigator) {

@@ -248,10 +248,12 @@ body {
   }
 }
 
-.header-logo img {
+.header-logo img,
+.header-logo canvas {
   width: 42px;
   height: 42px;
   object-fit: cover;
+  border-radius: 50%;
 }
 
 .header-logo svg {
@@ -1952,7 +1954,8 @@ tr.row-entered td strong {
     height: 36px;
   }
 
-  .header-logo img {
+  .header-logo img,
+  .header-logo canvas {
     width: 36px;
     height: 36px;
   }

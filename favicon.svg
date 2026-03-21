@@ -1,33 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 192 192">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="0%" stop-color="#8b5cf6"/>
       <stop offset="100%" stop-color="#5b21b6"/>
     </linearGradient>
-    <linearGradient id="ball" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#d4e157"/>
-      <stop offset="100%" stop-color="#c0ca33"/>
-    </linearGradient>
+    <clipPath id="clip">
+      <rect x="0" y="0" width="192" height="192" rx="38" ry="38"/>
+    </clipPath>
   </defs>
-  <!-- Rounded square background -->
-  <rect x="16" y="16" width="480" height="480" rx="100" ry="100" fill="url(#bg)"/>
-  <!-- Tournament bracket: 4 -> 2 -> 1 -->
-  <line x1="100" y1="130" x2="180" y2="130" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <line x1="100" y1="220" x2="180" y2="220" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <line x1="100" y1="292" x2="180" y2="292" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <line x1="100" y1="382" x2="180" y2="382" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <!-- Vertical connectors -->
-  <line x1="180" y1="130" x2="180" y2="220" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <line x1="180" y1="292" x2="180" y2="382" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <!-- Round 2 -->
-  <line x1="180" y1="175" x2="280" y2="175" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <line x1="180" y1="337" x2="280" y2="337" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <!-- Vertical connector to final -->
-  <line x1="280" y1="175" x2="280" y2="337" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <!-- Final line -->
-  <line x1="280" y1="256" x2="360" y2="256" stroke="white" stroke-width="20" stroke-linecap="round"/>
-  <!-- Tennis ball -->
-  <circle cx="390" cy="256" r="42" fill="url(#ball)"/>
-  <path d="M 370 218 Q 358 256 370 294" fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <path d="M 410 218 Q 422 256 410 294" fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <!-- 紫グラデーション背景（角丸） -->
+  <rect x="0" y="0" width="192" height="192" rx="38" ry="38" fill="url(#bg)"/>
+  <!-- ロゴ画像を中央に配置 -->
+  <image href="logo.png" x="16" y="16" width="160" height="160" clip-path="url(#clip)"/>
 </svg>

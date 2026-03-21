@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#2b7ec6">
+  <meta name="theme-color" content="#7c3aed">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="logo.png">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="logo.png">
   <title>鳥取市テニス協会 ドロー会議システム</title>
   <link rel="stylesheet" href="css/style.css">
@@ -18,8 +18,32 @@
 <body>
   <!-- ヘッダー -->
   <header class="app-header">
-    <!-- 砂丘風紋装飾（全体） -->
-    <div class="header-fumon"></div>
+    <!-- メッシュグラデーション -->
+    <div class="header-mesh"></div>
+    <!-- ネットパターン -->
+    <div class="header-net-pattern"></div>
+    <!-- テニス・トーナメントアニメーション -->
+    <div class="header-tennis-anim">
+      <div class="bracket-line bracket-h bracket-line-1"></div>
+      <div class="bracket-line bracket-h bracket-line-2"></div>
+      <div class="bracket-line bracket-v bracket-line-3"></div>
+      <div class="bracket-line bracket-h bracket-line-4"></div>
+      <div class="bracket-line bracket-h bracket-line-5"></div>
+      <div class="bracket-line bracket-h bracket-line-6"></div>
+      <div class="bracket-line bracket-v bracket-line-7"></div>
+      <div class="bracket-line bracket-h bracket-line-8"></div>
+      <div class="tennis-ball tennis-ball-1"></div>
+      <div class="tennis-ball tennis-ball-2"></div>
+      <div class="tennis-ball tennis-ball-3"></div>
+      <div class="header-sparkle sparkle-1"></div>
+      <div class="header-sparkle sparkle-2"></div>
+      <div class="header-sparkle sparkle-3"></div>
+      <div class="header-sparkle sparkle-4"></div>
+      <div class="header-sparkle sparkle-5"></div>
+      <div class="header-sparkle sparkle-6"></div>
+      <div class="header-sparkle sparkle-7"></div>
+      <div class="header-sparkle sparkle-8"></div>
+    </div>
     <div class="header-top">
       <div class="header-logo">
         <img src="logo.png" alt="鳥取市テニス協会">
@@ -84,8 +108,8 @@
 
         <!-- Google スプレッドシートから読み込み -->
         <div
-          style="background:#f0f7ff;border:1px solid #d0e3f5;border-radius:10px;padding:16px 18px;margin-bottom:16px;">
-          <h4 style="font-size:14px;font-weight:700;margin-bottom:10px;color:#1a5a8e;">Google スプレッドシートから読み込み</h4>
+          style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:16px 18px;margin-bottom:16px;">
+          <h4 style="font-size:14px;font-weight:700;margin-bottom:10px;color:#5b21b6;">Google スプレッドシートから読み込み</h4>
           <p style="font-size:12px;color:#555;margin-bottom:12px;">
             スプレッドシートのURLまたはIDを入力して読み込みます。
             <span style="color:#888;">※共有設定を「リンクを知っている全員が閲覧可」にしてください。</span>
@@ -844,7 +868,7 @@
             </details>
           </div>
           <!-- ゲームルール設定 -->
-          <div style="margin-top:12px;padding:10px 14px;background:#f0f7ff;border:1px solid #d0e3f5;border-radius:8px;">
+          <div style="margin-top:12px;padding:10px 14px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;">
             <label style="font-size:13px;font-weight:600;margin-bottom:6px;display:block;">ゲームルール</label>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <select id="draw-format-select" class="form-select" style="flex:1;min-width:140px;font-size:13px;">
@@ -891,8 +915,8 @@
 
       <!-- 選択中の種目名 -->
       <div id="bracket-current-event-name"
-        style="display:none;margin-bottom:8px;padding:8px 16px;background:#f0f7ff;border:1px solid #d0e3f5;border-radius:8px;">
-        <span style="font-size:16px;font-weight:700;color:#1a5a8e;" id="bracket-current-event-label"></span>
+        style="display:none;margin-bottom:8px;padding:8px 16px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;">
+        <span style="font-size:16px;font-weight:700;color:#5b21b6;" id="bracket-current-event-label"></span>
       </div>
 
       <!-- トーナメント表SVG -->
@@ -1239,7 +1263,7 @@
           </p>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
             <span id="cloud-space-code"
-              style="font-size:32px;font-family:monospace;font-weight:bold;letter-spacing:4px;color:#2b7ec6;background:#f0f7ff;padding:8px 16px;border-radius:8px;border:2px dashed #2b7ec6;user-select:all;"></span>
+              style="font-size:32px;font-family:monospace;font-weight:bold;letter-spacing:4px;color:#7c3aed;background:#f5f3ff;padding:8px 16px;border-radius:8px;border:2px dashed #7c3aed;user-select:all;"></span>
             <button id="btn-cloud-copy-code" class="btn btn-secondary" style="white-space:nowrap;">コピー</button>
           </div>
           <button id="btn-cloud-leave-space" class="btn btn-danger">スペースを離れる</button>
@@ -1322,12 +1346,12 @@
                 </marker>
               </defs>
               <!-- Step 1 -->
-              <rect x="5" y="25" width="95" height="60" rx="10" fill="#2b7ec6" stroke="none" />
+              <rect x="5" y="25" width="95" height="60" rx="10" fill="#7c3aed" stroke="none" />
               <text x="52" y="50" text-anchor="middle" fill="#fff" font-size="11" font-weight="700"
                 font-family="sans-serif">データ</text>
               <text x="52" y="68" text-anchor="middle" fill="#fff" font-size="11" font-weight="700"
                 font-family="sans-serif">読込</text>
-              <text x="52" y="18" text-anchor="middle" fill="#2b7ec6" font-size="20" font-family="sans-serif">📥</text>
+              <text x="52" y="18" text-anchor="middle" fill="#7c3aed" font-size="20" font-family="sans-serif">📥</text>
               <!-- Arrow -->
               <line x1="105" y1="55" x2="120" y2="55" stroke="#666" stroke-width="2" marker-end="url(#arrow-intro)" />
               <!-- Step 2 -->
@@ -1399,7 +1423,7 @@
               <text x="270" y="73" text-anchor="middle" fill="#666" font-size="10"
                 font-family="sans-serif">すべての機能が使用可</text>
               <line x1="345" y1="50" x2="385" y2="50" stroke="#666" stroke-width="2" marker-end="url(#arrow-intro)" />
-              <rect x="390" y="10" width="100" height="80" rx="8" fill="#e3f2fd" stroke="#2b7ec6" stroke-width="1.5" />
+              <rect x="390" y="10" width="100" height="80" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5" />
               <text x="440" y="40" text-anchor="middle" fill="#333" font-size="12" font-weight="700"
                 font-family="sans-serif">ホーム画面</text>
               <text x="440" y="58" text-anchor="middle" fill="#666" font-size="10" font-family="sans-serif">に追加して</text>
@@ -1435,14 +1459,14 @@
               <rect x="30" y="60" width="400" height="32" rx="4" fill="#fff" stroke="#ccc" stroke-width="1" />
               <text x="40" y="81" fill="#aaa" font-size="11" font-family="sans-serif">GoogleスプレッドシートのURLを入力...</text>
               <!-- Callout 1 -->
-              <circle cx="450" cy="76" r="12" fill="#2b7ec6" /><text x="450" y="80" text-anchor="middle" fill="#fff"
+              <circle cx="450" cy="76" r="12" fill="#7c3aed" /><text x="450" y="80" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <!-- Load button -->
-              <rect x="30" y="105" width="140" height="34" rx="6" fill="#2b7ec6" stroke="none" />
+              <rect x="30" y="105" width="140" height="34" rx="6" fill="#7c3aed" stroke="none" />
               <text x="100" y="126" text-anchor="middle" fill="#fff" font-size="12" font-weight="700"
                 font-family="sans-serif">ランキング読込</text>
               <!-- Callout 2 -->
-              <circle cx="190" cy="122" r="12" fill="#2b7ec6" /><text x="190" y="126" text-anchor="middle" fill="#fff"
+              <circle cx="190" cy="122" r="12" fill="#7c3aed" /><text x="190" y="126" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <!-- Progress bars -->
               <text x="30" y="165" fill="#333" font-size="11" font-family="sans-serif">ランキング読込:</text>
@@ -1451,10 +1475,10 @@
               <text x="290" y="165" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">70%</text>
               <!-- Callout 3 -->
-              <circle cx="460" cy="161" r="12" fill="#2b7ec6" /><text x="460" y="165" text-anchor="middle" fill="#fff"
+              <circle cx="460" cy="161" r="12" fill="#7c3aed" /><text x="460" y="165" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">③</text>
               <!-- Data status -->
-              <rect x="30" y="195" width="530" height="35" rx="6" fill="#f0f7ff" stroke="#d0e3f5" stroke-width="1" />
+              <rect x="30" y="195" width="530" height="35" rx="6" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1" />
               <text x="45" y="217" fill="#333" font-size="11" font-family="sans-serif">ms: 48名 ls: 32名 m45s: 24名 m55s:
                 18名 m65s: 12名 l45s: 8名</text>
             </svg>
@@ -1480,7 +1504,7 @@
               <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12"
                 font-family="sans-serif">エントリー（ランキング一覧）画面</text>
               <!-- Event tabs -->
-              <rect x="25" y="50" width="50" height="24" rx="12" fill="#2b7ec6" stroke="none" />
+              <rect x="25" y="50" width="50" height="24" rx="12" fill="#7c3aed" stroke="none" />
               <text x="50" y="66" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">ms</text>
               <rect x="80" y="50" width="50" height="24" rx="12" fill="#e9ecef" stroke="none" />
@@ -1488,13 +1512,13 @@
               <rect x="135" y="50" width="55" height="24" rx="12" fill="#e9ecef" stroke="none" />
               <text x="162" y="66" text-anchor="middle" fill="#666" font-size="10" font-family="sans-serif">m45s</text>
               <!-- Callout 1 -->
-              <circle cx="210" cy="62" r="12" fill="#2b7ec6" /><text x="210" y="66" text-anchor="middle" fill="#fff"
+              <circle cx="210" cy="62" r="12" fill="#7c3aed" /><text x="210" y="66" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <!-- Search box -->
               <rect x="25" y="84" width="250" height="28" rx="4" fill="#fff" stroke="#ccc" stroke-width="1" />
               <text x="35" y="102" fill="#aaa" font-size="10" font-family="sans-serif">氏名・所属で検索...</text>
               <!-- Callout 2 -->
-              <circle cx="295" cy="98" r="12" fill="#2b7ec6" /><text x="295" y="102" text-anchor="middle" fill="#fff"
+              <circle cx="295" cy="98" r="12" fill="#7c3aed" /><text x="295" y="102" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <!-- Table header -->
               <rect x="25" y="122" width="550" height="24" rx="0" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="1" />
@@ -1513,7 +1537,7 @@
               <text x="500" y="166" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">エントリー</text>
               <!-- Callout 3 -->
-              <circle cx="555" cy="162" r="12" fill="#2b7ec6" /><text x="555" y="166" text-anchor="middle" fill="#fff"
+              <circle cx="555" cy="162" r="12" fill="#7c3aed" /><text x="555" y="166" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">③</text>
               <!-- Row 2 -->
               <rect x="25" y="174" width="550" height="28" rx="0" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="0.5" />
@@ -1561,7 +1585,7 @@
               <rect x="25" y="50" width="90" height="28" rx="6" fill="#28a745" stroke="none" />
               <text x="70" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">手動追加</text>
-              <circle cx="130" cy="64" r="12" fill="#2b7ec6" /><text x="130" y="68" text-anchor="middle" fill="#fff"
+              <circle cx="130" cy="64" r="12" fill="#7c3aed" /><text x="130" y="68" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <rect x="150" y="50" width="90" height="28" rx="6" fill="#ff9800" stroke="none" />
               <text x="195" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
@@ -1569,10 +1593,10 @@
               <rect x="430" y="50" width="120" height="28" rx="6" fill="#dc3545" stroke="none" />
               <text x="490" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">データ全クリア</text>
-              <circle cx="565" cy="64" r="12" fill="#2b7ec6" /><text x="565" y="68" text-anchor="middle" fill="#fff"
+              <circle cx="565" cy="64" r="12" fill="#7c3aed" /><text x="565" y="68" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <!-- Status chips -->
-              <rect x="25" y="88" width="530" height="30" rx="6" fill="#f0f7ff" stroke="#d0e3f5" stroke-width="1" />
+              <rect x="25" y="88" width="530" height="30" rx="6" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1" />
               <text x="35" y="107" fill="#333" font-size="10" font-family="sans-serif">ms: 12名 / ls: 8名 / m45s: 6名 /
                 m55s: 4名 / m65s: 3名 / l45s: 2名 合計: 35名</text>
               <!-- Table -->
@@ -1590,8 +1614,8 @@
               <text x="120" y="169" fill="#333" font-size="10" font-family="sans-serif">山田 太郎</text>
               <text x="240" y="169" fill="#333" font-size="10" font-family="sans-serif">鳥取TC</text>
               <text x="370" y="169" fill="#333" font-size="10" font-family="sans-serif">120</text>
-              <text x="460" y="169" fill="#2b7ec6" font-size="10" font-family="sans-serif">編集 | 削除</text>
-              <circle cx="545" cy="165" r="12" fill="#2b7ec6" /><text x="545" y="169" text-anchor="middle" fill="#fff"
+              <text x="460" y="169" fill="#7c3aed" font-size="10" font-family="sans-serif">編集 | 削除</text>
+              <circle cx="545" cy="165" r="12" fill="#7c3aed" /><text x="545" y="169" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">③</text>
               <rect x="25" y="178" width="530" height="26" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="0.5" />
               <text x="35" y="195" fill="#333" font-size="10" font-family="sans-serif">2</text>
@@ -1599,7 +1623,7 @@
               <text x="120" y="195" fill="#333" font-size="10" font-family="sans-serif">鈴木 一郎</text>
               <text x="240" y="195" fill="#333" font-size="10" font-family="sans-serif">米子クラブ</text>
               <text x="370" y="195" fill="#333" font-size="10" font-family="sans-serif">105</text>
-              <text x="460" y="195" fill="#2b7ec6" font-size="10" font-family="sans-serif">編集 | 削除</text>
+              <text x="460" y="195" fill="#7c3aed" font-size="10" font-family="sans-serif">編集 | 削除</text>
             </svg>
           </div>
           <ul class="manual-steps">
@@ -1630,13 +1654,13 @@
               <rect x="345" y="50" width="70" height="28" rx="6" fill="#28a745" stroke="none" />
               <text x="380" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">追加</text>
-              <circle cx="430" cy="64" r="12" fill="#2b7ec6" /><text x="430" y="68" text-anchor="middle" fill="#fff"
+              <circle cx="430" cy="64" r="12" fill="#7c3aed" /><text x="430" y="68" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <!-- Sync button -->
-              <rect x="455" y="50" width="120" height="28" rx="6" fill="#2b7ec6" stroke="none" />
+              <rect x="455" y="50" width="120" height="28" rx="6" fill="#7c3aed" stroke="none" />
               <text x="515" y="68" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">ランキングと同期</text>
-              <circle cx="575" cy="64" r="12" fill="#2b7ec6" /><text x="575" y="68" text-anchor="middle" fill="#fff"
+              <circle cx="575" cy="64" r="12" fill="#7c3aed" /><text x="575" y="68" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <!-- Search -->
               <rect x="25" y="90" width="200" height="26" rx="4" fill="#fff" stroke="#ccc" stroke-width="1" />
@@ -1655,7 +1679,7 @@
               <text x="300" y="163" fill="#333" font-size="10" font-family="sans-serif">男子</text>
               <text x="370" y="163" fill="#333" font-size="10" font-family="sans-serif">鳥取TC</text>
               <text x="470" y="163" fill="#888" font-size="10" font-family="sans-serif">自動</text>
-              <text x="530" y="163" fill="#2b7ec6" font-size="10" font-family="sans-serif">編集 | 削除</text>
+              <text x="530" y="163" fill="#7c3aed" font-size="10" font-family="sans-serif">編集 | 削除</text>
             </svg>
           </div>
           <ul class="manual-steps">
@@ -1683,10 +1707,10 @@
               <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12"
                 font-family="sans-serif">シード・抽選画面</text>
               <!-- Event selector -->
-              <rect x="25" y="50" width="100" height="26" rx="4" fill="#fff" stroke="#2b7ec6" stroke-width="1.5" />
-              <text x="75" y="67" text-anchor="middle" fill="#2b7ec6" font-size="11" font-weight="700"
+              <rect x="25" y="50" width="100" height="26" rx="4" fill="#fff" stroke="#7c3aed" stroke-width="1.5" />
+              <text x="75" y="67" text-anchor="middle" fill="#7c3aed" font-size="11" font-weight="700"
                 font-family="sans-serif">ms (12名)</text>
-              <circle cx="145" cy="63" r="12" fill="#2b7ec6" /><text x="145" y="67" text-anchor="middle" fill="#fff"
+              <circle cx="145" cy="63" r="12" fill="#7c3aed" /><text x="145" y="67" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <!-- Seed panel -->
               <rect x="25" y="85" width="260" height="190" rx="6" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="1" />
@@ -1709,7 +1733,7 @@
               <rect x="305" y="85" width="130" height="34" rx="6" fill="#ff9800" stroke="none" />
               <text x="370" y="106" text-anchor="middle" fill="#fff" font-size="11" font-weight="700"
                 font-family="sans-serif">抽選実行</text>
-              <circle cx="450" cy="102" r="12" fill="#2b7ec6" /><text x="450" y="106" text-anchor="middle" fill="#fff"
+              <circle cx="450" cy="102" r="12" fill="#7c3aed" /><text x="450" y="106" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <rect x="305" y="130" width="130" height="34" rx="6" fill="#28a745" stroke="none" />
               <text x="370" y="151" text-anchor="middle" fill="#fff" font-size="11" font-weight="700"
@@ -1743,23 +1767,23 @@
               <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12"
                 font-family="sans-serif">ドロー表画面</text>
               <!-- Event selector and buttons -->
-              <rect x="25" y="50" width="80" height="24" rx="4" fill="#fff" stroke="#2b7ec6" stroke-width="1.5" />
-              <text x="65" y="66" text-anchor="middle" fill="#2b7ec6" font-size="10" font-weight="700"
+              <rect x="25" y="50" width="80" height="24" rx="4" fill="#fff" stroke="#7c3aed" stroke-width="1.5" />
+              <text x="65" y="66" text-anchor="middle" fill="#7c3aed" font-size="10" font-weight="700"
                 font-family="sans-serif">ms</text>
               <rect x="115" y="50" width="80" height="24" rx="4" fill="#28a745" stroke="none" />
               <text x="155" y="66" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">印刷</text>
-              <circle cx="210" cy="62" r="12" fill="#2b7ec6" /><text x="210" y="66" text-anchor="middle" fill="#fff"
+              <circle cx="210" cy="62" r="12" fill="#7c3aed" /><text x="210" y="66" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <rect x="225" y="50" width="100" height="24" rx="4" fill="#ff9800" stroke="none" />
               <text x="275" y="66" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">Excel出力</text>
-              <circle cx="340" cy="62" r="12" fill="#2b7ec6" /><text x="340" y="66" text-anchor="middle" fill="#fff"
+              <circle cx="340" cy="62" r="12" fill="#7c3aed" /><text x="340" y="66" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <rect x="355" y="50" width="80" height="24" rx="4" fill="#6f42c1" stroke="none" />
               <text x="395" y="66" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">全画面</text>
-              <circle cx="450" cy="62" r="12" fill="#2b7ec6" /><text x="450" y="66" text-anchor="middle" fill="#fff"
+              <circle cx="450" cy="62" r="12" fill="#7c3aed" /><text x="450" y="66" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">③</text>
               <!-- Bracket preview -->
               <rect x="25" y="85" width="550" height="155" rx="6" fill="#fafbfc" stroke="#e5e7eb" stroke-width="1" />
@@ -1811,19 +1835,19 @@
               <rect x="10" y="10" width="580" height="30" rx="8" fill="#f0f0f0" stroke="#ccc" stroke-width="1" />
               <text x="300" y="30" text-anchor="middle" fill="#666" font-size="12" font-family="sans-serif">時間割画面</text>
               <!-- Config section -->
-              <rect x="25" y="50" width="260" height="100" rx="6" fill="#f0f7ff" stroke="#d0e3f5" stroke-width="1" />
+              <rect x="25" y="50" width="260" height="100" rx="6" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1" />
               <text x="35" y="68" fill="#333" font-size="11" font-weight="700" font-family="sans-serif">コート設定</text>
               <text x="35" y="86" fill="#666" font-size="10" font-family="sans-serif">コート面数: 4面</text>
               <text x="35" y="102" fill="#666" font-size="10" font-family="sans-serif">開始時刻: 9:00</text>
               <text x="35" y="118" fill="#666" font-size="10" font-family="sans-serif">試合間隔: 40分</text>
               <text x="35" y="134" fill="#666" font-size="10" font-family="sans-serif">照明制約: 17:00まで</text>
-              <circle cx="255" cy="90" r="12" fill="#2b7ec6" /><text x="255" y="94" text-anchor="middle" fill="#fff"
+              <circle cx="255" cy="90" r="12" fill="#7c3aed" /><text x="255" y="94" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <!-- Generate button -->
               <rect x="305" y="50" width="130" height="34" rx="6" fill="#28a745" stroke="none" />
               <text x="370" y="71" text-anchor="middle" fill="#fff" font-size="11" font-weight="700"
                 font-family="sans-serif">時間割生成</text>
-              <circle cx="450" cy="67" r="12" fill="#2b7ec6" /><text x="450" y="71" text-anchor="middle" fill="#fff"
+              <circle cx="450" cy="67" r="12" fill="#7c3aed" /><text x="450" y="71" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <!-- Export buttons -->
               <rect x="305" y="95" width="80" height="26" rx="4" fill="#ff9800" stroke="none" />
@@ -1853,7 +1877,7 @@
               <!-- Row 1 -->
               <rect x="25" y="185" width="80" height="30" fill="#fff" stroke="#e5e7eb" stroke-width="0.5" />
               <text x="65" y="204" text-anchor="middle" fill="#333" font-size="9" font-family="sans-serif">9:00</text>
-              <rect x="105" y="185" width="115" height="30" fill="#e3f2fd" stroke="#e5e7eb" stroke-width="0.5" />
+              <rect x="105" y="185" width="115" height="30" fill="#ede9fe" stroke="#e5e7eb" stroke-width="0.5" />
               <text x="162" y="200" text-anchor="middle" fill="#333" font-size="8" font-family="sans-serif">ms
                 1回戦</text>
               <text x="162" y="212" text-anchor="middle" fill="#666" font-size="7"
@@ -1868,7 +1892,7 @@
               <!-- Row 2 -->
               <rect x="25" y="215" width="80" height="30" fill="#fff" stroke="#e5e7eb" stroke-width="0.5" />
               <text x="65" y="234" text-anchor="middle" fill="#333" font-size="9" font-family="sans-serif">9:40</text>
-              <rect x="105" y="215" width="115" height="30" fill="#e3f2fd" stroke="#e5e7eb" stroke-width="0.5" />
+              <rect x="105" y="215" width="115" height="30" fill="#ede9fe" stroke="#e5e7eb" stroke-width="0.5" />
               <text x="162" y="234" text-anchor="middle" fill="#333" font-size="8" font-family="sans-serif">ms
                 1回戦</text>
               <rect x="220" y="215" width="115" height="30" fill="#e8f5e9" stroke="#e5e7eb" stroke-width="0.5" />
@@ -1878,7 +1902,7 @@
               <text x="392" y="234" text-anchor="middle" fill="#333" font-size="8" font-family="sans-serif">m45s
                 2回戦</text>
               <rect x="450" y="215" width="125" height="30" fill="#fafafa" stroke="#e5e7eb" stroke-width="0.5" />
-              <circle cx="555" cy="230" r="12" fill="#2b7ec6" /><text x="555" y="234" text-anchor="middle" fill="#fff"
+              <circle cx="555" cy="230" r="12" fill="#7c3aed" /><text x="555" y="234" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">③</text>
             </svg>
           </div>
@@ -1906,10 +1930,10 @@
               <rect x="25" y="50" width="260" height="170" rx="6" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="1" />
               <text x="155" y="70" text-anchor="middle" fill="#333" font-size="12" font-weight="700"
                 font-family="sans-serif">ローカルバックアップ</text>
-              <rect x="35" y="80" width="110" height="26" rx="4" fill="#2b7ec6" stroke="none" />
+              <rect x="35" y="80" width="110" height="26" rx="4" fill="#7c3aed" stroke="none" />
               <text x="90" y="97" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">バックアップ保存</text>
-              <circle cx="160" cy="93" r="12" fill="#2b7ec6" /><text x="160" y="97" text-anchor="middle" fill="#fff"
+              <circle cx="160" cy="93" r="12" fill="#7c3aed" /><text x="160" y="97" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">①</text>
               <rect x="35" y="115" width="110" height="26" rx="4" fill="#28a745" stroke="none" />
               <text x="90" y="132" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
@@ -1921,10 +1945,10 @@
               <text x="210" y="167" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">インポート</text>
               <!-- Cloud section -->
-              <rect x="305" y="50" width="260" height="170" rx="6" fill="#f0f7ff" stroke="#d0e3f5" stroke-width="1" />
+              <rect x="305" y="50" width="260" height="170" rx="6" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1" />
               <text x="435" y="70" text-anchor="middle" fill="#333" font-size="12" font-weight="700"
                 font-family="sans-serif">クラウド共有</text>
-              <circle cx="540" cy="65" r="12" fill="#2b7ec6" /><text x="540" y="69" text-anchor="middle" fill="#fff"
+              <circle cx="540" cy="65" r="12" fill="#7c3aed" /><text x="540" y="69" text-anchor="middle" fill="#fff"
                 font-size="11" font-weight="700" font-family="sans-serif">②</text>
               <text x="315" y="92" fill="#666" font-size="10" font-family="sans-serif">Firebase接続設定:</text>
               <rect x="315" y="100" width="230" height="22" rx="3" fill="#fff" stroke="#ccc" stroke-width="1" />
@@ -1932,7 +1956,7 @@
               <rect x="315" y="135" width="100" height="26" rx="4" fill="#28a745" stroke="none" />
               <text x="365" y="152" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">データ送信</text>
-              <rect x="425" y="135" width="100" height="26" rx="4" fill="#2b7ec6" stroke="none" />
+              <rect x="425" y="135" width="100" height="26" rx="4" fill="#7c3aed" stroke="none" />
               <text x="475" y="152" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">データ受信</text>
               <!-- Quick share -->
@@ -2052,7 +2076,7 @@
               <text x="120" y="405" text-anchor="middle" fill="#666" font-size="10"
                 font-family="sans-serif">BYE（シード2対戦相手）</text>
               <!-- Line 16 - Seed 2 -->
-              <rect x="30" y="415" width="180" height="22" rx="3" fill="#2b7ec6" stroke="none" />
+              <rect x="30" y="415" width="180" height="22" rx="3" fill="#7c3aed" stroke="none" />
               <text x="120" y="430" text-anchor="middle" fill="#fff" font-size="10" font-weight="700"
                 font-family="sans-serif">シード2（固定）</text>
               <!-- Legend -->
@@ -2060,7 +2084,7 @@
               <text x="270" y="70" fill="#333" font-size="11" font-weight="700" font-family="sans-serif">凡例</text>
               <rect x="270" y="80" width="14" height="14" rx="2" fill="#dc3545" /><text x="290" y="92" fill="#333"
                 font-size="10" font-family="sans-serif">シード1（最上段固定）</text>
-              <rect x="270" y="100" width="14" height="14" rx="2" fill="#2b7ec6" /><text x="290" y="112" fill="#333"
+              <rect x="270" y="100" width="14" height="14" rx="2" fill="#7c3aed" /><text x="290" y="112" fill="#333"
                 font-size="10" font-family="sans-serif">シード2（最下段固定）</text>
               <rect x="270" y="120" width="14" height="14" rx="2" fill="#ff9800" /><text x="290" y="132" fill="#333"
                 font-size="10" font-family="sans-serif">シード3・4（抽選で配置）</text>

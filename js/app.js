@@ -5540,13 +5540,51 @@ window.App = {
       overlay.className = 'loading-overlay';
       overlay.innerHTML =
         '<div class="loading-card">' +
-        '<div class="loading-spinner"></div>' +
-        '<div class="loading-text">' + (message || 'データ読込中...') + '</div>' +
-        '<div class="loading-progress-bar-container">' +
-        '<div class="loading-progress-bar" id="loading-progress-bar"></div>' +
-        '</div>' +
-        '<div class="loading-percent" id="loading-percent">0%</div>' +
-        '<div class="loading-sub">しばらくお待ちください</div>' +
+          '<div class="loading-card-header">' +
+            '<div class="loading-card-header-icon">' +
+              '<svg width="28" height="28" viewBox="0 0 24 24" fill="none">' +
+                '<path d="M12 2L13.5 9.5L20 12L13.5 14.5L12 22L10.5 14.5L4 12L10.5 9.5L12 2Z" fill="url(#ldGrad)"/>' +
+                '<defs><linearGradient id="ldGrad" x1="4" y1="2" x2="20" y2="22">' +
+                  '<stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#6d28d9"/>' +
+                '</linearGradient></defs>' +
+              '</svg>' +
+              '<span class="pulse-dot"></span>' +
+            '</div>' +
+            '<div class="loading-card-header-text">' +
+              '<div class="title">' + (message || 'データ読込中...') + '</div>' +
+              '<div class="subtitle">処理中...</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="loading-arc-container">' +
+            '<svg class="loading-arc-spin" viewBox="0 0 72 72">' +
+              '<circle cx="36" cy="36" r="30" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round" stroke-dasharray="32 150" stroke-dashoffset="0"/>' +
+              '<circle cx="36" cy="36" r="30" fill="none" stroke="#a78bfa" stroke-width="3" stroke-linecap="round" stroke-dasharray="25 150" stroke-dashoffset="-65"/>' +
+              '<circle cx="36" cy="36" r="30" fill="none" stroke="#6d28d9" stroke-width="3" stroke-linecap="round" stroke-dasharray="20 150" stroke-dashoffset="-125"/>' +
+            '</svg>' +
+            '<svg class="loading-arc-spin-reverse" viewBox="0 0 72 72">' +
+              '<circle cx="36" cy="36" r="25" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-dasharray="16 160" stroke-dashoffset="-20"/>' +
+              '<circle cx="36" cy="36" r="25" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-dasharray="12 160" stroke-dashoffset="-95"/>' +
+            '</svg>' +
+            '<div class="loading-sparkle">' +
+              '<svg width="24" height="24" viewBox="0 0 24 24" fill="none">' +
+                '<path d="M12 2L13.5 9.5L20 12L13.5 14.5L12 22L10.5 14.5L4 12L10.5 9.5L12 2Z" fill="url(#spGrad)"/>' +
+                '<defs><linearGradient id="spGrad" x1="4" y1="2" x2="20" y2="22">' +
+                  '<stop offset="0%" stop-color="#8b5cf6"/><stop offset="50%" stop-color="#6d28d9"/><stop offset="100%" stop-color="#a78bfa"/>' +
+                '</linearGradient></defs>' +
+              '</svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="loading-text">' + (message || 'データ読込中...') + '</div>' +
+          '<div class="loading-progress-section">' +
+            '<div class="loading-progress-top">' +
+              '<span class="loading-progress-label">進捗</span>' +
+              '<span class="loading-percent" id="loading-percent">0%</span>' +
+            '</div>' +
+            '<div class="loading-progress-bar-container">' +
+              '<div class="loading-progress-bar" id="loading-progress-bar"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="loading-sub">しばらくお待ちください</div>' +
         '</div>';
       document.body.appendChild(overlay);
     } else {
@@ -5554,6 +5592,8 @@ window.App = {
       overlay.style.opacity = '1';
       const textEl = overlay.querySelector('.loading-text');
       if (textEl) textEl.textContent = message || 'データ読込中...';
+      const headerTitle = overlay.querySelector('.loading-card-header-text .title');
+      if (headerTitle) headerTitle.textContent = message || 'データ読込中...';
       const bar = overlay.querySelector('#loading-progress-bar');
       if (bar) bar.style.width = '0%';
       const pct = overlay.querySelector('#loading-percent');

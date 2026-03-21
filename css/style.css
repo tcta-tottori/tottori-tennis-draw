@@ -2756,76 +2756,167 @@ details[open]>.collapsible-toggle::before {
 }
 
 /* --- データ読込中オーバーレイ --- */
+/* =========================================
+   ローディングモーダル（紫テーマ）
+   ========================================= */
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 9998;
-  animation: rouletteFadeIn 0.2s ease-out;
+  animation: loadingFadeIn 0.2s ease-out;
+  padding: 16px;
+}
+@keyframes loadingFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .loading-overlay .loading-card {
   background: #fff;
-  border-radius: 16px;
-  padding: 32px 40px;
+  border-radius: 20px;
+  padding: 28px 32px;
   text-align: center;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 340px;
 }
 
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #e0e7ef;
-  border-top-color: var(--color-primary);
+/* ヘッダー部分 */
+.loading-card-header {
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.loading-card-header-icon {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.loading-card-header-icon .pulse-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  background: #8b5cf6;
   border-radius: 50%;
-  animation: loadingSpin 0.8s linear infinite;
+  animation: loadingPulseDot 1.5s ease-in-out infinite;
+}
+@keyframes loadingPulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+.loading-card-header-text {
+  text-align: left;
+}
+.loading-card-header-text .title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+}
+.loading-card-header-text .subtitle {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* 回転アーク スピナー */
+.loading-arc-container {
+  position: relative;
+  width: 72px;
+  height: 72px;
   margin: 0 auto 16px;
 }
+.loading-arc-container svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.loading-arc-spin {
+  animation: loadingArcSpin 1.6s linear infinite;
+}
+.loading-arc-spin-reverse {
+  animation: loadingArcSpinReverse 2.4s linear infinite;
+  opacity: 0.3;
+}
+@keyframes loadingArcSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes loadingArcSpinReverse {
+  to { transform: rotate(-360deg); }
+}
 
-@keyframes loadingSpin {
-  to {
-    transform: rotate(360deg);
-  }
+/* 中央スパークルアイコン */
+.loading-sparkle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: loadingSparklePulse 2s ease-in-out infinite;
+}
+@keyframes loadingSparklePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
 }
 
 .loading-overlay .loading-text {
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-text);
+  color: #1f2937;
+  margin-bottom: 4px;
 }
 
+/* プログレスバー */
+.loading-progress-section {
+  margin-top: 12px;
+}
+.loading-progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.loading-progress-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+.loading-percent {
+  font-size: 14px;
+  font-weight: 700;
+  color: #7c3aed;
+}
 .loading-progress-bar-container {
-  width: 220px;
+  width: 100%;
   height: 8px;
-  background: #e5e7eb;
+  background: #f3f4f6;
   border-radius: 999px;
-  margin: 16px auto 8px;
   overflow: hidden;
 }
-
 .loading-progress-bar {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--color-primary), #60a5fa);
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
   border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.loading-percent {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-primary);
-  margin-bottom: 4px;
+  transition: width 0.5s ease-out;
 }
 
 .loading-overlay .loading-sub {
   font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-top: 6px;
+  color: #9ca3af;
+  margin-top: 10px;
 }
 
 /* --- ふりがな1行収まり --- */

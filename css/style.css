@@ -2959,45 +2959,43 @@ details[open]>.collapsible-toggle::before {
   color: #9ca3af;
 }
 
-/* 回転アーク スピナー */
+/* C字型 conic-gradient スピナー */
 .loading-arc-container {
   position: relative;
   width: 72px;
   height: 72px;
   margin: 0 auto 16px;
 }
-.loading-arc-container svg {
+
+.loading-conic-ring {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.loading-arc-spin {
-  animation: loadingArcSpin 1.6s linear infinite;
-}
-.loading-arc-spin-reverse {
-  animation: loadingArcSpinReverse 2.4s linear infinite;
-  opacity: 0.3;
-}
-@keyframes loadingArcSpin {
-  to { transform: rotate(360deg); }
-}
-@keyframes loadingArcSpinReverse {
-  to { transform: rotate(-360deg); }
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #8b5cf6, #a78bfa, #c4b5fd, #7c3aed, #6d28d9, transparent 75%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, black 62%, black 73%, transparent 75%);
+  mask: radial-gradient(circle, transparent 60%, black 62%, black 73%, transparent 75%);
+  animation: loadingConicSpin 1.4s linear infinite;
 }
 
-/* 中央スパークルアイコン */
-.loading-sparkle {
+@keyframes loadingConicSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* conic-gradient の色相をずらすアニメーション */
+.loading-conic-ring::before {
+  content: '';
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: loadingSparklePulse 2s ease-in-out infinite;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg, #c084fc, #e879f9, #a78bfa, #7c3aed, transparent 70%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, black 62%, black 73%, transparent 75%);
+  mask: radial-gradient(circle, transparent 60%, black 62%, black 73%, transparent 75%);
+  animation: loadingConicColorShift 2.2s linear infinite reverse;
+  opacity: 0.6;
 }
-@keyframes loadingSparklePulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.85); }
+
+@keyframes loadingConicColorShift {
+  to { transform: rotate(360deg); }
 }
 
 .loading-overlay .loading-text {

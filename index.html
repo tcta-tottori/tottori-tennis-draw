@@ -191,31 +191,6 @@
           </div>
         </div>
 
-        <!-- ローカルファイルから読み込み -->
-        <div style="background:#f9fafb;border:1px solid var(--color-border);border-radius:10px;padding:16px 18px;">
-          <h4 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#374151;">ローカルファイルから読み込み</h4>
-          <div class="data-load-grid" style="gap:20px;">
-            <div class="card" style="margin-bottom:0;">
-              <h3 class="card-title">ランキングデータ (rank.xlsx)</h3>
-              <div id="drop-ranking" class="drop-zone">
-                <div class="drop-zone-content">
-                  <svg class="drop-zone-icon" viewBox="0 0 24 24" width="48" height="48" fill="none"
-                    stroke="currentColor" stroke-width="1.5">
-                    <path d="M12 16V4m0 0L8 8m4-4l4 4" />
-                    <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" />
-                  </svg>
-                  <p>ここにrank.xlsxをドラッグ&ドロップ</p>
-                  <p class="drop-zone-sub">またはクリックしてファイルを選択</p>
-                </div>
-                <input type="file" id="file-ranking" accept=".xlsx,.xls,.csv" hidden>
-              </div>
-              <div id="status-ranking" class="load-status">
-                <span class="status-icon status-pending">&#9679;</span>
-                <span class="status-text">未読込</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </details>
 
       <!-- 大会一覧（統合） -->
@@ -228,17 +203,19 @@
             </span>
           </div>
           <div class="toolbar-right">
-            <label class="btn btn-success" style="cursor:pointer;">
+            <label class="btn btn-success" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
               Excelから読込
               <input type="file" id="file-tournament-import" accept=".xlsx,.xls" hidden>
             </label>
-            <button id="btn-tournament-add" class="btn btn-primary">大会追加</button>
-            <button id="btn-tournament-backup-save" class="btn btn-secondary">バックアップへ保存</button>
-            <label class="btn btn-secondary" style="cursor:pointer;">
-              バックアップから復元
-              <input type="file" id="file-tournament-backup-restore" accept=".json" hidden>
-            </label>
-            <button id="btn-tournament-clear" class="btn btn-danger">全クリア</button>
+            <button id="btn-tournament-add" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              大会追加
+            </button>
+            <button id="btn-tournament-clear" class="btn btn-danger" style="display:inline-flex;align-items:center;gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              全クリア
+            </button>
           </div>
         </div>
         <div class="table-wrapper" style="overflow-x:auto;">
@@ -378,39 +355,67 @@
           <span id="furigana-count-badge" style="font-size:13px;font-weight:normal;color:#666;float:right;">登録数:
             0件</span>
         </summary>
-        <p style="font-size:13px;color:#666;margin-bottom:12px;">
-          選手名とふりがなを管理します。ランキングデータと自動連携し、新規選手は自動追加されます。
+        <p style="font-size:13px;color:#666;margin-bottom:16px;">
+          選手名・ふりがな・所属を管理します。ランキングデータ読込時に自動連携されます。
         </p>
 
-        <!-- 操作ボタン -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-          <button id="btn-furigana-sync-ranking" class="btn btn-primary">ランキングと同期</button>
-          <label class="btn btn-success" style="cursor:pointer;">
-            Excel取込
-            <input type="file" id="file-furigana-import" accept=".xlsx,.xls,.csv" style="display:none;">
-          </label>
-          <button id="btn-furigana-export" class="btn btn-success">Excel出力</button>
-          <button id="btn-furigana-export-missing" class="btn btn-warning" style="background-color:#ff9800;border-color:#e68a00;color:white;">未設定を出力</button>
+        <!-- Google Drive 読込/保存 -->
+        <div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 50%,#eff6ff 100%);border:1px solid #93c5fd;border-radius:14px;padding:18px 20px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:2px solid #60a5fa;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(59,130,246,0.2);flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066DA"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L3.45 44.7c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#00AC47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85L73.55 76.8z" fill="#EA4335"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#00832D"/><path d="M59.85 53H27.5l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2L59.85 53z" fill="#2684FC"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#FFBA00"/></svg>
+            </div>
+            <div>
+              <h4 style="font-size:15px;font-weight:700;color:#1e40af;margin:0 0 2px 0;">Google Drive 連携</h4>
+              <p style="font-size:12px;color:#6b7280;margin:0;">ふりがな・所属データをDriveに保存/読込します</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="btn-furigana-gdrive-load" class="btn" style="flex:1;min-width:140px;padding:10px 16px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(37,99,235,0.25);display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Driveから読込
+            </button>
+            <button id="btn-furigana-gdrive-upload" class="btn" style="flex:1;min-width:140px;padding:10px 16px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(59,130,246,0.2);display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Driveに保存
+            </button>
+          </div>
+        </div>
 
-          <div style="width:1px;background:#ccc;margin:0 4px;"></div><!-- 区切り線 -->
+        <!-- ローカルファイル読込 / エクスポート -->
+        <div style="background:var(--color-primary-50);border:1px solid var(--color-border);border-radius:14px;padding:18px 20px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--color-primary-100),var(--color-primary-200));border:2px solid var(--color-border-dark);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(124,58,237,0.15);flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+              <h4 style="font-size:15px;font-weight:700;color:var(--color-primary-dark);margin:0 0 2px 0;">ローカルファイル</h4>
+              <p style="font-size:12px;color:#6b7280;margin:0;">Excel/JSONファイルのインポート・エクスポート</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <label class="btn" style="flex:1;min-width:140px;padding:10px 16px;font-size:13px;font-weight:700;background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));color:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(124,58,237,0.2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              ファイルから読込
+              <input type="file" id="file-furigana-import" accept=".xlsx,.xls,.csv,.json" style="display:none;">
+            </label>
+            <button id="btn-furigana-export" class="btn" style="flex:1;min-width:140px;padding:10px 16px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(16,185,129,0.2);display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Excelエクスポート
+            </button>
+          </div>
+        </div>
 
-          <button id="btn-furigana-auto-assign" class="btn btn-primary"
-            style="background-color:#6f42c1;border-color:#6f42c1;">
-            🪄 ふりがな自動付与 (AI)
+        <!-- ツール -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+          <button id="btn-furigana-auto-assign" class="btn" style="padding:10px 18px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(124,58,237,0.25);display:inline-flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg>
+            ふりがな自動付与 (AI)
           </button>
-          
-          <div style="width:1px;background:#ccc;margin:0 4px;"></div><!-- 区切り線 -->
-
-          <button id="btn-furigana-gdrive-upload" class="btn btn-primary" style="background:#3b82f6;border-color:#3b82f6;">
-            <svg style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#fff"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L3.45 44.7c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#fff"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85L73.55 76.8z" fill="#fff"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#fff"/><path d="M59.85 53H27.5l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2L59.85 53z" fill="#fff"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#fff"/></svg>
-            Driveに保存
+          <button id="btn-furigana-clear" class="btn btn-danger" style="margin-left:auto;padding:8px 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            全件クリア
           </button>
-          <button id="btn-furigana-gdrive-load" class="btn btn-primary" style="background:#3b82f6;border-color:#3b82f6;">
-            <svg style="width:14px;height:14px;vertical-align:middle;margin-right:4px;display:inline-block;" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#fff"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L3.45 44.7c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#fff"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.85L73.55 76.8z" fill="#fff"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2L43.65 25z" fill="#fff"/><path d="M59.85 53H27.5l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2L59.85 53z" fill="#fff"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.2 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#fff"/></svg>
-            Driveから読込
-          </button>
-
-          <button id="btn-furigana-clear" class="btn btn-danger" style="opacity:0.85;margin-left:auto;">全件クリア</button>
         </div>
 
         <!-- 同期ステータス -->

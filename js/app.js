@@ -202,14 +202,6 @@ window.App = {
   // ================================================================
 
   initDataScreen() {
-    // ローカルファイル読み込み
-    const dropRanking = document.getElementById('drop-ranking');
-    const fileRanking = document.getElementById('file-ranking');
-
-    if (dropRanking) {
-      this._setupDropZone(dropRanking, fileRanking, (file) => this._loadRankingFile(file));
-    }
-
     // Google スプレッドシートから読み込み
     const btnGsRanking = document.getElementById('btn-gs-ranking');
     if (btnGsRanking) {
@@ -2307,40 +2299,6 @@ window.App = {
 
     const btnAdd = document.getElementById('btn-tournament-add');
     if (btnAdd) btnAdd.addEventListener('click', () => this._showTournamentModal());
-
-    const btnBackupSave = document.getElementById('btn-tournament-backup-save');
-    if (btnBackupSave) btnBackupSave.addEventListener('click', () => {
-      const data = localStorage.getItem('drawSystem_tournaments');
-      if (!data) { this.showMessage('大会データがありません', 'error'); return; }
-      this._downloadJSON(data, 'tournament_backup.json');
-      this.showMessage('大会一覧をバックアップファイルに保存しました', 'success');
-    });
-
-    const fileBackupRestore = document.getElementById('file-tournament-backup-restore');
-    if (fileBackupRestore) fileBackupRestore.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const data = JSON.parse(ev.target.result);
-          const tournaments = data.tournaments || data;
-          if (!Array.isArray(tournaments)) {
-            this.showMessage('バックアップファイルの形式が正しくありません', 'error');
-            return;
-          }
-          if (!confirm('現在の大会データを上書きして復元しますか？（' + tournaments.length + '件）')) return;
-          localStorage.setItem('drawSystem_tournaments', JSON.stringify({ tournaments: tournaments }));
-          TournamentStore.init();
-          this.refreshTournamentsTable();
-          this.showMessage('バックアップから ' + tournaments.length + '件の大会を復元しました', 'success');
-        } catch (err) {
-          this.showMessage('バックアップの読込に失敗しました: ' + err.message, 'error');
-        }
-      };
-      reader.readAsText(file);
-      fileBackupRestore.value = '';
-    });
 
     const btnClear = document.getElementById('btn-tournament-clear');
     if (btnClear) btnClear.addEventListener('click', () => {
@@ -6156,13 +6114,7 @@ window.App = {
   _initFuriganaInDataScreen() {
     this._loadFuriganaData();
 
-    // ランキングと同期ボタン
-    const btnSync = document.getElementById('btn-furigana-sync-ranking');
-    if (btnSync) {
-      btnSync.addEventListener('click', () => this._syncFuriganaWithRanking());
-    }
-
-    // Excel取込
+    // ローカルファイル読込
     const fileImport = document.getElementById('file-furigana-import');
     if (fileImport) {
       fileImport.addEventListener('change', (e) => {
@@ -6173,27 +6125,10 @@ window.App = {
       });
     }
 
-    // Excel出力
+    // Excelエクスポート
     const btnExport = document.getElementById('btn-furigana-export');
     if (btnExport) {
       btnExport.addEventListener('click', () => this._exportFuriganaExcel());
-    }
-
-    // Excel出力（未設定のみ）
-    const btnExportMissing = document.getElementById('btn-furigana-export-missing');
-    if (btnExportMissing) {
-      btnExportMissing.addEventListener('click', () => this._exportMissingFuriganaExcel());
-    }
-
-    // ふりがなクリアボタン
-    const btnFuriganaClear = document.getElementById('btn-furigana-clear');
-    if (btnFuriganaClear) {
-      btnFuriganaClear.addEventListener('click', () => {
-        if (confirm('すべてのふりがなデータをクリアしますか？この操作は元に戻せません。')) {
-          this._clearFuriganaData();
-          this.showMessage('ふりがなデータをクリアしました', 'info');
-        }
-      });
     }
 
     // ふりがな自動付与 (kuromoji.js)

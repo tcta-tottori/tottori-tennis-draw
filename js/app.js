@@ -4383,20 +4383,6 @@ window.App = {
       this.showMessage('バックアップデータを読込データに反映しました', 'success');
     });
 
-    // データ読込ページのバックアップインポート（全データ一括）
-    const fileDataBackup = document.getElementById('file-data-backup-import');
-    if (fileDataBackup) fileDataBackup.addEventListener('change', (e) => this._importAllBackup(e));
-
-    // データ読込ページの個別インポート
-    const fileImportRankingOnly = document.getElementById('file-import-ranking-only');
-    if (fileImportRankingOnly) fileImportRankingOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'ranking'));
-    const fileImportTournamentOnly = document.getElementById('file-import-tournament-only');
-    if (fileImportTournamentOnly) fileImportTournamentOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'tournament'));
-    const fileImportEntryOnly = document.getElementById('file-import-entry-only');
-    if (fileImportEntryOnly) fileImportEntryOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'entry'));
-    const fileImportDrawOnly = document.getElementById('file-import-draw-only');
-    if (fileImportDrawOnly) fileImportDrawOnly.addEventListener('change', (e) => this._importPartialBackup(e, 'draw'));
-
     // バックアップ画面の個別インポート
     const fileBackupRanking = document.getElementById('file-backup-import-ranking');
     if (fileBackupRanking) fileBackupRanking.addEventListener('change', (e) => this._importPartialBackup(e, 'ranking'));

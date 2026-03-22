@@ -288,66 +288,6 @@
         </div>
       </div>
 
-      <!-- バックアップからインポート -->
-      <details class="card collapsible-section" style="margin-top:24px;">
-        <summary class="card-title collapsible-toggle">バックアップからインポート</summary>
-        <p style="font-size:13px;color:#666;margin-bottom:12px;">
-          エクスポート済みのバックアップファイル（Excel/JSON）からデータを復元します。個別または全データのインポートが可能です。
-        </p>
-        <div style="margin-bottom:12px;">
-          <label class="btn btn-primary" style="cursor:pointer;">
-            全データ一括インポート
-            <input type="file" id="file-data-backup-import" accept=".xlsx,.xls,.json" style="display:none;">
-          </label>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <label class="btn btn-secondary" style="cursor:pointer;">
-            ランキングのみ
-            <input type="file" id="file-import-ranking-only" accept=".xlsx,.xls,.json" style="display:none;">
-          </label>
-          <label class="btn btn-secondary" style="cursor:pointer;">
-            大会一覧のみ
-            <input type="file" id="file-import-tournament-only" accept=".xlsx,.xls,.json" style="display:none;">
-          </label>
-          <label class="btn btn-secondary" style="cursor:pointer;">
-            エントリーのみ
-            <input type="file" id="file-import-entry-only" accept=".xlsx,.xls,.json" style="display:none;">
-          </label>
-          <label class="btn btn-secondary" style="cursor:pointer;">
-            ドロー結果のみ
-            <input type="file" id="file-import-draw-only" accept=".xlsx,.xls,.json" style="display:none;">
-          </label>
-        </div>
-      </details>
-
-      <!-- 読込結果サマリー（ページ下部） -->
-      <details class="card collapsible-section" id="data-summary" style="display:none;margin-top:24px;">
-        <summary class="card-title collapsible-toggle">読込結果サマリー</summary>
-        <div id="data-summary-content" class="summary-grid">
-          <div class="summary-item">
-            <span class="summary-label">選手数</span>
-            <span class="summary-value" id="summary-player-count">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label" style="color:#1e40af;">男子</span>
-            <span class="summary-value" id="summary-male-count" style="color:#1e40af;">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label" style="color:#be185d;">女子</span>
-            <span class="summary-value" id="summary-female-count" style="color:#be185d;">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">ふりがな</span>
-            <span class="summary-value" id="summary-furigana-count">0</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">種目数</span>
-            <span class="summary-value" id="summary-event-count">0</span>
-          </div>
-        </div>
-        <div id="data-summary-detail" style="margin-top:12px;"></div>
-      </details>
-
       <!-- ふりがなデータベース -->
       <details class="card collapsible-section" style="margin-top:24px;">
         <summary class="card-title collapsible-toggle">
@@ -493,6 +433,34 @@
         <!-- ページネーション -->
         <div id="furigana-pagination"
           style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;"></div>
+      </details>
+
+      <!-- 読込結果サマリー -->
+      <details class="card collapsible-section" id="data-summary" style="display:none;margin-top:24px;">
+        <summary class="card-title collapsible-toggle">読込結果サマリー</summary>
+        <div id="data-summary-content" class="summary-grid">
+          <div class="summary-item">
+            <span class="summary-label">選手数</span>
+            <span class="summary-value" id="summary-player-count">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label" style="color:#1e40af;">男子</span>
+            <span class="summary-value" id="summary-male-count" style="color:#1e40af;">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label" style="color:#be185d;">女子</span>
+            <span class="summary-value" id="summary-female-count" style="color:#be185d;">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">ふりがな</span>
+            <span class="summary-value" id="summary-furigana-count">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">種目数</span>
+            <span class="summary-value" id="summary-event-count">0</span>
+          </div>
+        </div>
+        <div id="data-summary-detail" style="margin-top:12px;"></div>
       </details>
 
       <!-- ふりがな編集モーダル -->

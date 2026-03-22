@@ -2678,13 +2678,13 @@
   </script>
 
   <script>
-  // 水面コースティクス (プール底に映る光の網目模様)
+  // 紫スモーク / インクが漂うアニメーション
   (function() {
     var canvas = document.getElementById('water-canvas');
     if (!canvas) return;
     var ctx = canvas.getContext('2d');
-    var W, H, imgData, buf;
-    var scale = 2;   // 解像度を上げてくっきり
+    var W, H;
+    var scale = 3;
 
     function resize() {
       var rect = canvas.parentElement.getBoundingClientRect();
@@ -2694,56 +2694,82 @@
       canvas.height = H;
       canvas.style.width = rect.width + 'px';
       canvas.style.height = rect.height + 'px';
-      imgData = ctx.createImageData(W, H);
-      buf = imgData.data;
     }
     resize();
     window.addEventListener('resize', resize);
 
     var t = 0;
 
-    // コースティクス用のノイズ関数 — 複数の波を重ねて水面パターンを生成
-    function caustic(x, y, time) {
+    // fBM風ノイズ — sin波を重ねてスモークの濃淡を生成
+    function smoke(x, y, time) {
       var v = 0;
-      // ゆったりした大波
-      v += Math.sin(x * 0.025 + time * 0.4) * Math.cos(y * 0.04 + time * 0.35);
-      v += Math.sin(x * 0.02 - time * 0.3 + 1.3) * Math.cos(y * 0.03 + time * 0.38 + 0.8);
-      // 中くらいの波
-      v += Math.sin(x * 0.05 + y * 0.018 + time * 0.5 + 2.1) * Math.cos(y * 0.045 - x * 0.012 + time * 0.32);
-      v += Math.cos(x * 0.035 - y * 0.025 + time * 0.45 + 0.5) * Math.sin(y * 0.055 + x * 0.018 + time * 0.38 + 1.8);
-      // 細かいさざなみ
-      v += Math.sin(x * 0.08 + time * 0.55 + 3.7) * Math.cos(y * 0.075 + time * 0.45 + 2.3) * 0.7;
-      v += Math.cos(x * 0.07 + y * 0.07 - time * 0.5 + 1.1) * Math.sin(y * 0.09 - time * 0.42) * 0.5;
-      // さらに細かい波紋
-      v += Math.sin(x * 0.11 + y * 0.04 + time * 0.6 + 0.9) * Math.cos(y * 0.1 - time * 0.48 + 3.5) * 0.35;
+      // 大きくうねる煙の塊
+      v += Math.sin(x * 0.012 + time * 0.18 + 0.5) * Math.cos(y * 0.018 + time * 0.14) * 1.0;
+      v += Math.cos(x * 0.015 - time * 0.12 + 2.1) * Math.sin(y * 0.022 + time * 0.16 + 1.3) * 0.9;
+      // 中くらいの渦
+      v += Math.sin(x * 0.028 + y * 0.01 + time * 0.22 + 3.7) * Math.cos(y * 0.032 - x * 0.008 + time * 0.18) * 0.65;
+      v += Math.cos(x * 0.02 - y * 0.015 + time * 0.2 + 0.8) * Math.sin(y * 0.035 + x * 0.012 + time * 0.15 + 2.5) * 0.55;
+      // 細かいディテール
+      v += Math.sin(x * 0.05 + time * 0.28 + 1.2) * Math.cos(y * 0.045 + time * 0.24 + 4.1) * 0.35;
+      v += Math.cos(x * 0.04 + y * 0.04 - time * 0.2 + 5.3) * Math.sin(y * 0.055 - time * 0.22) * 0.25;
+      // さらに微細な揺らぎ
+      v += Math.sin(x * 0.07 + y * 0.03 + time * 0.3) * Math.cos(y * 0.065 - time * 0.25 + 2.8) * 0.15;
+      return v;
+    }
+
+    // 2番目のノイズ場（渦・流れの方向感を出す）
+    function smoke2(x, y, time) {
+      var v = 0;
+      v += Math.sin(x * 0.018 - time * 0.15 + 1.7) * Math.cos(y * 0.025 + time * 0.12 + 3.2) * 1.0;
+      v += Math.cos(x * 0.022 + time * 0.18 + 4.5) * Math.sin(y * 0.015 - time * 0.14) * 0.7;
+      v += Math.sin(x * 0.04 + y * 0.02 - time * 0.22 + 0.3) * Math.cos(y * 0.038 + time * 0.2 + 1.9) * 0.4;
+      v += Math.cos(x * 0.06 - y * 0.03 + time * 0.26) * Math.sin(y * 0.05 + time * 0.18 + 3.6) * 0.2;
       return v;
     }
 
     function render() {
-      var d = 0.9;
+      var imgData = ctx.createImageData(W, H);
+      var buf = imgData.data;
+
       for (var py = 0; py < H; py++) {
         for (var px = 0; px < W; px++) {
-          var c  = caustic(px, py, t);
-          var cx = caustic(px + d, py, t);
-          var cy = caustic(px, py + d, t);
-          var dx = (cx - c) / d;
-          var dy = (cy - c) / d;
-          var focus = dx * dx + dy * dy;
-          // 集光を少し強め — 光の筋がはっきり見える
-          focus = Math.pow(focus, 0.9) * 24;
-          if (focus > 1) focus = 1;
+          // メインの煙の濃さ
+          var s1 = smoke(px, py, t);
+          var s2 = smoke2(px, py, t);
+
+          // 2つのノイズをブレンドして複雑な煙模様にする
+          var density = (s1 + s2 * 0.6) * 0.35 + 0.5;
+          // 0〜1にクランプ
+          if (density < 0) density = 0;
+          if (density > 1) density = 1;
+
+          // 煙のエッジを際立たせる（シグモイド風カーブ）
+          density = density * density * (3.0 - 2.0 * density);
+
+          // 紫のトーンバリエーション: 暗い紫 〜 明るいラベンダー
+          // 暗部: (40, 10, 60)  明部: (180, 120, 230)
+          var r = Math.floor(40 + density * 140);
+          var g = Math.floor(10 + density * 110);
+          var b = Math.floor(60 + density * 170);
+
+          // 明るいハイライト部分にわずかにピンクみを加える
+          if (density > 0.65) {
+            var highlight = (density - 0.65) / 0.35;
+            r = Math.floor(r + highlight * 40);
+            g = Math.floor(g + highlight * 15);
+          }
+          if (r > 255) r = 255;
+          if (g > 255) g = 255;
 
           var idx = (py * W + px) * 4;
-          // 白〜ラベンダーの光のライン
-          var b = focus * 255;
-          buf[idx]     = Math.floor(b * 0.93 + 220 * focus * 0.07); // R
-          buf[idx + 1] = Math.floor(b * 0.88 + 190 * focus * 0.12); // G
-          buf[idx + 2] = Math.floor(b);                              // B
-          buf[idx + 3] = Math.floor(focus * 210);                    // A
+          buf[idx]     = r;
+          buf[idx + 1] = g;
+          buf[idx + 2] = b;
+          buf[idx + 3] = Math.floor(density * 160);  // 半透明で下のグラデと馴染む
         }
       }
       ctx.putImageData(imgData, 0, 0);
-      t += 0.015;
+      t += 0.012;
       requestAnimationFrame(render);
     }
     render();

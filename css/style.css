@@ -137,24 +137,19 @@ body {
     radial-gradient(ellipse at 50% 100%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
 }
 
-/* ネットパターン */
+/* ネットパターン（スモーク時は控えめ） */
 .header-net-pattern {
   position: absolute;
   left: 0; top: 0; width: 100%; height: 100%;
   pointer-events: none;
   background:
-    repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(255,255,255,0.03) 30px, rgba(255,255,255,0.03) 31px),
-    repeating-linear-gradient(0deg, transparent, transparent 12px, rgba(255,255,255,0.02) 12px, rgba(255,255,255,0.02) 13px);
-  animation: netShimmer 8s ease-in-out infinite alternate;
-}
-@keyframes netShimmer {
-  0% { opacity: 0.3; }
-  50% { opacity: 0.6; }
-  100% { opacity: 0.3; }
+    repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(255,255,255,0.015) 30px, rgba(255,255,255,0.015) 31px),
+    repeating-linear-gradient(0deg, transparent, transparent 12px, rgba(255,255,255,0.01) 12px, rgba(255,255,255,0.01) 13px);
+  opacity: 0.3;
 }
 
 /* =========================================
-   水面の光反射アニメーション (Canvas)
+   紫スモーク / インクアニメーション (Canvas)
    ========================================= */
 .header-sea-shimmer {
   position: absolute;
@@ -167,8 +162,7 @@ body {
   width: 100%;
   height: 100%;
   image-rendering: auto;
-  filter: blur(0.6px);
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .header-top {

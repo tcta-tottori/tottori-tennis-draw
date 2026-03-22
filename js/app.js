@@ -4399,9 +4399,6 @@ window.App = {
     // --- Google ドライブ バックアップ 初期化 ---
     this._initGoogleDriveBackup();
 
-    // --- GitHub 全データバックアップ 初期化 ---
-    this._initGitHubBackup();
-
     const btnClearAll = document.getElementById('btn-backup-clear-all');
     if (btnClearAll) btnClearAll.addEventListener('click', () => {
       if (confirm('全てのデータを削除しますか？この操作は取り消せません。')) {
@@ -7314,15 +7311,11 @@ window.App = {
   // ================================================================
 
   _initGoogleDriveBackup() {
+    const GDRIVE_CLIENT_ID = '316429350105-v1tpv97kkq6jkg9gmu57aqt7btic6qod.apps.googleusercontent.com';
     const statusEl = document.getElementById('gdrive-backup-status');
     const setupArea = document.getElementById('gdrive-setup');
-    const clientIdSetup = document.getElementById('gdrive-clientid-setup');
-    const reconnectSetup = document.getElementById('gdrive-reconnect-setup');
     const controlsArea = document.getElementById('gdrive-backup-controls');
-    const clientIdInput = document.getElementById('gdrive-client-id-input');
     const btnConnect = document.getElementById('btn-gdrive-connect');
-    const btnReconnect = document.getElementById('btn-gdrive-reconnect');
-    const btnResetClientId = document.getElementById('btn-gdrive-reset-clientid');
     const btnDisconnect = document.getElementById('btn-gdrive-disconnect');
     const btnSave = document.getElementById('btn-gdrive-backup-save');
     const btnImportLatest = document.getElementById('btn-gdrive-backup-import-latest');
@@ -7331,71 +7324,29 @@ window.App = {
 
     if (!btnConnect) return;
 
-    const savedClientId = GoogleDriveBackup.getSavedClientId();
-
-    // 保存済み Client ID がある場合の表示切り替え
-    if (savedClientId) {
-      if (clientIdSetup) clientIdSetup.style.display = 'none';
-      if (reconnectSetup) reconnectSetup.style.display = 'block';
-
-      // トークンが有効ならば自動接続
-      if (GoogleDriveBackup.isTokenValid()) {
-        this._gdriveConnect(GoogleDriveBackup.getSavedToken());
-      }
+    // トークンが有効ならば自動接続
+    if (GoogleDriveBackup.isTokenValid()) {
+      this._gdriveConnect(GoogleDriveBackup.getSavedToken());
     }
 
-    // Client ID 入力 → 接続
-    const doConnect = async (clientId) => {
+    // 接続ボタン
+    btnConnect.addEventListener('click', async () => {
+      btnConnect.disabled = true;
+      const origHTML = btnConnect.innerHTML;
+      btnConnect.textContent = '認証中...';
       try {
         await GoogleDriveBackup.loadGisScript();
-        const token = await GoogleDriveBackup.requestAccessToken(clientId);
-        GoogleDriveBackup.saveClientId(clientId);
+        const token = await GoogleDriveBackup.requestAccessToken(GDRIVE_CLIENT_ID);
+        GoogleDriveBackup.saveClientId(GDRIVE_CLIENT_ID);
         this._gdriveConnect(token);
         this.showMessage('Google ドライブに接続しました', 'success');
       } catch (e) {
         this.showMessage('接続失敗: ' + (e.message || e), 'error');
+      } finally {
+        btnConnect.disabled = false;
+        btnConnect.innerHTML = origHTML;
       }
-    };
-
-    btnConnect.addEventListener('click', async () => {
-      const clientId = clientIdInput.value.trim();
-      if (!clientId) return;
-      btnConnect.disabled = true;
-      btnConnect.textContent = '認証中...';
-      await doConnect(clientId);
-      btnConnect.disabled = false;
-      btnConnect.textContent = 'Google で認証';
     });
-
-    if (btnReconnect) {
-      btnReconnect.addEventListener('click', async () => {
-        btnReconnect.disabled = true;
-        btnReconnect.textContent = '接続中...';
-        try {
-          await GoogleDriveBackup.loadGisScript();
-          const token = await GoogleDriveBackup.requestAccessToken(savedClientId);
-          this._gdriveConnect(token);
-          this.showMessage('Google ドライブに再接続しました', 'success');
-        } catch (e) {
-          this.showMessage('接続失敗: ' + (e.message || e), 'error');
-        } finally {
-          btnReconnect.disabled = false;
-          btnReconnect.textContent = 'Google ドライブに再接続';
-        }
-      });
-    }
-
-    if (btnResetClientId) {
-      btnResetClientId.addEventListener('click', () => {
-        GoogleDriveBackup.clearClientId();
-        GoogleDriveBackup.clearToken();
-        if (clientIdSetup) clientIdSetup.style.display = 'block';
-        if (reconnectSetup) reconnectSetup.style.display = 'none';
-        if (setupArea) setupArea.style.display = 'block';
-        if (controlsArea) controlsArea.style.display = 'none';
-        if (statusEl) { statusEl.textContent = '未接続'; statusEl.style.color = ''; }
-      });
-    }
 
     if (btnDisconnect) {
       btnDisconnect.addEventListener('click', () => {
@@ -7403,8 +7354,6 @@ window.App = {
         if (token) GoogleDriveBackup.revokeToken(token);
         if (setupArea) setupArea.style.display = 'block';
         if (controlsArea) controlsArea.style.display = 'none';
-        if (clientIdSetup) clientIdSetup.style.display = 'none';
-        if (reconnectSetup) reconnectSetup.style.display = 'block';
         if (statusEl) { statusEl.textContent = '未接続'; statusEl.style.color = ''; }
       });
     }
@@ -7559,187 +7508,6 @@ window.App = {
       await GoogleDriveBackup.deleteBackup(token, file);
       this.showMessage('削除しました', 'success');
       await this._refreshGDriveBackupList();
-    } catch (e) {
-      this.showMessage('削除失敗: ' + e.message, 'error');
-    }
-  },
-
-  // ================================================================
-  // GitHub 全データバックアップ
-  // ================================================================
-
-  _initGitHubBackup() {
-    const tokenInput = document.getElementById('github-backup-token');
-    const btnConnect = document.getElementById('btn-github-backup-connect');
-    const btnDisconnect = document.getElementById('btn-github-backup-disconnect');
-    const btnSave = document.getElementById('btn-github-backup-save');
-    const btnRefresh = document.getElementById('btn-github-backup-refresh');
-    const setupArea = document.getElementById('github-backup-setup');
-    const controlsArea = document.getElementById('github-backup-controls');
-    const statusEl = document.getElementById('github-backup-status');
-
-    if (GitHubBackup.config.token) {
-      this._githubBackupConnect(GitHubBackup.config.token);
-    }
-
-    if (btnConnect) {
-      btnConnect.addEventListener('click', async () => {
-        const token = tokenInput.value.trim();
-        if (!token) return;
-        btnConnect.disabled = true;
-        btnConnect.textContent = '接続中...';
-        try {
-          const ok = await GitHubBackup.validateToken(token);
-          if (ok) {
-            GitHubBackup.saveToken(token);
-            this._githubBackupConnect(token);
-            this.showMessage('GitHubに接続しました', 'success');
-          } else {
-            this.showMessage('トークンが無効、または権限が不足しています', 'error');
-          }
-        } catch (e) {
-          this.showMessage('接続エラー: ' + e.message, 'error');
-        } finally {
-          btnConnect.disabled = false;
-          btnConnect.textContent = '接続';
-        }
-      });
-    }
-
-    if (btnDisconnect) {
-      btnDisconnect.addEventListener('click', () => {
-        GitHubBackup.saveToken('');
-        setupArea.style.display = 'block';
-        controlsArea.style.display = 'none';
-        statusEl.textContent = '未接続';
-        statusEl.style.color = '';
-      });
-    }
-
-    if (btnSave) {
-      btnSave.addEventListener('click', async () => {
-        btnSave.disabled = true;
-        btnSave.textContent = 'エクスポート中...';
-        try {
-          const data = await this._buildAllBackupData();
-          const now = new Date();
-          const fileName = `full-backup-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.json`;
-          
-          await GitHubBackup.uploadBackup(fileName, data);
-          this.showMessage('GitHubに保存しました: ' + fileName, 'success');
-          await this._refreshGitHubBackupList();
-        } catch (e) {
-          this.showMessage('保存失敗: ' + e.message, 'error');
-        } finally {
-          btnSave.disabled = false;
-          btnSave.textContent = 'GitHubにエクスポート';
-        }
-      });
-    }
-
-    const btnImportLatest = document.getElementById('btn-github-backup-import-latest');
-    if (btnImportLatest) {
-      btnImportLatest.addEventListener('click', async () => {
-        btnImportLatest.disabled = true;
-        btnImportLatest.textContent = '取得中...';
-        try {
-          const files = await GitHubBackup.listBackups();
-          if (!files || files.length === 0) {
-            this.showMessage('バックアップが見つかりません', 'error');
-            return;
-          }
-          const latest = files[0];
-          if (!confirm(`最新のバックアップ「${latest.name}」からインポートしますか？\n現在のデータは全て上書きされます。`)) return;
-          this._showLoadingOverlay('最新バックアップをインポート中...');
-          const data = await GitHubBackup.downloadBackup(latest);
-          await this._restoreAllBackupData(data);
-          this.showMessage('最新バックアップからインポートしました。画面をリロードします。', 'success');
-          setTimeout(() => location.reload(), 2000);
-        } catch (e) {
-          this.showMessage('インポート失敗: ' + e.message, 'error');
-        } finally {
-          this._hideLoadingOverlay();
-          btnImportLatest.disabled = false;
-          btnImportLatest.textContent = 'GitHubからインポート（最新）';
-        }
-      });
-    }
-
-    if (btnRefresh) {
-      btnRefresh.addEventListener('click', () => this._refreshGitHubBackupList());
-    }
-  },
-
-  async _githubBackupConnect(token) {
-    const setupArea = document.getElementById('github-backup-setup');
-    const controlsArea = document.getElementById('github-backup-controls');
-    const statusEl = document.getElementById('github-backup-status');
-    
-    if (setupArea) setupArea.style.display = 'none';
-    if (controlsArea) controlsArea.style.display = 'block';
-    if (statusEl) {
-      statusEl.textContent = '接続完了';
-      statusEl.style.color = '#28a745';
-    }
-    await this._refreshGitHubBackupList();
-  },
-
-  async _refreshGitHubBackupList() {
-    const tbody = document.getElementById('github-backup-list-body');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#888;">読込中...</td></tr>';
-
-    try {
-      const files = await GitHubBackup.listBackups();
-      tbody.innerHTML = '';
-      if (files.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#888;">バックアップはありません</td></tr>';
-        return;
-      }
-
-      files.forEach(file => {
-        const tr = document.createElement('tr');
-        const sizeKB = Math.round(file.size / 1024);
-        tr.innerHTML = `
-          <td style="font-size:12px;">${file.name}</td>
-          <td style="font-size:12px;">${sizeKB} KB</td>
-          <td>
-            <button class="btn btn-sm btn-primary btn-restore" style="padding:2px 8px;">復元</button>
-            <button class="btn btn-sm btn-danger btn-delete" style="padding:2px 8px;margin-left:4px;">削除</button>
-          </td>
-        `;
-
-        tr.querySelector('.btn-restore').addEventListener('click', () => this._restoreFromGitHub(file));
-        tr.querySelector('.btn-delete').addEventListener('click', () => this._deleteFromGitHub(file));
-        tbody.appendChild(tr);
-      });
-    } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#dc3545;">一覧取得エラー: ${e.message}</td></tr>`;
-    }
-  },
-
-  async _restoreFromGitHub(file) {
-    if (!confirm(`GitHub上のバックアップ「${file.name}」から復元しますか？\n現在のデータは全て上書きされます。`)) return;
-    
-    this._showLoadingOverlay('データを復元中...');
-    try {
-      const data = await GitHubBackup.downloadBackup(file);
-      await this._restoreAllBackupData(data);
-      this.showMessage('GitHubから復元しました。画面をリロードしてください。', 'success');
-      setTimeout(() => location.reload(), 2000);
-    } catch (e) {
-      this.showMessage('復元失敗: ' + e.message, 'error');
-    } finally {
-      this._hideLoadingOverlay();
-    }
-  },
-
-  async _deleteFromGitHub(file) {
-    if (!confirm(`バックアップ「${file.name}」を削除しますか？`)) return;
-    try {
-      await GitHubBackup.deleteBackup(file);
-      this.showMessage('削除しました', 'success');
-      await this._refreshGitHubBackupList();
     } catch (e) {
       this.showMessage('削除失敗: ' + e.message, 'error');
     }

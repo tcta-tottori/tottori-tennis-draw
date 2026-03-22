@@ -2711,14 +2711,16 @@
       // 中くらいの波
       v += Math.sin(x * 0.05 + y * 0.018 + time * 0.5 + 2.1) * Math.cos(y * 0.045 - x * 0.012 + time * 0.32);
       v += Math.cos(x * 0.035 - y * 0.025 + time * 0.45 + 0.5) * Math.sin(y * 0.055 + x * 0.018 + time * 0.38 + 1.8);
-      // 細かいさざなみ（控えめ）
-      v += Math.sin(x * 0.07 + time * 0.6 + 3.7) * Math.cos(y * 0.065 + time * 0.5 + 2.3) * 0.5;
-      v += Math.cos(x * 0.06 + y * 0.06 - time * 0.55 + 1.1) * Math.sin(y * 0.08 - time * 0.45) * 0.35;
+      // 細かいさざなみ
+      v += Math.sin(x * 0.08 + time * 0.55 + 3.7) * Math.cos(y * 0.075 + time * 0.45 + 2.3) * 0.7;
+      v += Math.cos(x * 0.07 + y * 0.07 - time * 0.5 + 1.1) * Math.sin(y * 0.09 - time * 0.42) * 0.5;
+      // さらに細かい波紋
+      v += Math.sin(x * 0.11 + y * 0.04 + time * 0.6 + 0.9) * Math.cos(y * 0.1 - time * 0.48 + 3.5) * 0.35;
       return v;
     }
 
     function render() {
-      var d = 1.0;
+      var d = 0.9;
       for (var py = 0; py < H; py++) {
         for (var px = 0; px < W; px++) {
           var c  = caustic(px, py, t);
@@ -2727,8 +2729,8 @@
           var dx = (cx - c) / d;
           var dy = (cy - c) / d;
           var focus = dx * dx + dy * dy;
-          // 上品な集光 — 明るすぎず、うっすらと光の筋が見える
-          focus = Math.pow(focus, 1.0) * 20;
+          // 集光を少し強め — 光の筋がはっきり見える
+          focus = Math.pow(focus, 0.9) * 24;
           if (focus > 1) focus = 1;
 
           var idx = (py * W + px) * 4;
@@ -2737,7 +2739,7 @@
           buf[idx]     = Math.floor(b * 0.93 + 220 * focus * 0.07); // R
           buf[idx + 1] = Math.floor(b * 0.88 + 190 * focus * 0.12); // G
           buf[idx + 2] = Math.floor(b);                              // B
-          buf[idx + 3] = Math.floor(focus * 180);                    // A: 控えめな透明度
+          buf[idx + 3] = Math.floor(focus * 210);                    // A
         }
       }
       ctx.putImageData(imgData, 0, 0);

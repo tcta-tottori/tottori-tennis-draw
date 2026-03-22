@@ -71,32 +71,19 @@
     img.src = 'logo.png';
   })();
 
-  // ヘッダーロゴ: 紫背景 + 青→紫変換済みロゴ
+  // ヘッダーロゴ: logo.pngの青→紫変換をcanvas経由で適用しimgに反映
   window.addEventListener('DOMContentLoaded', function() {
-    var hc = document.getElementById('header-logo-canvas');
-    if (!hc) return;
-    var hctx = hc.getContext('2d');
-    var hs = 84;
+    var logoEl = document.getElementById('header-logo-img');
+    if (!logoEl) return;
     var logoImg = new Image();
     logoImg.onload = function() {
-      // 紫グラデーション円背景
-      var grad = hctx.createLinearGradient(0, 0, hs, hs);
-      grad.addColorStop(0, '#8b5cf6');
-      grad.addColorStop(1, '#5b21b6');
-      hctx.beginPath();
-      hctx.arc(hs / 2, hs / 2, hs / 2, 0, Math.PI * 2);
-      hctx.closePath();
-      hctx.fillStyle = grad;
-      hctx.fill();
-      // 一旦別canvasでロゴの青→紫変換
-      var tmpC = document.createElement('canvas');
-      tmpC.width = hs; tmpC.height = hs;
-      var tmpCtx = tmpC.getContext('2d');
-      var pad = 8;
-      tmpCtx.drawImage(logoImg, 0, 0, hs, hs);
-      convertBlueToPurple(tmpCtx, hs, hs);
-      // 変換済みロゴを紫背景の上に描画
-      hctx.drawImage(tmpC, pad, pad, hs - pad * 2, hs - pad * 2);
+      var s = 84;
+      var c = document.createElement('canvas');
+      c.width = s; c.height = s;
+      var ctx = c.getContext('2d');
+      ctx.drawImage(logoImg, 0, 0, s, s);
+      convertBlueToPurple(ctx, s, s);
+      logoEl.src = c.toDataURL('image/png');
     };
     logoImg.src = 'logo.png';
   });
@@ -116,7 +103,7 @@
     </div>
     <div class="header-top">
       <div class="header-logo">
-        <canvas id="header-logo-canvas" width="84" height="84"></canvas>
+        <img id="header-logo-img" src="logo.png" alt="鳥取市テニス協会" />
       </div>
       <div class="header-titles">
         <span class="header-org">鳥取市テニス協会</span>

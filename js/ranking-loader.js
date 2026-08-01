@@ -6,8 +6,50 @@
 window.RankingLoader = {
   rankings: {},      // { 'ms': [{rank, name, affiliation, points}, ...], ... }
   furiganaMap: {},   // { '山田　太郎': 'やまだ　たろう', ... }
+  furiganaKeyMap: {},// 正規化キー（空白除去・NFKC）→ ふりがな。表記ゆれ吸収用の索引
   allPlayers: [],    // 全種目の全選手リスト（重複あり）
   listMembers: [],   // リストシートの全登録者 [{name, furigana}]（ランキング外含む）
+
+  /**
+   * 氏名の照合キーを生成する。
+   * 「田中　芳宏」「田中 芳宏」「田中芳宏」「ﾀﾅｶ ﾖｼﾋﾛ」を同一キーに寄せることで、
+   * データソース（スプレッドシート／ふりがなJSON／手入力）ごとの表記ゆれを吸収する。
+   * @param {string} name 氏名
+   * @returns {string} 照合キー（空白を全て除去した正規形）
+   */
+  nameKey(name) {
+    if (!name) return '';
+    let s = String(name);
+    try { s = s.normalize('NFKC'); } catch (e) { /* 未対応環境ではそのまま */ }
+    return s
+      .replace(/[\s　 ]+/g, '')   // 半角/全角/NBSPの空白を全除去
+      .replace(/[・･.,、。]/g, '')          // 区切り記号も無視
+      .toLowerCase();
+  },
+
+  /**
+   * 氏名からふりがなを取得する（表記ゆれ吸収つき）
+   * @param {string} name 氏名
+   * @returns {string} ふりがな。見つからなければ空文字
+   */
+  getFurigana(name) {
+    if (!name) return '';
+    if (this.furiganaMap[name]) return this.furiganaMap[name];
+    const key = this.nameKey(name);
+    if (!key) return '';
+    return this.furiganaKeyMap[key] || '';
+  },
+
+  /**
+   * furiganaMap から正規化キー索引を作り直す
+   */
+  rebuildFuriganaKeyMap() {
+    this.furiganaKeyMap = {};
+    for (const name of Object.keys(this.furiganaMap || {})) {
+      const key = this.nameKey(name);
+      if (key && this.furiganaMap[name]) this.furiganaKeyMap[key] = this.furiganaMap[name];
+    }
+  },
 
   /**
    * FileオブジェクトからArrayBufferを読み込むヘルパー
@@ -26,7 +68,9 @@ window.RankingLoader = {
    */
   _normalizeName(name) {
     if (!name) return '';
-    return String(name).replace(/ /g, '\u3000').trim();
+    return String(name)
+      .replace(/[\s\u3000\u00a0]+/g, '\u3000')
+      .replace(/^\u3000+|\u3000+$/g, '');
   },
 
   /**
@@ -149,10 +193,10 @@ window.RankingLoader = {
     }
 
     // 既存のallPlayersにふりがな情報を付与
+    this.rebuildFuriganaKeyMap();
     for (const player of this.allPlayers) {
-      if (this.furiganaMap[player.name]) {
-        player.furigana = this.furiganaMap[player.name];
-      }
+      const furigana = this.getFurigana(player.name);
+      if (furigana) player.furigana = furigana;
     }
   },
 
@@ -164,14 +208,17 @@ window.RankingLoader = {
    */
   findPlayer(name, eventCode) {
     const normalizedName = this._normalizeName(name);
+    const key = this.nameKey(normalizedName);
 
     if (eventCode && this.rankings[eventCode]) {
-      const found = this.rankings[eventCode].find(p => p.name === normalizedName);
+      const found = this.rankings[eventCode].find(p => p.name === normalizedName)
+        || this.rankings[eventCode].find(p => this.nameKey(p.name) === key);
       if (found) return { ...found };
     }
 
     if (!eventCode) {
-      const found = this.allPlayers.find(p => p.name === normalizedName);
+      const found = this.allPlayers.find(p => p.name === normalizedName)
+        || this.allPlayers.find(p => this.nameKey(p.name) === key);
       if (found) return { ...found };
     }
 
@@ -467,10 +514,10 @@ window.RankingLoader = {
     }
 
     // allPlayersにふりがな付与
+    this.rebuildFuriganaKeyMap();
     for (const player of this.allPlayers) {
-      if (this.furiganaMap[player.name]) {
-        player.furigana = this.furiganaMap[player.name];
-      }
+      const furigana = this.getFurigana(player.name);
+      if (furigana) player.furigana = furigana;
     }
 
     this._saveBackup();
@@ -481,10 +528,25 @@ window.RankingLoader = {
    */
   addToFuriganaMap(name, furigana) {
     const normalizedName = this._normalizeName(name);
-    if (!normalizedName) return;
-    if (!this.furiganaMap[normalizedName] && furigana) {
+    if (!normalizedName || !furigana) return;
+    if (!this.furiganaMap[normalizedName]) {
       this.furiganaMap[normalizedName] = furigana;
     }
+    const key = this.nameKey(normalizedName);
+    if (key && !this.furiganaKeyMap[key]) {
+      this.furiganaKeyMap[key] = furigana;
+    }
+  },
+
+  /**
+   * ふりがなを上書き登録する（DB側で確定した読みを反映する用途）
+   */
+  setFurigana(name, furigana) {
+    const normalizedName = this._normalizeName(name);
+    if (!normalizedName || !furigana) return;
+    this.furiganaMap[normalizedName] = furigana;
+    const key = this.nameKey(normalizedName);
+    if (key) this.furiganaKeyMap[key] = furigana;
   },
 
   // ==========================================================
@@ -526,6 +588,7 @@ window.RankingLoader = {
       this.allPlayers = backup.allPlayers || [];
       this.furiganaMap = backup.furiganaMap || {};
       this.listMembers = backup.listMembers || [];
+      this.rebuildFuriganaKeyMap();
       return true;
     } catch (e) {
       console.warn('RankingLoader: バックアップ復元に失敗:', e);

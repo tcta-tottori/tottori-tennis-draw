@@ -2,7 +2,7 @@
  * Service Worker - オフライン対応
  * 一度読み込んだリソースをキャッシュし、オフラインでも動作可能にする
  */
-const CACHE_NAME = 'draw-system-v2.6';
+const CACHE_NAME = 'draw-system-v2.7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const ASSETS_TO_CACHE = [
   './js/draw-engine.js',
   './js/draw-renderer.js',
   './js/cloud-share.js',
+  './js/gemini-vision.js',
   './js/github_backup.js',
   './js/google_drive_backup.js',
   './js/app.js',

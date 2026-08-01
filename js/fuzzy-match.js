@@ -123,8 +123,9 @@ window.FuzzyMatch = {
       }
 
       // 4. ふりがな類似
-      if (score === 0 && RankingLoader.furiganaMap[player.name]) {
-        const furigana = RankingLoader.furiganaMap[player.name];
+      const playerFurigana = RankingLoader.getFurigana(player.name);
+      if (score === 0 && playerFurigana) {
+        const furigana = playerFurigana;
         // OCRテキストがひらがな/カタカナの場合、ふりがなと比較
         const ocrHiragana = this._toHiragana(normalized);
         const furiganaNorm = this._toHiragana(furigana);

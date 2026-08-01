@@ -407,7 +407,7 @@
             <option value="all">すべて表示</option>
             <option value="auto">自動付与のみ</option>
             <option value="manual">手動設定のみ</option>
-            <option value="no-furigana">ふりがな未設定</option>
+            <option value="no-furigana">ふりがな未設定・要確認（？を含む）</option>
           </select>
         </div>
 
@@ -614,6 +614,59 @@
       </div>
       <p class="empty-message" id="ranking-empty-msg">データが読み込まれていません。起動時に自動読込されます。</p>
 
+      <!-- エントリー用紙の画像取込（Gemini API） -->
+      <details class="collapsible-section" style="margin-top:16px;">
+        <summary class="collapsible-toggle">エントリー用紙の画像取込（AI画像認識）</summary>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">
+          エントリー用紙の写真やスクリーンショットから、氏名・ふりがな・所属・種目をAIが読み取ります。
+          読み取り結果は選手一覧と自動照合され、確認してからエントリーリストに追加できます。
+        </p>
+
+        <!-- APIキー設定 -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="password" id="gemini-api-key" class="form-input" autocomplete="off"
+              placeholder="AIza..." style="flex:1;min-width:240px;">
+            <button id="btn-gemini-key-save" class="btn btn-primary btn-sm">保存</button>
+            <button id="btn-gemini-key-clear" class="btn btn-secondary btn-sm">削除</button>
+          </div>
+          <p style="font-size:11px;color:#999;margin-top:6px;">
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
+            で無料のAPIキーを発行できます（無料枠：Flash系モデルで1日あたり数百〜1,500回）。
+            キーはこの端末のブラウザ（localStorage）にのみ保存され、サーバーには送信されません。
+            共用端末では使用後に「削除」してください。
+          </p>
+        </div>
+
+        <!-- モデル選択 -->
+        <div class="form-group" style="margin-bottom:12px;">
+          <label for="gemini-model" class="form-label">使用モデル</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select id="gemini-model" class="form-select" style="flex:1;min-width:260px;"></select>
+            <button id="btn-gemini-models-refresh" class="btn btn-secondary btn-sm">利用可能モデルを取得</button>
+          </div>
+          <p style="font-size:11px;color:#999;margin-top:6px;">
+            「自動」ではAPIキーで使えるモデルを問い合わせ、無料枠で最も精度の高い画像認識モデルを選びます。
+          </p>
+        </div>
+
+        <!-- 画像選択 -->
+        <div id="gemini-drop-zone" class="drop-zone" style="margin-bottom:12px;">
+          <p style="margin:0;font-size:13px;">クリックして画像を選択、ドラッグ＆ドロップ、または Ctrl+V で貼り付け</p>
+          <p style="margin:4px 0 0;font-size:11px;color:#999;">JPEG / PNG / HEIC など。複数枚まとめて指定できます</p>
+          <input type="file" id="file-gemini-images" accept="image/*" multiple style="display:none;">
+        </div>
+        <div id="gemini-thumbs" class="gemini-thumbs"></div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+          <button id="btn-gemini-analyze" class="btn btn-primary" disabled>画像を解析してエントリー候補にする</button>
+          <button id="btn-gemini-clear-images" class="btn btn-secondary btn-sm">画像をクリア</button>
+          <span id="gemini-image-count" style="font-size:12px;color:#6b7280;"></span>
+        </div>
+        <div id="gemini-status" class="status-message" style="display:none;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
+      </details>
+
       <!-- エントリー読込（Excel/スプレッドシート） -->
       <details class="collapsible-section" style="margin-top:16px;">
         <summary class="collapsible-toggle">エントリーデータ読込（Excel/CSV）</summary>
@@ -621,40 +674,44 @@
           AIで認識・整理したエントリーデータ（Excel/CSV）を読み込み、選手一覧と自動照合してエントリーリストに追加します。
         </p>
         <p style="font-size:11px;color:#999;margin-bottom:12px;">
-          ファイル形式: 1列目=氏名、2列目=所属、3列目=種目コード（省略時は現在の種目）。ヘッダー行は自動スキップされます。
+          ファイル形式: 1列目=氏名、2列目=所属、3列目=種目コード（省略時は現在の種目）、4列目=ふりがな（任意）。ヘッダー行は自動スキップされます。
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
           <label class="btn btn-primary" style="cursor:pointer;">
             ファイルを選択
             <input type="file" id="file-entry-import" accept=".xlsx,.xls,.csv" style="display:none;">
           </label>
-          <label for="entry-import-event" class="toolbar-label">デフォルト種目:</label>
-          <select id="entry-import-event" class="form-select" style="min-width:160px;"></select>
-        </div>
-        <div id="entry-import-result" style="display:none;">
-          <h4 style="font-size:14px;margin-bottom:8px;">照合結果</h4>
-          <div class="table-wrapper">
-            <table class="data-table" id="entry-import-table">
-              <thead>
-                <tr>
-                  <th><input type="checkbox" id="entry-import-check-all" checked></th>
-                  <th>読込氏名</th>
-                  <th>照合結果</th>
-                  <th>氏名</th>
-                  <th>所属</th>
-                  <th>種目</th>
-                  <th>ポイント</th>
-                </tr>
-              </thead>
-              <tbody id="entry-import-body"></tbody>
-            </table>
-          </div>
-          <div class="action-bar">
-            <span id="entry-import-count">0件</span>
-            <button id="btn-entry-import-register" class="btn btn-primary">選択した選手をエントリーリストに追加</button>
-          </div>
         </div>
       </details>
+
+      <!-- 取込結果（Excel/CSV・画像取込の共通表示） -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:16px;">
+        <label for="entry-import-event" class="toolbar-label">デフォルト種目:</label>
+        <select id="entry-import-event" class="form-select" style="min-width:160px;"></select>
+      </div>
+      <div id="entry-import-result" style="display:none;margin-top:12px;">
+        <h4 style="font-size:14px;margin-bottom:8px;">照合結果</h4>
+        <div class="table-wrapper">
+          <table class="data-table" id="entry-import-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="entry-import-check-all" checked></th>
+                <th>読込氏名</th>
+                <th>照合結果</th>
+                <th>氏名</th>
+                <th>所属</th>
+                <th>種目</th>
+                <th>ポイント</th>
+              </tr>
+            </thead>
+            <tbody id="entry-import-body"></tbody>
+          </table>
+        </div>
+        <div class="action-bar">
+          <span id="entry-import-count">0件</span>
+          <button id="btn-entry-import-register" class="btn btn-primary">選択した選手をエントリーリストに追加</button>
+        </div>
+      </div>
     </section>
 
     <!-- 画面3: エントリーリスト（旧：エントリー） -->
@@ -2311,11 +2368,30 @@
           </div>
 
           <div class="trouble-item">
-            <h4>OCR認識精度が低い</h4>
+            <h4>画像取込（AI画像認識）の精度が低い</h4>
             <ul>
               <li>できるだけ鮮明な画像を使用してください。</li>
               <li>申込用紙はまっすぐ、影が入らないように撮影してください。</li>
-              <li>認識結果の氏名候補ドロップダウンから正しい選手を選択できます。</li>
+              <li>1枚に大量の行が写っていると読み落としが増えます。数十名ごとに分割して撮影してください。</li>
+              <li>「使用モデル」を「自動」にすると、無料枠で最も精度の高いモデルが選ばれます。</li>
+              <li>認識結果は照合結果の表で修正してから登録できます。</li>
+            </ul>
+          </div>
+
+          <div class="trouble-item">
+            <h4>画像取込が「レート上限」で失敗する</h4>
+            <ul>
+              <li>Gemini APIの無料枠には1分あたり・1日あたりの回数制限があります。1分ほど待ってから再試行してください。</li>
+              <li>複数枚を一度に処理する場合は、自動的に約1.2秒ずつ間隔を空けて送信しています。</li>
+            </ul>
+          </div>
+
+          <div class="trouble-item">
+            <h4>ふりがなが「？」のまま／表示されない</h4>
+            <ul>
+              <li>データ画面のふりがな管理で「ふりがな未設定・要確認（？を含む）」を選ぶと対象を一覧できます。</li>
+              <li>「ふりがな自動付与」を実行すると、未設定・部分未設定の読みをまとめて推定します。</li>
+              <li>読みが複数ありうる氏名（例: 東＝ひがし／あずま）は誤りを避けるため自動付与せず「？」を残します。手動で入力してください。</li>
             </ul>
           </div>
 
@@ -2499,6 +2575,7 @@
   <script src="js/draw-renderer.js"></script>
   <script src="js/schedule-engine.js"></script>
   <script src="js/cloud-share.js"></script>
+  <script src="js/gemini-vision.js"></script>
   <script src="js/github_sync.js"></script>
   <script src="js/google_drive_backup.js"></script>
   <script src="js/app.js"></script>

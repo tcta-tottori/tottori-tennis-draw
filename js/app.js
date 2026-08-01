@@ -37,6 +37,7 @@ window.App = {
     this.initDataScreen();
     this.initRankingScreen();
     this.initEntryImport();
+    this.initEntryImageImport();
     this.initEntryScreen();
     // initFuriganaScreen は廃止。_initFuriganaInDataScreen() で代替（initDataScreen内で呼出）
     this.initDrawScreen();
@@ -59,8 +60,11 @@ window.App = {
     // 初期データ状況サマリーを更新
     this._refreshDataSummary();
 
-    // デフォルトURLをセットして自動読み込み
-    this._autoLoadSpreadsheets();
+    // 同梱のふりがなDBを取り込んでから、ランキング等の自動読み込みを開始する。
+    // （ランキング同期はふりがなDBを参照するため、順序を守る必要がある）
+    this._bootstrapFuriganaFromBundle()
+      .catch(() => { /* 取得失敗時もアプリ起動は継続 */ })
+      .then(() => this._autoLoadSpreadsheets());
   },
 
   /**
@@ -697,7 +701,7 @@ window.App = {
     const q = this._rankingFilter.query.toLowerCase().replace(/ /g, '\u3000');
     if (q) {
       players = players.filter(p => {
-        const furigana = p.furigana || RankingLoader.furiganaMap[p.name] || '';
+        const furigana = p.furigana || RankingLoader.getFurigana(p.name);
         return p.name.toLowerCase().includes(q) ||
           furigana.toLowerCase().includes(q) ||
           (p.affiliation || '').toLowerCase().includes(q);
@@ -716,8 +720,8 @@ window.App = {
           break;
         case 'furigana-asc':
           players.sort((a, b) => {
-            const fa = a.furigana || RankingLoader.furiganaMap[a.name] || '';
-            const fb = b.furigana || RankingLoader.furiganaMap[b.name] || '';
+            const fa = a.furigana || RankingLoader.getFurigana(a.name);
+            const fb = b.furigana || RankingLoader.getFurigana(b.name);
             return fa.localeCompare(fb, 'ja');
           });
           break;
@@ -794,7 +798,7 @@ window.App = {
         femaleRowIdx++;
       }
       const evtObj = p.eventCode ? AppConfig.EVENTS.find(e => e.code === p.eventCode) : null;
-      const furigana = p.furigana || RankingLoader.furiganaMap[p.name] || '';
+      const furigana = p.furigana || RankingLoader.getFurigana(p.name);
       const isEntered = p.eventCode ? enteredSet.has(p.name + '|' + p.eventCode) : false;
       if (isEntered) tr.classList.add('row-entered');
 
@@ -881,7 +885,7 @@ window.App = {
    */
   _quickEntryInline(player, tr, btn) {
     if (player.eventCode) {
-      const furigana = player.furigana || RankingLoader.furiganaMap[player.name] || '';
+      const furigana = player.furigana || RankingLoader.getFurigana(player.name);
       EntryStore.add({
         name: player.name,
         furigana: furigana,
@@ -892,7 +896,7 @@ window.App = {
       RankingLoader.addToFuriganaMap(player.name, furigana);
       // ふりがなDBにも自動登録
       if (player.name && furigana) {
-        const existingFuri = this._furiganaData.find(d => d.name === player.name);
+        const existingFuri = this._findFuriganaRecord(player.name);
         if (existingFuri) {
           if (!existingFuri.eventCodes) existingFuri.eventCodes = existingFuri.eventCode ? [existingFuri.eventCode] : [];
           delete existingFuri.eventCode;
@@ -972,7 +976,7 @@ window.App = {
    */
   _quickEntry(player) {
     if (player.eventCode) {
-      const furigana = player.furigana || RankingLoader.furiganaMap[player.name] || '';
+      const furigana = player.furigana || RankingLoader.getFurigana(player.name);
       EntryStore.add({
         name: player.name,
         furigana: furigana,
@@ -983,7 +987,7 @@ window.App = {
       RankingLoader.addToFuriganaMap(player.name, furigana);
       // ふりがなDBにも自動登録
       if (player.name && furigana) {
-        const existingFuri = this._furiganaData.find(d => d.name === player.name);
+        const existingFuri = this._findFuriganaRecord(player.name);
         if (existingFuri) {
           if (!existingFuri.eventCodes) existingFuri.eventCodes = existingFuri.eventCode ? [existingFuri.eventCode] : [];
           delete existingFuri.eventCode;
@@ -1009,7 +1013,7 @@ window.App = {
     this._editingEntryId = null;
     if (title) title.textContent = 'エントリー追加';
 
-    const furigana = player.furigana || RankingLoader.furiganaMap[player.name] || '';
+    const furigana = player.furigana || RankingLoader.getFurigana(player.name);
     document.getElementById('entry-name').value = player.name || '';
     document.getElementById('entry-furigana').value = furigana;
     document.getElementById('entry-club').value = player.affiliation || '';
@@ -1083,6 +1087,106 @@ window.App = {
     reader.readAsArrayBuffer(file);
   },
 
+  /**
+   * 取込1行を共通形式に正規化する。
+   * Excel/CSVの配列形式 [氏名, 所属, 種目] と、
+   * 画像取込のオブジェクト形式 {name, furigana, affiliation, event} の両方を受け付ける。
+   *
+   * @param {Array|object} row 取込行
+   * @param {string} defaultEvent 種目未指定時に使う種目コード
+   * @returns {{name: string, furigana: string, affiliation: string, eventCode: string}|null}
+   */
+  _normalizeImportRow(row, defaultEvent) {
+    if (!row) return null;
+
+    let name = '';
+    let furigana = '';
+    let affiliation = '';
+    let eventRaw = '';
+
+    if (Array.isArray(row)) {
+      if (!row[0]) return null;
+      name = String(row[0]).trim();
+      affiliation = row[1] ? String(row[1]).trim() : '';
+      eventRaw = row[2] ? String(row[2]).trim() : '';
+      furigana = row[3] ? String(row[3]).trim() : '';
+    } else if (typeof row === 'object') {
+      name = String(row.name || '').trim();
+      furigana = String(row.furigana || '').trim();
+      affiliation = String(row.affiliation || '').trim();
+      eventRaw = String(row.eventCode || row.event || '').trim();
+    } else {
+      name = String(row).trim();
+    }
+
+    if (!name) return null;
+
+    return {
+      name: RankingLoader._normalizeName(name),
+      furigana: this._normalizeFuriganaValue(furigana),
+      affiliation: affiliation,
+      eventCode: this._resolveEventCodeFromLabel(eventRaw) || defaultEvent || '',
+    };
+  },
+
+  /**
+   * 種目の表記（「男子ダブルス」「女子45歳以上ダブルス」「md」など）から種目コードを判定する。
+   * 画像から読み取った自由記述にも対応できるよう、性別・年齢区分・B級・単複を個別に見て組み立てる。
+   *
+   * @param {string} label 種目の表記
+   * @returns {string} 種目コード。判定できない場合は空文字
+   */
+  _resolveEventCodeFromLabel(label) {
+    if (!label) return '';
+
+    let s = String(label);
+    try { s = s.normalize('NFKC'); } catch (e) { /* noop */ }
+    s = s.replace(/[\s　]+/g, '');
+    if (!s) return '';
+
+    const isValid = (code) => AppConfig.EVENTS.some(e => e.code === code);
+
+    // 1. 種目コード・正式名称・略称の完全一致
+    const lower = s.toLowerCase();
+    if (isValid(lower)) return lower;
+    const byName = AppConfig.EVENTS.find(e => {
+      const n = e.name.replace(/[\s　]+/g, '');
+      const sn = e.shortName.replace(/[\s　]+/g, '');
+      return n === s || sn === s;
+    });
+    if (byName) return byName.code;
+
+    // 2. 特殊カテゴリ
+    if (/ミックス|混合|mix/i.test(s)) return 'xd';
+    if (/団体/.test(s)) return 'tm';
+
+    // 3. 単複の判定
+    const isDoubles = /ダブルス|複|ペア|(^|[^a-z])d$/i.test(s);
+    const isSingles = /シングルス|単|(^|[^a-z])s$/i.test(s);
+    if (!isDoubles && !isSingles) return '';
+
+    // 4. 性別
+    const isFemale = /女|レディ|ladies|women/i.test(s);
+    const isMale = /男|men/i.test(s);
+    if (!isFemale && !isMale) return '';
+    const prefix = isFemale ? 'l' : 'm';
+
+    // 5. 年齢区分 / B級
+    const ageMatch = s.match(/(35|45|55|65)/);
+    const suffix = isDoubles ? 'd' : 's';
+
+    let code;
+    if (ageMatch) {
+      code = prefix + ageMatch[1] + suffix;
+    } else if (/b級|b$/i.test(s)) {
+      code = prefix + 'b' + suffix;
+    } else {
+      code = prefix + suffix;
+    }
+
+    return isValid(code) ? code : '';
+  },
+
   _processEntryImportRows(rows) {
     const resultEl = document.getElementById('entry-import-result');
     const tbody = document.getElementById('entry-import-body');
@@ -1091,13 +1195,16 @@ window.App = {
 
     resultEl.style.display = '';
     tbody.innerHTML = '';
+    if (resultEl.scrollIntoView) {
+      resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 
     const defaultEventSelect = document.getElementById('entry-import-event');
     const defaultEvent = defaultEventSelect ? defaultEventSelect.value : '';
 
-    // ヘッダー行スキップ判定
+    // ヘッダー行スキップ判定（配列形式のみ。画像取込のオブジェクト形式には見出し行が無い）
     let startRow = 0;
-    if (rows.length > 0) {
+    if (rows.length > 0 && Array.isArray(rows[0])) {
       const first = String(rows[0][0] || '').toLowerCase();
       if (first.includes('氏名') || first.includes('名前') || first === 'name' || first === '選手名') {
         startRow = 1;
@@ -1108,12 +1215,12 @@ window.App = {
     let totalCount = 0;
 
     for (let i = startRow; i < rows.length; i++) {
-      const row = rows[i];
-      if (!row || !row[0]) continue;
-      const importName = String(row[0]).trim();
-      const importClub = row[1] ? String(row[1]).trim() : '';
-      const importEvent = row[2] ? String(row[2]).trim() : defaultEvent;
-      if (!importName) continue;
+      const parsed = this._normalizeImportRow(rows[i], defaultEvent);
+      if (!parsed) continue;
+      const importName = parsed.name;
+      const importClub = parsed.affiliation;
+      const importEvent = parsed.eventCode;
+      const importFurigana = parsed.furigana;
       totalCount++;
 
       // 選手一覧との照合（ファジーマッチ）
@@ -1122,6 +1229,8 @@ window.App = {
       if (bestMatch) matchCount++;
 
       const tr = document.createElement('tr');
+      // 画像取込などで読み取れたふりがなを保持（DBに無い選手の登録時に使う）
+      if (importFurigana) tr.dataset.furigana = importFurigana;
 
       // チェックボックス
       const tdCheck = document.createElement('td');
@@ -1221,7 +1330,8 @@ window.App = {
       if (!name || !eventCode) return;
 
       const points = Number(cells[6].dataset.points) || 0;
-      const furigana = RankingLoader.furiganaMap[name] || '';
+      // ふりがなDB優先。DBに無い選手は画像取込で読み取れたふりがなを使う
+      const furigana = RankingLoader.getFurigana(name) || tr.dataset.furigana || '';
 
       // 重複チェック
       const existing = EntryStore.getAll().find(e => e.name === name && e.eventCode === eventCode);
@@ -1244,6 +1354,293 @@ window.App = {
       if (resultEl) resultEl.style.display = 'none';
     } else {
       this.showMessage('追加する項目がありません（重複または種目未選択）', 'error');
+    }
+  },
+
+  // ================================================================
+  // エントリー用紙の画像取込（Gemini API）
+  // ================================================================
+
+  _geminiFiles: [],
+
+  /**
+   * 画像取込UIの初期化
+   */
+  initEntryImageImport() {
+    if (typeof GeminiVision === 'undefined') return;
+
+    const keyInput = document.getElementById('gemini-api-key');
+    const modelSelect = document.getElementById('gemini-model');
+    const fileInput = document.getElementById('file-gemini-images');
+    const dropZone = document.getElementById('gemini-drop-zone');
+    const btnSaveKey = document.getElementById('btn-gemini-key-save');
+    const btnClearKey = document.getElementById('btn-gemini-key-clear');
+    const btnRefreshModels = document.getElementById('btn-gemini-models-refresh');
+    const btnAnalyze = document.getElementById('btn-gemini-analyze');
+    const btnClearImages = document.getElementById('btn-gemini-clear-images');
+
+    // 保存済みのAPIキー・モデルを反映
+    if (keyInput) keyInput.value = GeminiVision.getApiKey();
+    this._renderGeminiModelOptions(GeminiVision.MODEL_PREFERENCE.map(m => ({ id: m.id, displayName: m.label })));
+    if (modelSelect) modelSelect.value = GeminiVision.getModel();
+
+    if (btnSaveKey && keyInput) {
+      btnSaveKey.addEventListener('click', () => {
+        const key = keyInput.value.trim();
+        GeminiVision.saveApiKey(key);
+        this._updateGeminiStatus(key ? 'APIキーを保存しました（この端末のブラウザにのみ保存されます）' : 'APIキーを削除しました', key ? 'ok' : 'info');
+        this._updateGeminiAnalyzeState();
+      });
+    }
+
+    if (btnClearKey && keyInput) {
+      btnClearKey.addEventListener('click', () => {
+        keyInput.value = '';
+        GeminiVision.saveApiKey('');
+        this._updateGeminiStatus('APIキーを削除しました', 'info');
+        this._updateGeminiAnalyzeState();
+      });
+    }
+
+    if (modelSelect) {
+      modelSelect.addEventListener('change', () => {
+        GeminiVision.saveModel(modelSelect.value);
+      });
+    }
+
+    if (btnRefreshModels) {
+      btnRefreshModels.addEventListener('click', async () => {
+        if (!GeminiVision.isConfigured()) {
+          this._updateGeminiStatus('先にAPIキーを保存してください', 'error');
+          return;
+        }
+        btnRefreshModels.disabled = true;
+        try {
+          const models = await GeminiVision.listModels();
+          // 画像取込に使えない用途（画像生成・音声・埋め込み）は除外
+          const usable = models.filter(m => !/image-generation|imagen|tts|audio|embedding|aqa/i.test(m.id));
+          this._renderGeminiModelOptions(usable);
+          if (modelSelect) modelSelect.value = GeminiVision.getModel();
+          const auto = await GeminiVision.resolveModel();
+          this._updateGeminiStatus(`利用可能なモデル ${usable.length} 件を取得しました（自動選択: ${auto}）`, 'ok');
+        } catch (e) {
+          this._updateGeminiStatus('モデル一覧の取得に失敗: ' + e.message, 'error');
+        } finally {
+          btnRefreshModels.disabled = false;
+        }
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        this._addGeminiFiles(e.target.files);
+        e.target.value = '';
+      });
+    }
+
+    if (dropZone) {
+      dropZone.addEventListener('click', () => { if (fileInput) fileInput.click(); });
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        this._addGeminiFiles(e.dataTransfer.files);
+      });
+    }
+
+    // クリップボードから貼り付け（スクリーンショットをそのまま取り込める）
+    document.addEventListener('paste', (e) => {
+      if (this.currentScreen !== 'screen-ranking') return;
+      const items = (e.clipboardData && e.clipboardData.items) || [];
+      const images = [];
+      for (const item of items) {
+        if (item.kind === 'file' && item.type.indexOf('image/') === 0) {
+          const file = item.getAsFile();
+          if (file) images.push(file);
+        }
+      }
+      if (images.length > 0) {
+        e.preventDefault();
+        this._addGeminiFiles(images);
+        this.showMessage(images.length + '件の画像を貼り付けました', 'info');
+      }
+    });
+
+    if (btnClearImages) {
+      btnClearImages.addEventListener('click', () => {
+        this._geminiFiles = [];
+        this._renderGeminiThumbs();
+        this._updateGeminiAnalyzeState();
+      });
+    }
+
+    if (btnAnalyze) {
+      btnAnalyze.addEventListener('click', () => this._analyzeGeminiImages());
+    }
+
+    this._updateGeminiAnalyzeState();
+  },
+
+  _renderGeminiModelOptions(models) {
+    const select = document.getElementById('gemini-model');
+    if (!select) return;
+    const current = GeminiVision.getModel();
+
+    let html = '<option value="">自動（推奨・無料枠で最も精度の高いモデルを選択）</option>';
+    for (const m of models) {
+      const label = m.displayName && m.displayName !== m.id ? `${m.displayName} [${m.id}]` : m.id;
+      html += `<option value="${this._esc(m.id)}">${this._esc(label)}</option>`;
+    }
+    select.innerHTML = html;
+    select.value = current;
+    // 保存済みモデルが一覧に無い場合は自動に戻す
+    if (select.value !== current) select.value = '';
+  },
+
+  _addGeminiFiles(fileList) {
+    const files = Array.from(fileList || []).filter(f => f.type.indexOf('image/') === 0);
+    if (files.length === 0) {
+      this._updateGeminiStatus('画像ファイルを選択してください', 'error');
+      return;
+    }
+    this._geminiFiles = this._geminiFiles.concat(files);
+    this._renderGeminiThumbs();
+    this._updateGeminiAnalyzeState();
+  },
+
+  _renderGeminiThumbs() {
+    const container = document.getElementById('gemini-thumbs');
+    if (!container) return;
+
+    // 既存のObjectURLを解放してから作り直す
+    container.querySelectorAll('img[data-object-url]').forEach(img => URL.revokeObjectURL(img.src));
+    container.innerHTML = '';
+
+    this._geminiFiles.forEach((file, index) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'gemini-thumb';
+
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.dataset.objectUrl = '1';
+      img.alt = file.name || `画像${index + 1}`;
+      wrap.appendChild(img);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'gemini-thumb-remove';
+      remove.textContent = '×';
+      remove.title = 'この画像を外す';
+      remove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._geminiFiles.splice(index, 1);
+        this._renderGeminiThumbs();
+        this._updateGeminiAnalyzeState();
+      });
+      wrap.appendChild(remove);
+
+      container.appendChild(wrap);
+    });
+  },
+
+  _updateGeminiAnalyzeState() {
+    const btn = document.getElementById('btn-gemini-analyze');
+    const countEl = document.getElementById('gemini-image-count');
+    const ready = typeof GeminiVision !== 'undefined' && GeminiVision.isConfigured() && this._geminiFiles.length > 0;
+    if (btn) btn.disabled = !ready;
+    if (countEl) {
+      countEl.textContent = this._geminiFiles.length > 0 ? this._geminiFiles.length + '枚を選択中' : '';
+    }
+  },
+
+  _updateGeminiStatus(message, level) {
+    const el = document.getElementById('gemini-status');
+    if (!el) return;
+    const colors = {
+      ok: { bg: '#f0fdf4', fg: '#15803d' },
+      error: { bg: '#fef2f2', fg: '#b91c1c' },
+      info: { bg: '#f0f4ff', fg: '#3b82f6' },
+    };
+    const c = colors[level] || colors.info;
+    el.style.display = message ? '' : 'none';
+    el.style.backgroundColor = c.bg;
+    el.style.color = c.fg;
+    el.textContent = message || '';
+  },
+
+  /**
+   * 選択した画像をGeminiで解析し、既存の照合フローに流し込む
+   */
+  async _analyzeGeminiImages() {
+    if (typeof GeminiVision === 'undefined') return;
+    if (!GeminiVision.isConfigured()) {
+      this._updateGeminiStatus('先にAPIキーを保存してください', 'error');
+      return;
+    }
+    if (this._geminiFiles.length === 0) {
+      this._updateGeminiStatus('画像を選択してください', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-gemini-analyze');
+    const eventSelect = document.getElementById('entry-import-event');
+    const eventCode = eventSelect ? eventSelect.value : '';
+    const eventInfo = eventCode ? AppConfig.EVENTS.find(e => e.code === eventCode) : null;
+
+    if (btn) { btn.disabled = true; btn.textContent = '解析中...'; }
+
+    try {
+      const result = await GeminiVision.extractFromImages(this._geminiFiles, {
+        eventHint: eventInfo ? eventInfo.name : '',
+        onProgress: (done, total, fileName) => {
+          this._updateGeminiStatus(
+            `解析中... (${done}/${total})` + (fileName ? ` ${fileName}` : ''),
+            'info'
+          );
+        },
+      });
+
+      // 同一画像内の重複（ペア表記で相方が2回出る等）を除去
+      const seen = new Set();
+      const rows = [];
+      for (const player of result.players) {
+        const key = this._nameKey(player.name) + '|' + (player.event || '');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push({
+          name: player.name,
+          furigana: player.furigana,
+          affiliation: player.affiliation,
+          event: player.event,
+        });
+      }
+
+      if (rows.length === 0) {
+        // 全画像が失敗した場合は、その理由（APIキー・レート上限など）をそのまま見せる
+        const reason = result.errors.length > 0
+          ? result.errors[0].message
+          : '明るく・まっすぐ撮影した画像で再試行してください';
+        this._updateGeminiStatus('画像から選手を読み取れませんでした: ' + reason, 'error');
+        return;
+      }
+
+      this._processEntryImportRows(rows);
+
+      let msg = `${result.model} で ${rows.length}名を読み取りました。下の照合結果を確認して登録してください`;
+      if (result.errors.length > 0) {
+        msg += `（${result.errors.length}枚は失敗: ${result.errors.map(e => e.file).join(', ')}）`;
+      }
+      this._updateGeminiStatus(msg, result.errors.length > 0 ? 'info' : 'ok');
+    } catch (e) {
+      console.error('Gemini画像取込エラー:', e);
+      this._updateGeminiStatus('読み取りに失敗しました: ' + e.message, 'error');
+    } finally {
+      if (btn) { btn.textContent = '画像を解析してエントリー候補にする'; }
+      this._updateGeminiAnalyzeState();
     }
   },
 
@@ -1556,6 +1953,7 @@ window.App = {
           RankingLoader.rankings = {};
           RankingLoader.allPlayers = [];
           RankingLoader.furiganaMap = {};
+          RankingLoader.furiganaKeyMap = {};
           RankingLoader.listMembers = [];
           this.drawResults = {};
           this.confirmedEvents = {};
@@ -1723,7 +2121,7 @@ window.App = {
 
     // ふりがなDBにも自動登録（未登録の場合は新規追加、既存の場合はeventCodes更新）
     if (name && furigana) {
-      const existingFuri = this._furiganaData.find(d => d.name === name);
+      const existingFuri = this._findFuriganaRecord(name);
       if (existingFuri) {
         if (!existingFuri.eventCodes) existingFuri.eventCodes = existingFuri.eventCode ? [existingFuri.eventCode] : [];
         delete existingFuri.eventCode;
@@ -1773,7 +2171,7 @@ window.App = {
       li.textContent = p.name + '  (' + p.affiliation + ')  [' + (evtName ? evtName.shortName : p.eventCode) + ' ' + p.points + 'pt]';
       li.addEventListener('click', () => {
         document.getElementById('entry-name').value = p.name;
-        document.getElementById('entry-furigana').value = p.furigana || RankingLoader.furiganaMap[p.name] || '';
+        document.getElementById('entry-furigana').value = p.furigana || RankingLoader.getFurigana(p.name);
         document.getElementById('entry-club').value = p.affiliation || '';
         const evtEl = document.getElementById('entry-event');
         if (evtEl && !evtEl.disabled) {
@@ -4414,6 +4812,7 @@ window.App = {
         RankingLoader.rankings = {};
         RankingLoader.allPlayers = [];
         RankingLoader.furiganaMap = {};
+        RankingLoader.furiganaKeyMap = {};
         RankingLoader.listMembers = [];
         this.drawResults = {};
         this.confirmedEvents = {};
@@ -4446,6 +4845,7 @@ window.App = {
           RankingLoader.rankings = {};
           RankingLoader.allPlayers = [];
           RankingLoader.furiganaMap = {};
+          RankingLoader.furiganaKeyMap = {};
           RankingLoader.listMembers = [];
         },
         onExport: () => {
@@ -6019,6 +6419,9 @@ window.App = {
   // ================================================================
 
   _furiganaData: [],
+  _furiganaIndex: null,      // Map<照合キー, レコード>。_rebuildFuriganaIndex() で構築
+  _nameReadingDicts: null,   // DBから学習した { surnames, givenNames } 読み辞書
+  _furiganaBundleLoaded: false,
   _furiganaNextId: 1,
   _furiganaFilter: '',
   _furiganaSourceFilter: 'all',
@@ -6028,6 +6431,7 @@ window.App = {
   _furiganaSortKey: 'furigana-asc',
   _furiganaEventFilter: 'all',
   FURIGANA_STORAGE_KEY: 'drawSystem_furigana',
+  FURIGANA_BUNDLE_URL: './data/furigana.json',
 
   /**
    * よくある日本語姓の読み辞書（上位約300姓）
@@ -6252,6 +6656,7 @@ window.App = {
    * localStorageにふりがなデータを保存
    */
   _saveFuriganaData() {
+    this._rebuildFuriganaIndex();
     try {
       localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
     } catch (e) {
@@ -6290,6 +6695,123 @@ window.App = {
   },
 
   /**
+   * 外部レコード配列を現在のふりがなDBにマージする。
+   *
+   * - 未登録の氏名は新規追加
+   * - 登録済みでも、ふりがなが未設定または「？」を含む（部分未設定）場合は、
+   *   完全なふりがなを持つレコードで補完する
+   * - 手動編集済み（furiganaEdited）のふりがなは上書きしない
+   *
+   * @param {Array} records マージ元レコード配列
+   * @param {string} defaultSource 取り込み元の識別子（'bundle' / 'gdrive' など）
+   * @returns {{ added: number, filled: number }}
+   */
+  _mergeFuriganaRecords(records, defaultSource) {
+    if (!Array.isArray(records)) return { added: 0, filled: 0 };
+    if (!this._furiganaIndex) this._rebuildFuriganaIndex();
+
+    let added = 0;
+    let filled = 0;
+
+    for (const record of records) {
+      if (!record || !record.name) continue;
+      const name = typeof RankingLoader !== 'undefined'
+        ? RankingLoader._normalizeName(record.name)
+        : String(record.name).trim();
+      if (!name) continue;
+
+      const furigana = this._normalizeFuriganaValue(record.furigana);
+      const existing = this._findFuriganaRecord(name);
+
+      if (!existing) {
+        const entry = {
+          id: this._furiganaNextId++,
+          name: name,
+          furigana: furigana,
+          source: record.source || defaultSource,
+          affiliation: record.affiliation || '',
+          eventCodes: Array.isArray(record.eventCodes)
+            ? record.eventCodes.slice()
+            : (record.eventCode ? [record.eventCode] : []),
+          rankingPoints: record.rankingPoints || 0,
+          rankingPosition: record.rankingPosition || 0,
+          lastUpdated: record.lastUpdated || '',
+          furiganaEdited: !!record.furiganaEdited,
+        };
+        this._furiganaData.push(entry);
+        this._furiganaIndex.set(this._nameKey(name), entry);
+        added++;
+        continue;
+      }
+
+      // 手動で直したふりがなは尊重する
+      if (existing.furiganaEdited) continue;
+
+      // 未設定・部分未設定（「？」入り）を、完全なふりがなで補完
+      if (!this._isFuriganaComplete(existing.furigana) && this._isFuriganaComplete(furigana)) {
+        existing.furigana = furigana;
+        existing.source = record.source || defaultSource;
+        existing.lastUpdated = record.lastUpdated || existing.lastUpdated;
+        filled++;
+      }
+      if (!existing.affiliation && record.affiliation) existing.affiliation = record.affiliation;
+    }
+
+    if (added > 0 || filled > 0) this._nameReadingDicts = null;
+    return { added, filled };
+  },
+
+  /**
+   * リポジトリ同梱の data/furigana.json を読み込んでふりがなDBを初期化する。
+   *
+   * localStorage が空の新規端末では、これを読まないとふりがなが1件も存在せず、
+   * ランキング同期時の推定（姓辞書）だけに頼ることになり「たなか　？」のような
+   * 部分未設定が大量に発生する。起動時に必ず取り込む。
+   *
+   * @returns {Promise<{ added: number, filled: number }>}
+   */
+  async _bootstrapFuriganaFromBundle() {
+    const empty = { added: 0, filled: 0 };
+    if (this._furiganaBundleLoaded) return empty;
+    this._furiganaBundleLoaded = true;
+
+    try {
+      const res = await fetch(this.FURIGANA_BUNDLE_URL, { cache: 'no-cache' });
+      if (!res.ok) {
+        console.warn('同梱ふりがなDBの取得に失敗しました (HTTP ' + res.status + ')');
+        return empty;
+      }
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) return empty;
+
+      const result = this._mergeFuriganaRecords(data, 'bundle');
+      if (result.added > 0 || result.filled > 0) {
+        this._saveFuriganaDataLocal();
+        console.log('同梱ふりがなDBを読み込みました: ' + result.added + '件追加 / ' + result.filled + '件補完');
+      }
+      this._syncFuriganaToRankingLoader();
+      this._renderFuriganaTable();
+      this._updateFuriganaCountDisplay();
+      return result;
+    } catch (e) {
+      console.warn('同梱ふりがなDBの読み込みに失敗しました:', e);
+      return empty;
+    }
+  },
+
+  /**
+   * localStorageにだけ保存する（Google Drive同期は行わない）
+   */
+  _saveFuriganaDataLocal() {
+    this._rebuildFuriganaIndex();
+    try {
+      localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
+    } catch (e) {
+      console.error('ふりがなデータの保存に失敗:', e);
+    }
+  },
+
+  /**
    * 起動時にGoogle Driveから自動取得（トークンが有効な場合のみ）
    */
   async _autoLoadFuriganaFromGDrive() {
@@ -6310,33 +6832,11 @@ window.App = {
       const data = await dataRes.json();
       if (!data || !Array.isArray(data) || data.length === 0) return;
 
-      // マージ: Google Driveのデータのうちローカルに存在しないものを追加
-      let merged = 0;
-      for (const entry of data) {
-        if (!entry.name) continue;
-        const existing = this._furiganaData.find(d => d.name === entry.name);
-        if (!existing) {
-          this._furiganaData.push({
-            id: this._furiganaNextId++,
-            name: entry.name,
-            furigana: entry.furigana || '',
-            source: entry.source || 'gdrive',
-            affiliation: entry.affiliation || '',
-            eventCodes: entry.eventCodes || [],
-            rankingPoints: entry.rankingPoints || 0,
-            rankingPosition: entry.rankingPosition || 0,
-            lastUpdated: entry.lastUpdated || '',
-            furiganaEdited: entry.furiganaEdited || false,
-          });
-          merged++;
-        } else if (!existing.furigana && entry.furigana) {
-          existing.furigana = entry.furigana;
-          existing.source = entry.source || existing.source;
-          merged++;
-        }
-      }
+      // マージ: Google Driveのデータで未登録・未設定分を補う
+      const { added, filled } = this._mergeFuriganaRecords(data, 'gdrive');
+      const merged = added + filled;
       if (merged > 0) {
-        localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
+        this._saveFuriganaDataLocal();
         this._syncFuriganaToRankingLoader();
         this._renderFuriganaTable();
         console.log('Google Driveからふりがなデータを ' + merged + '件マージしました');
@@ -6350,13 +6850,77 @@ window.App = {
    * ふりがなデータをRankingLoaderのfuriganaMapに同期
    */
   _syncFuriganaToRankingLoader() {
+    this._rebuildFuriganaIndex();
     if (typeof RankingLoader !== 'undefined' && RankingLoader.furiganaMap) {
       for (const entry of this._furiganaData) {
         if (entry.name && entry.furigana) {
-          RankingLoader.furiganaMap[entry.name] = entry.furigana;
+          RankingLoader.setFurigana(entry.name, entry.furigana);
         }
       }
     }
+  },
+
+  // ================================================================
+  // ふりがなDBの索引 / 表記ゆれ吸収
+  // ================================================================
+
+  /**
+   * 氏名の照合キー（空白・記号を除いた正規形）を返す
+   */
+  _nameKey(name) {
+    if (typeof RankingLoader !== 'undefined' && RankingLoader.nameKey) {
+      return RankingLoader.nameKey(name);
+    }
+    if (!name) return '';
+    let s = String(name);
+    try { s = s.normalize('NFKC'); } catch (e) { /* noop */ }
+    return s.replace(/[\s　 ]+/g, '').replace(/[・･.,、。]/g, '').toLowerCase();
+  },
+
+  /**
+   * ふりがなDBの照合キー索引を作り直す
+   */
+  _rebuildFuriganaIndex() {
+    this._furiganaIndex = new Map();
+    for (const entry of this._furiganaData) {
+      const key = this._nameKey(entry.name);
+      if (!key) continue;
+      // 同一キーが複数ある場合は、ふりがなが確定しているものを優先して残す
+      const prev = this._furiganaIndex.get(key);
+      if (!prev || (!this._isFuriganaComplete(prev.furigana) && this._isFuriganaComplete(entry.furigana))) {
+        this._furiganaIndex.set(key, entry);
+      }
+    }
+    this._nameReadingDicts = null; // 学習辞書は次回参照時に再構築
+    return this._furiganaIndex;
+  },
+
+  /**
+   * ふりがなDBから該当レコードを取得（表記ゆれ吸収つき）
+   */
+  _findFuriganaRecord(name) {
+    if (!name) return null;
+    if (!this._furiganaIndex) this._rebuildFuriganaIndex();
+    return this._furiganaIndex.get(this._nameKey(name)) || null;
+  },
+
+  /**
+   * ふりがなが全パート確定しているか（「？」が残っていないか）
+   */
+  _isFuriganaComplete(furigana) {
+    return !!furigana && !String(furigana).includes('？') && !String(furigana).includes('?');
+  },
+
+  /**
+   * ふりがな文字列の正規化
+   * カタカナ→ひらがな、連続空白→全角スペース1つ、前後の空白除去
+   */
+  _normalizeFuriganaValue(furigana) {
+    if (!furigana) return '';
+    return String(furigana)
+      .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+      .replace(/[\s　 ]+/g, '　')
+      .replace(/^　+|　+$/g, '');
   },
 
   /**
@@ -6366,8 +6930,8 @@ window.App = {
     const el = document.getElementById('furigana-count-badge');
     if (el) {
       const total = this._furiganaData.length;
-      const noFurigana = this._furiganaData.filter(d => !d.furigana).length;
-      el.textContent = '登録数: ' + total + '件' + (noFurigana > 0 ? '（未設定: ' + noFurigana + '件）' : '');
+      const noFurigana = this._furiganaData.filter(d => !this._isFuriganaComplete(d.furigana)).length;
+      el.textContent = '登録数: ' + total + '件' + (noFurigana > 0 ? '（未設定・要確認: ' + noFurigana + '件）' : '');
     }
   },
 
@@ -6383,6 +6947,8 @@ window.App = {
     let noFurigana = 0;
     const now = new Date().toISOString();
 
+    this._rebuildFuriganaIndex();
+
     // ランキングの全種目をイテレート
     for (const eventCode of Object.keys(RankingLoader.rankings)) {
       const players = RankingLoader.rankings[eventCode];
@@ -6391,7 +6957,8 @@ window.App = {
       for (const player of players) {
         if (!player.name) continue;
 
-        const existing = this._furiganaData.find(d => d.name === player.name);
+        // 表記ゆれ（半角/全角スペース等）を吸収して既存レコードを探す
+        const existing = this._findFuriganaRecord(player.name);
 
         if (existing) {
           // 既存エントリーを更新（ランキング情報のみ。ふりがなは手動編集済みなら上書きしない）
@@ -6405,6 +6972,15 @@ window.App = {
           if (!existing.rankingPoints || (player.points && player.points > existing.rankingPoints)) {
             existing.rankingPoints = player.points || 0;
           }
+          // 未設定・部分未設定（「？」入り）は、DBから学習した読みで埋め直す
+          if (!existing.furiganaEdited && !this._isFuriganaComplete(existing.furigana)) {
+            const retry = this._autoAssignFurigana(existing.name);
+            if (retry.furigana && retry.furigana !== existing.furigana) {
+              existing.furigana = retry.furigana;
+              existing.source = 'auto';
+            }
+          }
+          if (!this._isFuriganaComplete(existing.furigana)) noFurigana++;
           existing.lastUpdated = now;
           updated++;
         } else {
@@ -6423,8 +6999,9 @@ window.App = {
             furiganaEdited: false,
           };
           this._furiganaData.push(newEntry);
+          this._furiganaIndex.set(this._nameKey(newEntry.name), newEntry);
           added++;
-          if (!autoResult.success) noFurigana++;
+          if (!autoResult.complete) noFurigana++;
         }
       }
     }
@@ -6436,7 +7013,7 @@ window.App = {
     // ステータスメッセージ表示
     const statusEl = document.getElementById('furigana-sync-status');
     const msg = '同期完了: ' + updated + '件更新、' + added + '件新規追加' +
-      (noFurigana > 0 ? '（うち' + noFurigana + '件はふりがな未設定）' : '');
+      (noFurigana > 0 ? '（うち' + noFurigana + '件はふりがな未設定・要確認）' : '');
     if (statusEl) {
       statusEl.style.display = '';
       statusEl.style.background = noFurigana > 0 ? '#fff3cd' : '#d4edda';
@@ -6448,31 +7025,121 @@ window.App = {
   },
 
   /**
-   * 氏名からふりがなを自動推定する
+   * ふりがなDBから姓・名それぞれの読み辞書を学習する。
+   *
+   * 「田中　芳宏 / たなか　よしひろ」のように姓名がスペースで区切られ、
+   * ふりがなも同じ数のパートに分かれているレコードだけを教師データにする。
+   * 同じ表記に複数の読みがあるもの（例: 東=ひがし/あずま）は曖昧として除外し、
+   * 誤った読みを自動付与しないようにしている。
+   *
+   * @returns {{ surnames: Map<string,string>, givenNames: Map<string,string> }}
+   */
+  _buildNameReadingDicts() {
+    if (this._nameReadingDicts) return this._nameReadingDicts;
+
+    const surnameCandidates = new Map(); // 表記 -> Set<読み>
+    const givenCandidates = new Map();
+
+    const collect = (map, surface, reading) => {
+      if (!surface || !reading) return;
+      if (!map.has(surface)) map.set(surface, new Set());
+      map.get(surface).add(reading);
+    };
+
+    for (const entry of this._furiganaData) {
+      if (!entry || !entry.name || !this._isFuriganaComplete(entry.furigana)) continue;
+      const nameParts = String(entry.name).split(/[　\s]+/).filter(Boolean);
+      const readParts = this._normalizeFuriganaValue(entry.furigana).split(/[　\s]+/).filter(Boolean);
+      if (nameParts.length < 2 || nameParts.length !== readParts.length) continue;
+
+      collect(surnameCandidates, nameParts[0], readParts[0]);
+      for (let i = 1; i < nameParts.length; i++) {
+        collect(givenCandidates, nameParts[i], readParts[i]);
+      }
+    }
+
+    // 読みが1通りに定まるものだけを辞書として採用（曖昧なものは「？」のまま残す）
+    const toUnambiguous = (candidates) => {
+      const dict = new Map();
+      for (const [surface, readings] of candidates) {
+        if (readings.size === 1) dict.set(surface, readings.values().next().value);
+      }
+      return dict;
+    };
+
+    this._nameReadingDicts = {
+      surnames: toUnambiguous(surnameCandidates),
+      givenNames: toUnambiguous(givenCandidates),
+    };
+    return this._nameReadingDicts;
+  },
+
+  /**
+   * 氏名からふりがなを自動推定する。
+   * 姓・名をパートごとに解決し、解決できたパートだけ読みを埋める（未解決は「？」）。
+   *
    * @param {string} name - 氏名（全角スペース区切り）
-   * @returns {{ furigana: string, success: boolean }}
+   * @returns {{ furigana: string, success: boolean, complete: boolean }}
    */
   _autoAssignFurigana(name) {
-    if (!name) return { furigana: '', success: false };
+    if (!name) return { furigana: '', success: false, complete: false };
 
-    // 1. RankingLoader.furiganaMap に既に存在するか確認
-    if (typeof RankingLoader !== 'undefined' && RankingLoader.furiganaMap && RankingLoader.furiganaMap[name]) {
-      return { furigana: RankingLoader.furiganaMap[name], success: true };
+    // 1. 既知のふりがな（ふりがなDB / ランキング同期済みマップ）を優先
+    const record = this._findFuriganaRecord(name);
+    if (record && this._isFuriganaComplete(record.furigana)) {
+      return { furigana: record.furigana, success: true, complete: true };
+    }
+    if (typeof RankingLoader !== 'undefined' && RankingLoader.getFurigana) {
+      const known = RankingLoader.getFurigana(name);
+      if (this._isFuriganaComplete(known)) {
+        return { furigana: known, success: true, complete: true };
+      }
     }
 
-    // 2. 姓辞書で推定
-    const parts = name.split(/[\u3000\s]+/); // 全角・半角スペースで分割
-    if (parts.length === 0) return { furigana: '', success: false };
+    // 2. パートごとに読みを解決する
+    const parts = String(name).split(/[　\s]+/).filter(Boolean);
+    if (parts.length === 0) return { furigana: '', success: false, complete: false };
 
-    const surname = parts[0];
-    const reading = this.SURNAME_READINGS[surname];
-    if (reading) {
-      // 姓の読みが見つかった場合、名の部分は「？」で表示
-      const givenNamePart = parts.length > 1 ? '\u3000？' : '';
-      return { furigana: reading + givenNamePart, success: true };
+    const dicts = this._buildNameReadingDicts();
+    const readings = [];
+    let resolved = 0;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+
+      // 既にひらがな/カタカナ表記のパートはそのまま読みとして使える
+      if (/^[ぁ-んァ-ヶー]+$/.test(part)) {
+        readings.push(this._normalizeFuriganaValue(part));
+        resolved++;
+        continue;
+      }
+
+      let reading = '';
+      if (i === 0) {
+        reading = dicts.surnames.get(part) || this.SURNAME_READINGS[part] || '';
+        // スペースなしの単独表記は名の辞書も試す
+        if (!reading && parts.length === 1) reading = dicts.givenNames.get(part) || '';
+      } else {
+        reading = dicts.givenNames.get(part) || '';
+        // 姓が分割されているケースに備え姓辞書もフォールバックする
+        if (!reading) reading = dicts.surnames.get(part) || this.SURNAME_READINGS[part] || '';
+      }
+
+      if (reading) {
+        readings.push(reading);
+        resolved++;
+      } else {
+        readings.push('？');
+      }
     }
 
-    return { furigana: '', success: false };
+    if (resolved === 0) return { furigana: '', success: false, complete: false };
+
+    return {
+      furigana: readings.join('　'),
+      success: true,
+      complete: resolved === parts.length,
+    };
   },
 
   /**
@@ -6572,7 +7239,7 @@ window.App = {
         let merged = 0;
         for (const entry of data) {
           if (!entry.name) continue;
-          const existing = this._furiganaData.find(d => d.name === entry.name);
+          const existing = this._findFuriganaRecord(entry.name);
           if (!existing) {
             this._furiganaData.push({ ...entry, id: this._furiganaNextId++ });
             merged++;
@@ -6619,7 +7286,7 @@ window.App = {
     }
 
     // 重複チェック
-    const existing = this._furiganaData.find(d => d.name === name);
+    const existing = this._findFuriganaRecord(name);
     if (existing) {
       this.showMessage('「' + name + '」は既に登録されています', 'error');
       return;
@@ -6656,7 +7323,7 @@ window.App = {
 
     // 名前変更時の重複チェック
     if (name !== entry.name) {
-      const dup = this._furiganaData.find(d => d.name === name && d.id !== id);
+      const dup = this._furiganaData.find(d => this._nameKey(d.name) === this._nameKey(name) && d.id !== id);
       if (dup) {
         this.showMessage('「' + name + '」は既に登録されています', 'error');
         return false;
@@ -6815,7 +7482,8 @@ window.App = {
     // ソースフィルター
     if (this._furiganaSourceFilter && this._furiganaSourceFilter !== 'all') {
       if (this._furiganaSourceFilter === 'no-furigana') {
-        data = data.filter(d => !d.furigana);
+        // 完全な未設定に加え、「？」が残る部分未設定も要確認として拾う
+        data = data.filter(d => !this._isFuriganaComplete(d.furigana));
       } else if (this._furiganaSourceFilter === 'auto') {
         data = data.filter(d => d.source === 'auto');
       } else if (this._furiganaSourceFilter === 'manual') {
@@ -7024,7 +7692,7 @@ window.App = {
           if (!name || !furigana) continue;
 
           // 重複チェック（名前で判定）
-          const existing = this._furiganaData.find(d => d.name === name);
+          const existing = this._findFuriganaRecord(name);
           if (existing) {
             // エクセルデータを優先し、常に上書きする
             existing.furigana = furigana;
@@ -7302,7 +7970,7 @@ window.App = {
    */
   lookupFurigana(name) {
     if (!name) return null;
-    const entry = this._furiganaData.find(d => d.name === name);
+    const entry = this._findFuriganaRecord(name);
     return entry ? entry.furigana : null;
   },
 

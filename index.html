@@ -117,8 +117,8 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
       <button class="header-version" id="btn-version-info" title="バージョン情報・更新履歴">
-        <span class="version-badge">v2.2</span>
-        <span class="version-date">2026.3.21 更新</span>
+        <span class="version-badge">v2.3</span>
+        <span class="version-date">2026.8.1 更新</span>
       </button>
     </div>
   </header>
@@ -2588,8 +2588,31 @@
         <button class="version-modal-close" id="version-modal-close">&times;</button>
       </div>
       <div class="version-modal-body">
-        <!-- 2026年3月 -->
+        <!-- 2026年8月 -->
         <div class="version-group open">
+          <button class="version-group-header">
+            <span class="vg-arrow">▶</span>
+            2026年8月
+          </button>
+          <div class="version-group-body">
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">8/1</span>
+                <span class="version-tag fix">修正</span>
+              </div>
+              <div class="version-entry-text">ふりがなが姓だけしか付かず「たなか　？」のようになる不具合を修正。同梱のふりがなDB（684件）を起動時に読み込むようにし、氏名のスペース表記ゆれ（全角/半角/なし）でも照合できるよう改善。姓・名それぞれの読みをDBから学習して自動付与するようになりました。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">8/1</span>
+                <span class="version-tag new">新機能</span>
+              </div>
+              <div class="version-entry-text">エントリー画面にエントリー用紙の画像取込（AI画像認識）を追加。写真やスクリーンショットから氏名・ふりがな・所属・種目を読み取り、選手一覧と照合してエントリーできます。Gemini APIの無料枠を使用し、使えるモデルの中から最も精度の高いものを自動選択します。</div>
+            </div>
+          </div>
+        </div>
+        <!-- 2026年3月 -->
+        <div class="version-group">
           <button class="version-group-header">
             <span class="vg-arrow">▶</span>
             2026年3月

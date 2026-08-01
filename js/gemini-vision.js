@@ -34,6 +34,7 @@ window.GeminiVision = {
   MAX_IMAGE_EDGE: 1600,
 
   _resolvedModel: null,
+  _authTransport: null,
 
   // ==========================================================
   // 設定の保存 / 取得
@@ -71,10 +72,10 @@ window.GeminiVision = {
   /**
    * APIキーの形式を事前チェックする。
    *
-   * AI Studio の画面からは、APIキー以外の文字列（OAuthトークン等の "AQ." で始まる値や、
-   * ブラウザのURL・Cookieの一部）を誤ってコピーしてしまうことがある。
-   * その場合サーバーからは一律に「API key not valid」しか返らず原因が分かりにくいため、
-   * 送信前に形式を判定して具体的な直し方を案内する。
+   * Google AI Studio が発行するキーは2種類ある。
+   *   - AQ.xxxx  … 現行の auth key（新規発行はこちら）
+   *   - AIzaxxxx … 従来のキー（既存のものは引き続き利用可）
+   * どちらも正当なキーなので、ここでは「明らかにキーでないもの」だけを弾く。
    *
    * @param {string} key APIキー
    * @returns {{ ok: boolean, message: string }} ok=false でも保存自体は許可する（将来の形式変更に備える）
@@ -84,31 +85,74 @@ window.GeminiVision = {
     if (!k) {
       return { ok: false, message: 'APIキーが入力されていません' };
     }
-    if (/^AQ\./.test(k)) {
-      return {
-        ok: false,
-        message: 'これはAPIキーではなく、Googleのログイン用トークンです。'
-          + 'Google AI Studio の「APIキーを作成」から発行される、AIza で始まるキーを貼り付けてください。'
-          + '（貼り付けたトークンは念のためGoogleアカウントのセキュリティ設定で無効化することをおすすめします）',
-      };
-    }
-    if (/^ya29\./.test(k) || /^ey[A-Za-z0-9_-]+\./.test(k)) {
-      return {
-        ok: false,
-        message: 'これはOAuthのアクセストークンです。Google AI Studio で発行した AIza で始まるAPIキーを貼り付けてください。',
-      };
-    }
     if (/^https?:\/\//i.test(k)) {
-      return { ok: false, message: 'URLが貼り付けられています。APIキー（AIza で始まる文字列）だけを貼り付けてください。' };
+      return { ok: false, message: 'URLが貼り付けられています。APIキーの文字列だけを貼り付けてください。' };
     }
-    if (!/^AIza[A-Za-z0-9_-]{20,}$/.test(k)) {
+    if (/^ya29\./.test(k)) {
       return {
         ok: false,
-        message: 'APIキーの形式が想定と異なります。Gemini のAPIキーは AIza で始まる39文字です。'
-          + 'Google AI Studio の「APIキーを作成」で発行したキーを、余分な空白や引用符を含めずに貼り付けてください。',
+        message: 'これはOAuthのアクセストークンです。Google AI Studio の「APIキーを作成」で発行したキーを貼り付けてください。',
+      };
+    }
+    if (/[\s　]/.test(k)) {
+      return { ok: false, message: 'APIキーに空白が含まれています。前後の空白や改行を取り除いて貼り付けてください。' };
+    }
+    // AQ. / AIza いずれでもない場合は警告のみ（弾かない）
+    if (!/^(AQ\.|AIza)/.test(k)) {
+      return {
+        ok: false,
+        message: 'APIキーの形式が想定と異なります（通常は AQ. または AIza で始まります）。'
+          + 'Google AI Studio の「APIキーを作成」で発行したキーか確認してください。',
       };
     }
     return { ok: true, message: '' };
+  },
+
+  /**
+   * 認証方式を変えながらリクエストする。
+   *
+   * 現行の auth key（AQ.）は、送り方によって 401 ACCESS_TOKEN_TYPE_UNSUPPORTED や
+   * 400 API_KEY_INVALID になる事例が報告されている。x-goog-api-key ヘッダーと
+   * ?key= クエリの両方を順に試し、通った方を以降のリクエストでも使う。
+   *
+   * @param {string} path API_BASE 以降のパス（先頭の / を含む）
+   * @param {object} [init] fetch のオプション
+   * @returns {Promise<Response>} 成功したレスポンス、または最後に試した失敗レスポンス
+   */
+  async _authFetch(path, init) {
+    const key = this.getApiKey();
+    if (!key) throw new Error('Gemini APIキーが設定されていません');
+
+    const options = init || {};
+    const sep = path.indexOf('?') === -1 ? '?' : '&';
+
+    const transports = [
+      { id: 'header', build: () => ({
+        url: `${this.API_BASE}${path}`,
+        headers: Object.assign({}, options.headers, { 'x-goog-api-key': key }),
+      }) },
+      { id: 'query', build: () => ({
+        url: `${this.API_BASE}${path}${sep}key=${encodeURIComponent(key)}`,
+        headers: Object.assign({}, options.headers),
+      }) },
+    ];
+
+    // 前回成功した方式が分かっていれば、それを最初に試す
+    if (this._authTransport === 'query') transports.reverse();
+
+    let lastRes = null;
+    for (const transport of transports) {
+      const { url, headers } = transport.build();
+      const res = await fetch(url, Object.assign({}, options, { headers }));
+      if (res.ok) {
+        this._authTransport = transport.id;
+        return res;
+      }
+      // 認証以外のエラー（レート上限・モデル不明など）は方式を変えても直らない
+      if (res.status !== 400 && res.status !== 401 && res.status !== 403) return res;
+      lastRes = res;
+    }
+    return lastRes;
   },
 
   // ==========================================================
@@ -120,12 +164,7 @@ window.GeminiVision = {
    * @returns {Promise<Array<{id: string, displayName: string}>>}
    */
   async listModels() {
-    const key = this.getApiKey();
-    if (!key) throw new Error('Gemini APIキーが設定されていません');
-
-    const res = await fetch(`${this.API_BASE}/models?pageSize=200`, {
-      headers: { 'x-goog-api-key': key },
-    });
+    const res = await this._authFetch('/models?pageSize=200');
     if (!res.ok) {
       throw new Error(await this._describeError(res));
     }
@@ -318,12 +357,9 @@ window.GeminiVision = {
       },
     };
 
-    const res = await fetch(`${this.API_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
+    const res = await this._authFetch(`/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': key,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
@@ -444,26 +480,45 @@ window.GeminiVision = {
 
   async _describeError(res) {
     let detail = '';
+    let status = '';
     try {
       const body = await res.json();
       detail = (body && body.error && body.error.message) || '';
+      status = (body && body.error && body.error.status) || '';
     } catch (e) { /* JSONでない場合は無視 */ }
 
-    if (res.status === 400 && /API key/i.test(detail)) {
-      return 'APIキーが正しくありません。Google AI Studio の「APIキーを作成」で発行した、'
-        + 'AIza で始まる39文字のキーを貼り付けてください'
-        + '（ログイン用トークンやURLを貼るとこのエラーになります）';
+    // Googleが返した生のエラーコード/文言も添える（原因の切り分けに必要）
+    const raw = [status, detail].filter(Boolean).join(': ');
+    const suffix = raw ? '\n[Google からの応答] ' + raw : '';
+
+    const isAuth = res.status === 401
+      || status === 'UNAUTHENTICATED'
+      || (res.status === 400 && /API[_ ]key/i.test(status + ' ' + detail));
+
+    if (isAuth) {
+      return 'APIキーが受け付けられませんでした。以下を確認してください。'
+        + '\n・キーの前後に空白や引用符が入っていないか'
+        + '\n・Google AI Studio でそのキーが削除・無効化されていないか'
+        + '\n・キーに「アプリケーションの制限（HTTPリファラー）」を設定している場合、'
+        + ' https://tcta-tottori.github.io/* を許可しているか'
+        + '\n・キーの「APIの制限」で Generative Language API が許可されているか'
+        + '\n※ AQ. で始まる新しいキーが一部の環境で拒否される事例が報告されています。'
+        + '解消しない場合は Google AI Studio でキーを作り直すか、'
+        + 'Google Cloud Console（APIとサービス → 認証情報）で AIza 形式のキーを発行してお試しください。'
+        + suffix;
     }
     if (res.status === 403) {
-      return 'APIキーが拒否されました（権限またはリファラ制限を確認してください）' + (detail ? ': ' + detail : '');
+      return 'APIキーが拒否されました。キーのリファラー制限やAPIの制限、'
+        + 'プロジェクトで Generative Language API が有効かを確認してください。' + suffix;
     }
     if (res.status === 429) {
-      return '無料枠のレート上限に達しました。1分ほど待ってから再試行してください' + (detail ? ' (' + detail + ')' : '');
+      return '無料枠のレート上限に達しました。1分ほど待ってから再試行してください。' + suffix;
     }
     if (res.status === 404) {
-      return '指定したモデルが利用できません。モデル選択を「自動」に戻すか、別のモデルを選んでください' + (detail ? ': ' + detail : '');
+      return '指定したモデルが利用できません。モデル選択を「自動」に戻すか、'
+        + '「利用可能モデルを取得」で使えるモデルを確認してください。' + suffix;
     }
-    return `Gemini APIエラー (HTTP ${res.status})` + (detail ? ': ' + detail : '');
+    return `Gemini APIエラー (HTTP ${res.status})` + suffix;
   },
 
   _sleep(ms) {

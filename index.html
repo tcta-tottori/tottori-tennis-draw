@@ -627,14 +627,14 @@
           <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input type="password" id="gemini-api-key" class="form-input" autocomplete="off"
-              placeholder="AIza で始まる39文字のキー" style="flex:1;min-width:240px;">
+              placeholder="AQ. または AIza で始まるキー" style="flex:1;min-width:240px;">
             <button id="btn-gemini-key-save" class="btn btn-primary btn-sm">保存</button>
             <button id="btn-gemini-key-clear" class="btn btn-secondary btn-sm">削除</button>
           </div>
           <p style="font-size:11px;color:#999;margin-top:6px;">
             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
             の「APIキーを作成」で無料のAPIキーを発行できます（無料枠：Flash系モデルで1日あたり数百〜1,500回）。
-            貼り付けるのは <strong>AIza</strong> で始まる39文字のキーです（<code>AQ.</code> や <code>ya29.</code> で始まる値はログイン用トークンで、APIキーではありません）。
+            現在発行されるキーは <code>AQ.</code> で始まります（以前の <code>AIza</code> 形式のキーもそのまま使えます）。
             キーはこの端末のブラウザ（localStorage）にのみ保存され、サーバーには送信されません。
             共用端末では使用後に「削除」してください。
           </p>
@@ -665,7 +665,7 @@
           <button id="btn-gemini-clear-images" class="btn btn-secondary btn-sm">画像をクリア</button>
           <span id="gemini-image-count" style="font-size:12px;color:#6b7280;"></span>
         </div>
-        <div id="gemini-status" class="status-message" style="display:none;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
+        <div id="gemini-status" class="status-message" style="display:none;padding:8px 12px;border-radius:6px;font-size:12px;white-space:pre-line;line-height:1.6;"></div>
       </details>
 
       <!-- エントリー読込（Excel/スプレッドシート） -->

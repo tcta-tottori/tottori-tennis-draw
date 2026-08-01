@@ -406,10 +406,145 @@ window.GeminiVision = {
   },
 
   // ==========================================================
+  // 氏名の読み・表記の解決
+  // ==========================================================
+
+  /** 1リクエストあたりに渡す氏名の件数 */
+  NAME_BATCH_SIZE: 40,
+
+  _buildNamePrompt() {
+    return [
+      'あなたは日本のテニス大会の名簿を整備する担当者です。',
+      '与えられた日本人の氏名について、正しい表記とふりがなを返してください。',
+      '',
+      '【ルール】',
+      '1. input: 与えられた氏名をそのまま返す（照合用。一字一句変えないこと）。',
+      '2. name: 姓と名を全角スペース1つで区切った表記。',
+      '   ・入力に空白が無い場合（例: 松本龍我）は姓と名の境目を判断して区切る（例: 松本　龍我）。',
+      '   ・漢字は入力のまま変えない。旧字体・異体字（齊、髙、﨑 など）もそのまま保つ。',
+      '   ・姓か名かの判断がつかない場合は入力のまま返す。',
+      '3. furigana: ひらがなの読み。姓と名の間は全角スペース1つ。',
+      '   ・カタカナや漢字を混ぜない。長音符「ー」はカタカナ名のみ可。',
+      '   ・読みが分からない場合は空文字にする。',
+      '4. confident: 読みに確信がある場合のみ true。',
+      '   ・複数の読みがありうる氏名（例: 東＝ひがし／あずま、新田＝にった／しんでん）は false。',
+      '   ・珍しい氏名で読みを断定できない場合も false。',
+      '   ・推測で埋めて true にしないこと。誤った読みは名簿として使えなくなる。',
+      '5. 与えられた氏名を1件も省略せず、与えられた順序どおりに同じ件数だけ返す。',
+    ].join('\n');
+  },
+
+  _nameResponseSchema() {
+    return {
+      type: 'OBJECT',
+      properties: {
+        results: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              input: { type: 'STRING', description: '与えられた氏名（そのまま）' },
+              name: { type: 'STRING', description: '姓と名を全角スペースで区切った表記' },
+              furigana: { type: 'STRING', description: 'ひらがなの読み。不明なら空文字' },
+              confident: { type: 'BOOLEAN', description: '読みに確信がある場合のみtrue' },
+            },
+            required: ['input', 'name', 'furigana', 'confident'],
+          },
+        },
+      },
+      required: ['results'],
+    };
+  },
+
+  /**
+   * 氏名の読みと表記をまとめて解決する。
+   *
+   * kuromoji は一般語の形態素解析器なので人名の読みを外しやすい（特に名の部分）。
+   * こちらは人名として解釈させるため、読みだけでなく姓名の区切り位置も同時に返させる。
+   *
+   * @param {Array<string>} names 氏名の配列
+   * @param {object} [options]
+   * @param {function(number, number):void} [options.onProgress] (完了件数, 総件数)
+   * @returns {Promise<{results: Array<{input,name,furigana,confident}>, errors: Array<string>, model: string}>}
+   */
+  async lookupNames(names, options) {
+    const opts = options || {};
+    const list = (names || []).map(n => String(n || '').trim()).filter(Boolean);
+    const model = await this.resolveModel();
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < list.length; i += this.NAME_BATCH_SIZE) {
+      const batch = list.slice(i, i + this.NAME_BATCH_SIZE);
+      if (opts.onProgress) opts.onProgress(i, list.length);
+
+      try {
+        const batchResults = await this._lookupNameBatch(batch, model);
+        results.push(...batchResults);
+      } catch (e) {
+        errors.push(`${i + 1}〜${i + batch.length}件目: ${e.message}`);
+        // 認証エラーは以降も必ず失敗するので打ち切る
+        if (/APIキー|受け付けられませんでした/.test(e.message)) break;
+      }
+
+      // 無料枠のRPM制限に配慮
+      if (i + this.NAME_BATCH_SIZE < list.length) await this._sleep(1200);
+    }
+
+    if (opts.onProgress) opts.onProgress(list.length, list.length);
+    return { results, errors, model };
+  },
+
+  async _lookupNameBatch(batch, model) {
+    const body = {
+      contents: [{
+        role: 'user',
+        parts: [{
+          text: this._buildNamePrompt()
+            + '\n\n【氏名一覧】\n'
+            + batch.map((n, idx) => `${idx + 1}. ${n}`).join('\n'),
+        }],
+      }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: 'application/json',
+        responseSchema: this._nameResponseSchema(),
+      },
+    };
+
+    const res = await this._authFetch(`/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(await this._describeError(res));
+
+    const data = await res.json();
+    const parsed = this._parseJson(this._extractText(data));
+    const raw = Array.isArray(parsed) ? parsed : (parsed && parsed.results) || [];
+
+    const out = [];
+    for (const item of raw) {
+      if (!item || !item.input) continue;
+      out.push({
+        input: String(item.input).trim(),
+        name: this._normalizeName(item.name || item.input),
+        furigana: this._normalizeFurigana(item.furigana),
+        confident: item.confident === true,
+      });
+    }
+    return out;
+  },
+
+  // ==========================================================
   // レスポンス処理
   // ==========================================================
 
-  _parsePlayers(data) {
+  /**
+   * generateContent のレスポンスから本文テキストを取り出す
+   */
+  _extractText(data) {
     if (data && data.promptFeedback && data.promptFeedback.blockReason) {
       throw new Error('Geminiが応答をブロックしました (' + data.promptFeedback.blockReason + ')');
     }
@@ -418,14 +553,17 @@ window.GeminiVision = {
     if (!candidate) throw new Error('Geminiから有効な応答がありませんでした');
 
     if (candidate.finishReason === 'MAX_TOKENS') {
-      throw new Error('応答が長すぎて途中で切れました。画像を分割して再試行してください');
+      throw new Error('応答が長すぎて途中で切れました。件数を減らして再試行してください');
     }
 
     const parts = (candidate.content && candidate.content.parts) || [];
     const text = parts.map(p => p.text || '').join('').trim();
     if (!text) throw new Error('Geminiが空の応答を返しました');
+    return text;
+  },
 
-    const parsed = this._parseJson(text);
+  _parsePlayers(data) {
+    const parsed = this._parseJson(this._extractText(data));
     const raw = Array.isArray(parsed) ? parsed : (parsed && parsed.players) || [];
 
     const players = [];

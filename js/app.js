@@ -37,6 +37,7 @@ window.App = {
     this.initDataScreen();
     this.initRankingScreen();
     this.initEntryImport();
+    this.initAiSettings();
     this.initEntryImageImport();
     this.initEntryScreen();
     // initFuriganaScreen は廃止。_initFuriganaInDataScreen() で代替（initDataScreen内で呼出）
@@ -1358,6 +1359,201 @@ window.App = {
   },
 
   // ================================================================
+  // AI設定（Gemini API）— アプリ内のAI機能で共通利用
+  // ================================================================
+
+  /**
+   * AI設定カードの初期化。APIキー・モデルはここで一元管理し、
+   * ふりがな自動付与・画像取込の双方がこの設定を参照する。
+   */
+  initAiSettings() {
+    if (typeof GeminiVision === 'undefined') return;
+
+    const keyInput = document.getElementById('ai-api-key');
+    const modelSelect = document.getElementById('ai-model');
+    const btnSave = document.getElementById('btn-ai-key-save');
+    const btnClear = document.getElementById('btn-ai-key-clear');
+    const btnRefresh = document.getElementById('btn-ai-models-refresh');
+    const btnTest = document.getElementById('btn-ai-test');
+
+    if (keyInput) keyInput.value = GeminiVision.getApiKey();
+    this._renderAiModelOptions(GeminiVision.MODEL_PREFERENCE.map(m => ({ id: m.id, displayName: m.label })));
+
+    if (btnSave && keyInput) {
+      btnSave.addEventListener('click', () => {
+        const key = keyInput.value.trim();
+        if (!key) {
+          GeminiVision.saveApiKey('');
+          this._updateAiStatus('APIキーを削除しました', 'info');
+          this._refreshAiConfigState();
+          return;
+        }
+        // 形式が想定外でも保存はする（将来キー形式が変わっても使えなくならないように）
+        const check = GeminiVision.validateApiKeyFormat(key);
+        GeminiVision.saveApiKey(key);
+        this._updateAiStatus(
+          check.ok ? 'APIキーを保存しました（この端末のブラウザにのみ保存されます）' : '保存しましたが、' + check.message,
+          check.ok ? 'ok' : 'error'
+        );
+        this._refreshAiConfigState();
+      });
+    }
+
+    if (btnClear && keyInput) {
+      btnClear.addEventListener('click', () => {
+        keyInput.value = '';
+        GeminiVision.saveApiKey('');
+        this._updateAiStatus('APIキーを削除しました', 'info');
+        this._refreshAiConfigState();
+      });
+    }
+
+    if (modelSelect) {
+      modelSelect.addEventListener('change', () => {
+        GeminiVision.saveModel(modelSelect.value);
+        this._refreshAiConfigState();
+      });
+    }
+
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', async () => {
+        if (!this._requireAiKey(msg => this._updateAiStatus(msg, 'error'))) return;
+        btnRefresh.disabled = true;
+        try {
+          const models = await GeminiVision.listModels();
+          const usable = models.filter(m => !/image-generation|imagen|tts|audio|embedding|aqa/i.test(m.id));
+          this._renderAiModelOptions(usable);
+          const auto = await GeminiVision.resolveModel();
+          this._updateAiStatus(`利用可能なモデル ${usable.length} 件を取得しました（自動選択: ${auto}）`, 'ok');
+        } catch (e) {
+          this._updateAiStatus('モデル一覧の取得に失敗: ' + e.message, 'error');
+        } finally {
+          btnRefresh.disabled = false;
+          this._refreshAiConfigState();
+        }
+      });
+    }
+
+    if (btnTest) {
+      btnTest.addEventListener('click', async () => {
+        if (!this._requireAiKey(msg => this._updateAiStatus(msg, 'error'))) return;
+        btnTest.disabled = true;
+        this._updateAiStatus('接続を確認中...', 'info');
+        try {
+          const model = await GeminiVision.resolveModel();
+          const result = await GeminiVision.lookupNames(['山田　太郎']);
+          if (result.errors.length > 0) throw new Error(result.errors[0]);
+          const sample = result.results[0];
+          this._updateAiStatus(
+            `接続OK（モデル: ${model}）\n動作確認: 山田　太郎 → ${sample ? sample.furigana : '(応答なし)'}`,
+            'ok'
+          );
+        } catch (e) {
+          this._updateAiStatus('接続テストに失敗: ' + e.message, 'error');
+        } finally {
+          btnTest.disabled = false;
+        }
+      });
+    }
+
+    this._refreshAiConfigState();
+  },
+
+  /**
+   * APIキーが使える状態か確認する。使えない場合は理由を渡して false を返す。
+   * @param {function(string):void} onError 理由の通知先
+   */
+  _requireAiKey(onError) {
+    if (typeof GeminiVision === 'undefined' || !GeminiVision.isConfigured()) {
+      onError('AI設定でGemini APIキーを設定してください');
+      return false;
+    }
+    const check = GeminiVision.validateApiKeyFormat(GeminiVision.getApiKey());
+    if (!check.ok) {
+      onError(check.message);
+      return false;
+    }
+    return true;
+  },
+
+  _renderAiModelOptions(models) {
+    const select = document.getElementById('ai-model');
+    if (!select) return;
+    const current = GeminiVision.getModel();
+
+    let html = '<option value="">自動（推奨・無料枠で最も精度の高いモデルを選択）</option>';
+    for (const m of models) {
+      const label = m.displayName && m.displayName !== m.id ? `${m.displayName} [${m.id}]` : m.id;
+      html += `<option value="${this._esc(m.id)}">${this._esc(label)}</option>`;
+    }
+    select.innerHTML = html;
+    select.value = current;
+    // 保存済みモデルが一覧に無い場合は自動に戻す
+    if (select.value !== current) select.value = '';
+  },
+
+  _updateAiStatus(message, level) {
+    this._setStatusBox('ai-settings-status', message, level);
+  },
+
+  /**
+   * ステータス表示の共通処理
+   */
+  _setStatusBox(elementId, message, level) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const colors = {
+      ok: { bg: '#f0fdf4', fg: '#15803d' },
+      error: { bg: '#fef2f2', fg: '#b91c1c' },
+      info: { bg: '#f0f4ff', fg: '#3b82f6' },
+    };
+    const c = colors[level] || colors.info;
+    el.style.display = message ? '' : 'none';
+    el.style.backgroundColor = c.bg;
+    el.style.color = c.fg;
+    el.textContent = message || '';
+  },
+
+  /**
+   * APIキーの設定状況を、AI機能を持つ各画面に反映する
+   */
+  _refreshAiConfigState() {
+    const configured = typeof GeminiVision !== 'undefined' && GeminiVision.isConfigured();
+    const model = configured ? (GeminiVision.getModel() || '自動') : '';
+
+    const badge = document.getElementById('ai-settings-badge');
+    if (badge) {
+      badge.textContent = configured ? '設定済み（モデル: ' + model + '）' : '未設定';
+      badge.style.color = configured ? '#15803d' : '#b91c1c';
+    }
+
+    // エントリー画面の画像取込セクション
+    const state = document.getElementById('gemini-key-state');
+    if (state) {
+      state.textContent = configured
+        ? '✓ Gemini APIキー設定済み（モデル: ' + model + '）'
+        : 'Gemini APIキーが未設定です。データ画面の「AI設定」で設定してください。';
+      state.style.color = configured ? '#15803d' : '#b91c1c';
+    }
+
+    this._updateGeminiAnalyzeState();
+  },
+
+  /**
+   * データ画面のAI設定カードを開いてスクロールする
+   */
+  openAiSettings() {
+    this.switchScreen('screen-data');
+    const card = document.getElementById('ai-settings-card');
+    if (card) {
+      card.open = true;
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    const keyInput = document.getElementById('ai-api-key');
+    if (keyInput && !keyInput.value) setTimeout(() => keyInput.focus(), 400);
+  },
+
+  // ================================================================
   // エントリー用紙の画像取込（Gemini API）
   // ================================================================
 
@@ -1369,83 +1565,15 @@ window.App = {
   initEntryImageImport() {
     if (typeof GeminiVision === 'undefined') return;
 
-    const keyInput = document.getElementById('gemini-api-key');
-    const modelSelect = document.getElementById('gemini-model');
     const fileInput = document.getElementById('file-gemini-images');
     const dropZone = document.getElementById('gemini-drop-zone');
-    const btnSaveKey = document.getElementById('btn-gemini-key-save');
-    const btnClearKey = document.getElementById('btn-gemini-key-clear');
-    const btnRefreshModels = document.getElementById('btn-gemini-models-refresh');
     const btnAnalyze = document.getElementById('btn-gemini-analyze');
     const btnClearImages = document.getElementById('btn-gemini-clear-images');
+    const btnOpenSettings = document.getElementById('btn-gemini-open-settings');
 
-    // 保存済みのAPIキー・モデルを反映
-    if (keyInput) keyInput.value = GeminiVision.getApiKey();
-    this._renderGeminiModelOptions(GeminiVision.MODEL_PREFERENCE.map(m => ({ id: m.id, displayName: m.label })));
-    if (modelSelect) modelSelect.value = GeminiVision.getModel();
-
-    if (btnSaveKey && keyInput) {
-      btnSaveKey.addEventListener('click', () => {
-        const key = keyInput.value.trim();
-        if (!key) {
-          GeminiVision.saveApiKey('');
-          this._updateGeminiStatus('APIキーを削除しました', 'info');
-          this._updateGeminiAnalyzeState();
-          return;
-        }
-        // 形式が違っても保存はする（将来キー形式が変わっても使えなくならないように）が、
-        // 「API key not valid」だけでは原因が分からないので具体的に案内する
-        const check = GeminiVision.validateApiKeyFormat(key);
-        GeminiVision.saveApiKey(key);
-        this._updateGeminiStatus(
-          check.ok ? 'APIキーを保存しました（この端末のブラウザにのみ保存されます）' : '保存しましたが、' + check.message,
-          check.ok ? 'ok' : 'error'
-        );
-        this._updateGeminiAnalyzeState();
-      });
-    }
-
-    if (btnClearKey && keyInput) {
-      btnClearKey.addEventListener('click', () => {
-        keyInput.value = '';
-        GeminiVision.saveApiKey('');
-        this._updateGeminiStatus('APIキーを削除しました', 'info');
-        this._updateGeminiAnalyzeState();
-      });
-    }
-
-    if (modelSelect) {
-      modelSelect.addEventListener('change', () => {
-        GeminiVision.saveModel(modelSelect.value);
-      });
-    }
-
-    if (btnRefreshModels) {
-      btnRefreshModels.addEventListener('click', async () => {
-        if (!GeminiVision.isConfigured()) {
-          this._updateGeminiStatus('先にAPIキーを保存してください', 'error');
-          return;
-        }
-        const keyCheck = GeminiVision.validateApiKeyFormat(GeminiVision.getApiKey());
-        if (!keyCheck.ok) {
-          this._updateGeminiStatus(keyCheck.message, 'error');
-          return;
-        }
-        btnRefreshModels.disabled = true;
-        try {
-          const models = await GeminiVision.listModels();
-          // 画像取込に使えない用途（画像生成・音声・埋め込み）は除外
-          const usable = models.filter(m => !/image-generation|imagen|tts|audio|embedding|aqa/i.test(m.id));
-          this._renderGeminiModelOptions(usable);
-          if (modelSelect) modelSelect.value = GeminiVision.getModel();
-          const auto = await GeminiVision.resolveModel();
-          this._updateGeminiStatus(`利用可能なモデル ${usable.length} 件を取得しました（自動選択: ${auto}）`, 'ok');
-        } catch (e) {
-          this._updateGeminiStatus('モデル一覧の取得に失敗: ' + e.message, 'error');
-        } finally {
-          btnRefreshModels.disabled = false;
-        }
-      });
+    // APIキー・モデルはデータ画面の「AI設定」で一元管理する
+    if (btnOpenSettings) {
+      btnOpenSettings.addEventListener('click', () => this.openAiSettings());
     }
 
     if (fileInput) {
@@ -1500,22 +1628,6 @@ window.App = {
     }
 
     this._updateGeminiAnalyzeState();
-  },
-
-  _renderGeminiModelOptions(models) {
-    const select = document.getElementById('gemini-model');
-    if (!select) return;
-    const current = GeminiVision.getModel();
-
-    let html = '<option value="">自動（推奨・無料枠で最も精度の高いモデルを選択）</option>';
-    for (const m of models) {
-      const label = m.displayName && m.displayName !== m.id ? `${m.displayName} [${m.id}]` : m.id;
-      html += `<option value="${this._esc(m.id)}">${this._esc(label)}</option>`;
-    }
-    select.innerHTML = html;
-    select.value = current;
-    // 保存済みモデルが一覧に無い場合は自動に戻す
-    if (select.value !== current) select.value = '';
   },
 
   _addGeminiFiles(fileList) {
@@ -1575,18 +1687,7 @@ window.App = {
   },
 
   _updateGeminiStatus(message, level) {
-    const el = document.getElementById('gemini-status');
-    if (!el) return;
-    const colors = {
-      ok: { bg: '#f0fdf4', fg: '#15803d' },
-      error: { bg: '#fef2f2', fg: '#b91c1c' },
-      info: { bg: '#f0f4ff', fg: '#3b82f6' },
-    };
-    const c = colors[level] || colors.info;
-    el.style.display = message ? '' : 'none';
-    el.style.backgroundColor = c.bg;
-    el.style.color = c.fg;
-    el.textContent = message || '';
+    this._setStatusBox('gemini-status', message, level);
   },
 
   /**
@@ -1594,15 +1695,7 @@ window.App = {
    */
   async _analyzeGeminiImages() {
     if (typeof GeminiVision === 'undefined') return;
-    if (!GeminiVision.isConfigured()) {
-      this._updateGeminiStatus('先にAPIキーを保存してください', 'error');
-      return;
-    }
-    const keyCheck = GeminiVision.validateApiKeyFormat(GeminiVision.getApiKey());
-    if (!keyCheck.ok) {
-      this._updateGeminiStatus(keyCheck.message, 'error');
-      return;
-    }
+    if (!this._requireAiKey(msg => this._updateGeminiStatus(msg, 'error'))) return;
     if (this._geminiFiles.length === 0) {
       this._updateGeminiStatus('画像を選択してください', 'error');
       return;
@@ -6540,10 +6633,16 @@ window.App = {
       btnExport.addEventListener('click', () => this._exportFuriganaExcel());
     }
 
-    // ふりがな自動付与 (kuromoji.js)
+    // 氏名スペース整形
+    const btnNormalizeSpace = document.getElementById('btn-furigana-normalize-space');
+    if (btnNormalizeSpace) {
+      btnNormalizeSpace.addEventListener('click', () => this._normalizeAllNameSpacing());
+    }
+
+    // ふりがな自動付与（Gemini優先、未設定時はkuromoji）
     const btnAutoAssign = document.getElementById('btn-furigana-auto-assign');
     if (btnAutoAssign) {
-      btnAutoAssign.addEventListener('click', () => this._autoAssignFuriganaKuromoji());
+      btnAutoAssign.addEventListener('click', () => this._runFuriganaAutoAssign());
     }
 
     // Google Drive ふりがな保存ボタン
@@ -7046,6 +7145,209 @@ window.App = {
     this.showMessage(msg, noFurigana > 0 ? 'info' : 'success');
   },
 
+  // ================================================================
+  // 氏名の表記ゆれ整形（姓と名の区切りを全角スペース1つに揃える）
+  // ================================================================
+
+  /**
+   * 氏名のスペースを全角スペース1つに整える。
+   * 空白が1つも無い場合は、DBから学習した姓の辞書で姓と名の境目を推定して区切る。
+   *
+   * @param {string} name 氏名
+   * @returns {{ name: string, changed: boolean, split: boolean }}
+   *          split=true は「空白なしの氏名を姓辞書で分割できた」ことを表す
+   */
+  _normalizeNameSpacing(name) {
+    const original = String(name || '');
+    // 半角/全角/NBSP/タブの連続を全角スペース1つに統一し、前後を除去
+    let normalized = original
+      .replace(/[\s　 ]+/g, '　')
+      .replace(/^　+|　+$/g, '');
+
+    let split = false;
+    if (normalized && normalized.indexOf('　') === -1) {
+      const parts = this._splitNameBySurnameDict(normalized);
+      if (parts) {
+        normalized = parts.join('　');
+        split = true;
+      }
+    }
+
+    return { name: normalized, changed: normalized !== original, split };
+  },
+
+  /**
+   * 空白の無い氏名を姓と名に分割する。
+   *
+   * ふりがなDBから学習した姓の一覧と組み込みの姓辞書を使い、
+   * 「最長一致する姓」で切る。名の側が残らない場合や、姓が見つからない場合は
+   * 分割しない（誤った位置で切ると氏名そのものが壊れるため）。
+   *
+   * @param {string} name 空白を含まない氏名
+   * @returns {[string, string]|null} [姓, 名]。判定できなければ null
+   */
+  _splitNameBySurnameDict(name) {
+    if (!name || name.length < 2) return null;
+
+    const dicts = this._buildNameReadingDicts();
+    // 長い姓（五十嵐・長谷川など）から先に試す
+    const maxLen = Math.min(4, name.length - 1);
+    for (let len = maxLen; len >= 1; len--) {
+      const candidate = name.slice(0, len);
+      const rest = name.slice(len);
+      if (!rest) continue;
+      if (dicts.surnames.has(candidate) || Object.prototype.hasOwnProperty.call(this.SURNAME_READINGS, candidate)) {
+        return [candidate, rest];
+      }
+    }
+    return null;
+  },
+
+  /**
+   * ふりがなDB全体の氏名スペースを整形する
+   */
+  async _normalizeAllNameSpacing() {
+    if (this._furiganaData.length === 0) {
+      this.showMessage('ふりがなデータがありません', 'info');
+      return;
+    }
+
+    // まず辞書で機械的に整形できるものを洗い出す
+    const mechanical = [];
+    const unresolved = [];
+    for (const entry of this._furiganaData) {
+      const result = this._normalizeNameSpacing(entry.name);
+      if (result.changed) {
+        mechanical.push({ entry, newName: result.name });
+      } else if (String(entry.name).indexOf('　') === -1) {
+        // 空白が無く、姓辞書でも切れなかったもの
+        unresolved.push(entry);
+      }
+    }
+
+    const useAi = unresolved.length > 0
+      && typeof GeminiVision !== 'undefined'
+      && GeminiVision.isConfigured();
+
+    let msg = `氏名のスペースを整形します。\n・辞書で整形: ${mechanical.length} 件`;
+    if (unresolved.length > 0) {
+      msg += `\n・区切り位置が不明: ${unresolved.length} 件`;
+      msg += useAi ? '（AIで判定します）' : '（AI設定でAPIキーを設定すると判定できます）';
+    }
+    if (mechanical.length === 0 && !useAi) {
+      this.showMessage('整形が必要な氏名はありませんでした', 'info');
+      return;
+    }
+    if (!confirm(msg + '\n\n実行しますか？')) return;
+
+    const btn = document.getElementById('btn-furigana-normalize-space');
+    if (btn) { btn.disabled = true; btn.textContent = '整形中...'; }
+
+    let changed = 0;
+    let aiSplit = 0;
+    let filled = 0;
+    let rejected = 0;
+    let aiError = '';
+    try {
+      for (const item of mechanical) {
+        item.entry.name = item.newName;
+        changed++;
+      }
+
+      if (useAi) {
+        this._setStatusBox('furigana-sync-status', `AIで姓名の区切りを判定中... (0/${unresolved.length})`, 'info');
+        const result = await GeminiVision.lookupNames(unresolved.map(e => e.name), {
+          onProgress: (done, total) => {
+            this._setStatusBox('furigana-sync-status', `AIで姓名の区切りを判定中... (${done}/${total})`, 'info');
+          },
+        });
+
+        const byInput = new Map();
+        for (const r of result.results) byInput.set(this._nameKey(r.input), r);
+
+        for (const entry of unresolved) {
+          const hit = byInput.get(this._nameKey(entry.name));
+          if (!hit || !hit.name) continue;
+          // AIが返した表記は、空白を除くと元と一致することを条件にする（漢字の書き換えを防ぐ）
+          if (this._nameKey(hit.name) !== this._nameKey(entry.name)) {
+            rejected++;
+            continue;
+          }
+          if (hit.name !== entry.name) {
+            entry.name = hit.name;
+            changed++;
+            aiSplit++;
+          }
+          // ついでに読みが取れていれば補完する
+          if (hit.confident && hit.furigana && !entry.furiganaEdited
+              && !this._isFuriganaComplete(entry.furigana)) {
+            entry.furigana = hit.furigana;
+            entry.source = 'ai';
+            filled++;
+          }
+        }
+
+        aiError = result.errors.length > 0 ? result.errors[0] : '';
+      }
+
+      const before = this._furiganaData.length;
+      if (changed > 0) {
+        this._dedupeFuriganaData();
+        this._saveFuriganaData();
+        this._syncFuriganaToRankingLoader();
+        this._renderFuriganaTable();
+      }
+      const dedupedCount = before - this._furiganaData.length;
+
+      let report = `${changed}件の氏名を整形しました`;
+      if (aiSplit > 0) report += `\n・うちAIで姓名を区切った: ${aiSplit} 件`;
+      if (filled > 0) report += `\n・あわせてふりがなを補完: ${filled} 件`;
+      if (dedupedCount > 0) report += `\n・整形により重複した ${dedupedCount} 件を統合しました`;
+      if (rejected > 0) report += `\n・${rejected}件はAIの提案が元の漢字と異なるため見送りました`;
+      if (aiError) report += `\n・AI判定の一部が失敗: ${aiError}`;
+
+      this._setStatusBox('furigana-sync-status', report, aiError ? 'error' : 'ok');
+      this.showMessage(changed + '件の氏名を整形しました', changed > 0 ? 'success' : 'info');
+    } catch (e) {
+      console.error('氏名整形エラー:', e);
+      this.showMessage('氏名の整形に失敗しました: ' + e.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '氏名スペース整形'; }
+    }
+  },
+
+  /**
+   * 整形の結果、同一人物が重複した場合にまとめる
+   */
+  _dedupeFuriganaData() {
+    const byKey = new Map();
+    const merged = [];
+
+    for (const entry of this._furiganaData) {
+      const key = this._nameKey(entry.name);
+      if (!key) continue;
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, entry);
+        merged.push(entry);
+        continue;
+      }
+      // ふりがな・所属・種目を統合し、確定した読みを優先して残す
+      if (!this._isFuriganaComplete(existing.furigana) && this._isFuriganaComplete(entry.furigana)) {
+        existing.furigana = entry.furigana;
+        existing.source = entry.source;
+      }
+      if (!existing.affiliation && entry.affiliation) existing.affiliation = entry.affiliation;
+      existing.furiganaEdited = existing.furiganaEdited || entry.furiganaEdited;
+      const codes = new Set([...(existing.eventCodes || []), ...(entry.eventCodes || [])]);
+      existing.eventCodes = Array.from(codes);
+      existing.rankingPoints = Math.max(existing.rankingPoints || 0, entry.rankingPoints || 0);
+    }
+
+    this._furiganaData = merged;
+    this._rebuildFuriganaIndex();
+  },
+
   /**
    * ふりがなDBから姓・名それぞれの読み辞書を学習する。
    *
@@ -7293,8 +7595,9 @@ window.App = {
     const readingInput = document.getElementById('furigana-add-reading');
     if (!nameInput || !readingInput) return;
 
-    const name = nameInput.value.trim();
-    const furigana = readingInput.value.trim();
+    // 姓と名の区切りは全角スペース1つに揃えてから登録する
+    const name = this._normalizeNameSpacing(nameInput.value).name;
+    const furigana = this._normalizeFuriganaValue(readingInput.value);
 
     if (!name) {
       this.showMessage('氏名を入力してください', 'error');
@@ -7394,8 +7697,9 @@ window.App = {
     const saveBtn = document.getElementById('btn-furigana-edit-save');
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
-        const nameVal = document.getElementById('furigana-edit-name').value.trim();
-        const furiVal = document.getElementById('furigana-edit-reading').value.trim();
+        // 姓と名の区切りは全角スペース1つに揃える
+        const nameVal = this._normalizeNameSpacing(document.getElementById('furigana-edit-name').value).name;
+        const furiVal = this._normalizeFuriganaValue(document.getElementById('furigana-edit-reading').value);
         const affilVal = document.getElementById('furigana-edit-affiliation').value.trim();
 
         if (!nameVal) {
@@ -7844,11 +8148,121 @@ window.App = {
   },
 
   /**
+   * ふりがな自動付与のエントリポイント。
+   * Gemini APIが設定されていればそちらを使い、無ければ従来の kuromoji にフォールバックする。
+   *
+   * kuromoji は一般語の形態素解析器で人名の読み（特に名）を外しやすいため、
+   * APIキーがある場合は人名として解釈できるGeminiを優先する。
+   */
+  async _runFuriganaAutoAssign() {
+    const targets = this._furiganaData.filter(d => !this._isFuriganaComplete(d.furigana));
+    if (targets.length === 0) {
+      this.showMessage('ふりがなが未設定のデータはありません', 'info');
+      return;
+    }
+
+    const aiReady = typeof GeminiVision !== 'undefined' && GeminiVision.isConfigured();
+    if (!aiReady) {
+      if (!confirm(
+        'Gemini APIキーが未設定のため、簡易辞書（kuromoji）で付与します。\n'
+        + '人名の読みは外れやすいため、データ画面の「AI設定」でAPIキーを設定することをおすすめします。\n\n'
+        + 'このまま簡易辞書で実行しますか？'
+      )) {
+        this.openAiSettings();
+        return;
+      }
+      return this._autoAssignFuriganaKuromoji();
+    }
+
+    return this._autoAssignFuriganaWithAi(targets);
+  },
+
+  /**
+   * Gemini APIでふりがなを付与する
+   * @param {Array} targets 対象レコード
+   */
+  async _autoAssignFuriganaWithAi(targets) {
+    const noFurigana = targets.filter(d => !d.furigana).length;
+    const partial = targets.length - noFurigana;
+
+    let msg = `対象 ${targets.length} 件にAIでふりがなを付与します。`;
+    if (noFurigana > 0) msg += `\n・未設定: ${noFurigana} 件`;
+    if (partial > 0) msg += `\n・「？」を含む（部分未設定）: ${partial} 件`;
+    msg += `\n\n約 ${Math.ceil(targets.length / GeminiVision.NAME_BATCH_SIZE)} 回のAPI呼び出しを行います。`;
+    msg += '\n読みが一意に定まらない氏名は「？」のまま残します。';
+    if (!confirm(msg + '\n\n実行しますか？')) return;
+
+    const btn = document.getElementById('btn-furigana-auto-assign');
+    if (btn) { btn.disabled = true; btn.textContent = '解析中...'; }
+
+    try {
+      const result = await GeminiVision.lookupNames(targets.map(t => t.name), {
+        onProgress: (done, total) => {
+          if (btn) btn.textContent = `解析中... (${done}/${total})`;
+          this._setStatusBox('furigana-sync-status', `AIでふりがなを解析中... (${done}/${total})`, 'info');
+        },
+      });
+
+      const byInput = new Map();
+      for (const r of result.results) byInput.set(this._nameKey(r.input), r);
+
+      const now = new Date().toISOString();
+      let updated = 0;
+      let uncertain = 0;
+      let renamed = 0;
+
+      for (const target of targets) {
+        if (target.furiganaEdited) continue;
+        const hit = byInput.get(this._nameKey(target.name));
+        if (!hit) continue;
+
+        // 姓と名の区切りも同時に整える（漢字自体が変わる提案は採用しない）
+        if (hit.name && hit.name !== target.name && this._nameKey(hit.name) === this._nameKey(target.name)) {
+          target.name = hit.name;
+          renamed++;
+        }
+
+        if (!hit.furigana) continue;
+        if (!hit.confident) {
+          // 確信が無い読みは採用せず、要確認として残す
+          uncertain++;
+          continue;
+        }
+        if (hit.furigana !== target.furigana) {
+          target.furigana = hit.furigana;
+          target.source = 'ai';
+          target.lastUpdated = now;
+          updated++;
+        }
+      }
+
+      if (renamed > 0) this._dedupeFuriganaData();
+      this._saveFuriganaData();
+      this._syncFuriganaToRankingLoader();
+      this._renderFuriganaTable();
+
+      let done = `${updated}件のふりがなを付与しました（モデル: ${result.model}）`;
+      if (renamed > 0) done += `\n${renamed}件の氏名スペースも整形しました`;
+      if (uncertain > 0) done += `\n${uncertain}件は読みが一意に定まらないため「要確認」のままです`;
+      if (result.errors.length > 0) done += `\n一部失敗: ${result.errors[0]}`;
+
+      this._setStatusBox('furigana-sync-status', done, result.errors.length > 0 ? 'error' : 'ok');
+      this.showMessage(`${updated}件のふりがなを付与しました`, updated > 0 ? 'success' : 'info');
+    } catch (e) {
+      console.error('AIふりがな付与エラー:', e);
+      this._setStatusBox('furigana-sync-status', 'ふりがな付与に失敗しました: ' + e.message, 'error');
+      this.showMessage('ふりがな付与に失敗しました: ' + e.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = 'ふりがな自動付与 (AI)'; }
+    }
+  },
+
+  /**
    * Workerを利用してふりがな自動付与
    */
   async _autoAssignFuriganaKuromoji() {
     // ふりがな未設定 または ？を含むデータを抽出
-    const targets = this._furiganaData.filter(d => !d.furigana || d.furigana.includes('？'));
+    const targets = this._furiganaData.filter(d => !this._isFuriganaComplete(d.furigana));
     if (targets.length === 0) {
       this.showMessage('ふりがなが未設定のデータはありません', 'info');
       return;

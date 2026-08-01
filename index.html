@@ -117,7 +117,7 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
       <button class="header-version" id="btn-version-info" title="バージョン情報・更新履歴">
-        <span class="version-badge">v2.3</span>
+        <span class="version-badge">v2.4</span>
         <span class="version-date">2026.8.1 更新</span>
       </button>
     </div>
@@ -288,6 +288,60 @@
         </div>
       </div>
 
+      <!-- AI設定（Gemini API） -->
+      <details class="card collapsible-section" id="ai-settings-card" style="margin-bottom:24px;">
+        <summary class="card-title collapsible-toggle">
+          AI設定（Gemini API）
+          <span id="ai-settings-badge" style="font-size:13px;font-weight:normal;color:#666;float:right;">未設定</span>
+        </summary>
+        <p style="font-size:13px;color:#666;margin-bottom:16px;">
+          ここで設定したAPIキーを、アプリ内のすべてのAI機能（ふりがな自動付与・エントリー用紙の画像取込）が共通で使用します。
+        </p>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label for="ai-api-key" class="form-label">Gemini APIキー</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="password" id="ai-api-key" class="form-input" autocomplete="off"
+              placeholder="AQ. または AIza で始まるキー" style="flex:1;min-width:240px;">
+            <button id="btn-ai-key-save" class="btn btn-primary btn-sm">保存</button>
+            <button id="btn-ai-key-clear" class="btn btn-secondary btn-sm">削除</button>
+          </div>
+          <p style="font-size:11px;color:#999;margin-top:6px;">
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
+            の「APIキーを作成」で無料のAPIキーを発行できます（無料枠：Flash系モデルで1日あたり数百〜1,500回）。
+            現在発行されるキーは <code>AQ.</code> で始まります（以前の <code>AIza</code> 形式のキーもそのまま使えます）。
+            キーはこの端末のブラウザ（localStorage）にのみ保存され、サーバーには送信されません。
+            共用端末では使用後に「削除」してください。
+          </p>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label for="ai-model" class="form-label">使用モデル</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select id="ai-model" class="form-select" style="flex:1;min-width:260px;"></select>
+            <button id="btn-ai-models-refresh" class="btn btn-secondary btn-sm">利用可能モデルを取得</button>
+          </div>
+          <p style="font-size:11px;color:#999;margin-top:6px;">
+            「自動」ではAPIキーで使えるモデルを問い合わせ、無料枠で最も精度の高いモデルを選びます。
+          </p>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+          <button id="btn-ai-test" class="btn btn-secondary btn-sm">接続テスト</button>
+        </div>
+
+        <div id="ai-settings-status" class="status-message"
+          style="display:none;padding:8px 12px;border-radius:6px;font-size:12px;white-space:pre-line;line-height:1.6;"></div>
+
+        <div style="margin-top:14px;padding:12px;background:var(--color-primary-50);border-radius:8px;font-size:12px;color:#4b5563;">
+          <strong>このキーを使う機能</strong>
+          <ul style="margin:6px 0 0;padding-left:18px;line-height:1.8;">
+            <li>ふりがなデータベースの「ふりがな自動付与」（読み＋姓名の区切りを推定）</li>
+            <li>エントリー画面の「エントリー用紙の画像取込」（写真から選手を読み取り）</li>
+          </ul>
+        </div>
+      </details>
+
       <!-- ふりがなデータベース -->
       <details class="card collapsible-section" style="margin-top:24px;">
         <summary class="card-title collapsible-toggle">
@@ -352,6 +406,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg>
             ふりがな自動付与 (AI)
           </button>
+          <button id="btn-furigana-normalize-space" class="btn" style="padding:10px 18px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:none;border-radius:10px;box-shadow:0 2px 8px rgba(14,165,233,0.25);display:inline-flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+            氏名スペース整形
+          </button>
           <button id="btn-furigana-clear" class="btn btn-danger" style="margin-left:auto;padding:8px 16px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             全件クリア
@@ -360,7 +418,7 @@
 
         <!-- 同期ステータス -->
         <div id="furigana-sync-status"
-          style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;"></div>
+          style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;white-space:pre-line;line-height:1.6;"></div>
 
         <!-- 新規登録フォーム -->
         <div
@@ -622,34 +680,10 @@
           読み取り結果は選手一覧と自動照合され、確認してからエントリーリストに追加できます。
         </p>
 
-        <!-- APIキー設定 -->
-        <div class="form-group" style="margin-bottom:12px;">
-          <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input type="password" id="gemini-api-key" class="form-input" autocomplete="off"
-              placeholder="AQ. または AIza で始まるキー" style="flex:1;min-width:240px;">
-            <button id="btn-gemini-key-save" class="btn btn-primary btn-sm">保存</button>
-            <button id="btn-gemini-key-clear" class="btn btn-secondary btn-sm">削除</button>
-          </div>
-          <p style="font-size:11px;color:#999;margin-top:6px;">
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
-            の「APIキーを作成」で無料のAPIキーを発行できます（無料枠：Flash系モデルで1日あたり数百〜1,500回）。
-            現在発行されるキーは <code>AQ.</code> で始まります（以前の <code>AIza</code> 形式のキーもそのまま使えます）。
-            キーはこの端末のブラウザ（localStorage）にのみ保存され、サーバーには送信されません。
-            共用端末では使用後に「削除」してください。
-          </p>
-        </div>
-
-        <!-- モデル選択 -->
-        <div class="form-group" style="margin-bottom:12px;">
-          <label for="gemini-model" class="form-label">使用モデル</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <select id="gemini-model" class="form-select" style="flex:1;min-width:260px;"></select>
-            <button id="btn-gemini-models-refresh" class="btn btn-secondary btn-sm">利用可能モデルを取得</button>
-          </div>
-          <p style="font-size:11px;color:#999;margin-top:6px;">
-            「自動」ではAPIキーで使えるモデルを問い合わせ、無料枠で最も精度の高い画像認識モデルを選びます。
-          </p>
+        <!-- AI設定への導線（キーはデータ画面のAI設定で一元管理） -->
+        <div id="gemini-key-notice" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-radius:8px;background:var(--color-primary-50);border:1px solid var(--color-border);margin-bottom:12px;">
+          <span id="gemini-key-state" style="font-size:13px;flex:1;min-width:220px;"></span>
+          <button id="btn-gemini-open-settings" class="btn btn-secondary btn-sm">AI設定を開く</button>
         </div>
 
         <!-- 画像選択 -->
@@ -2596,6 +2630,27 @@
             2026年8月
           </button>
           <div class="version-group-body">
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">8/1</span>
+                <span class="version-tag new">新機能</span>
+              </div>
+              <div class="version-entry-text">データ画面に「AI設定」を追加。Gemini APIキーとモデルをここで一元管理し、ふりがな自動付与・画像取込の両方が同じ設定を使うようになりました。接続テストも可能です。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">8/1</span>
+                <span class="version-tag improve">改善</span>
+              </div>
+              <div class="version-entry-text">ふりがな自動付与をGemini APIに対応。人名として読みを判定するため、従来の簡易辞書（kuromoji）より精度が上がりました。読みが一意に定まらない氏名は誤りを避けて「要確認」のまま残します。APIキー未設定時は従来どおり簡易辞書で動作します。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">8/1</span>
+                <span class="version-tag new">新機能</span>
+              </div>
+              <div class="version-entry-text">「氏名スペース整形」を追加。姓と名の間の半角・連続スペースを全角スペース1つに統一し、「松本龍我」のように区切りが無い氏名も姓辞書とAIで「松本　龍我」に分割します。整形で重複した選手は自動で統合されます。</div>
+            </div>
             <div class="version-entry">
               <div class="version-entry-head">
                 <span class="version-entry-date">8/1</span>

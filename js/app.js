@@ -1387,8 +1387,20 @@ window.App = {
     if (btnSaveKey && keyInput) {
       btnSaveKey.addEventListener('click', () => {
         const key = keyInput.value.trim();
+        if (!key) {
+          GeminiVision.saveApiKey('');
+          this._updateGeminiStatus('APIキーを削除しました', 'info');
+          this._updateGeminiAnalyzeState();
+          return;
+        }
+        // 形式が違っても保存はする（将来キー形式が変わっても使えなくならないように）が、
+        // 「API key not valid」だけでは原因が分からないので具体的に案内する
+        const check = GeminiVision.validateApiKeyFormat(key);
         GeminiVision.saveApiKey(key);
-        this._updateGeminiStatus(key ? 'APIキーを保存しました（この端末のブラウザにのみ保存されます）' : 'APIキーを削除しました', key ? 'ok' : 'info');
+        this._updateGeminiStatus(
+          check.ok ? 'APIキーを保存しました（この端末のブラウザにのみ保存されます）' : '保存しましたが、' + check.message,
+          check.ok ? 'ok' : 'error'
+        );
         this._updateGeminiAnalyzeState();
       });
     }
@@ -1412,6 +1424,11 @@ window.App = {
       btnRefreshModels.addEventListener('click', async () => {
         if (!GeminiVision.isConfigured()) {
           this._updateGeminiStatus('先にAPIキーを保存してください', 'error');
+          return;
+        }
+        const keyCheck = GeminiVision.validateApiKeyFormat(GeminiVision.getApiKey());
+        if (!keyCheck.ok) {
+          this._updateGeminiStatus(keyCheck.message, 'error');
           return;
         }
         btnRefreshModels.disabled = true;
@@ -1579,6 +1596,11 @@ window.App = {
     if (typeof GeminiVision === 'undefined') return;
     if (!GeminiVision.isConfigured()) {
       this._updateGeminiStatus('先にAPIキーを保存してください', 'error');
+      return;
+    }
+    const keyCheck = GeminiVision.validateApiKeyFormat(GeminiVision.getApiKey());
+    if (!keyCheck.ok) {
+      this._updateGeminiStatus(keyCheck.message, 'error');
       return;
     }
     if (this._geminiFiles.length === 0) {

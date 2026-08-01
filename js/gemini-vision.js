@@ -68,6 +68,49 @@ window.GeminiVision = {
     return !!this.getApiKey();
   },
 
+  /**
+   * APIキーの形式を事前チェックする。
+   *
+   * AI Studio の画面からは、APIキー以外の文字列（OAuthトークン等の "AQ." で始まる値や、
+   * ブラウザのURL・Cookieの一部）を誤ってコピーしてしまうことがある。
+   * その場合サーバーからは一律に「API key not valid」しか返らず原因が分かりにくいため、
+   * 送信前に形式を判定して具体的な直し方を案内する。
+   *
+   * @param {string} key APIキー
+   * @returns {{ ok: boolean, message: string }} ok=false でも保存自体は許可する（将来の形式変更に備える）
+   */
+  validateApiKeyFormat(key) {
+    const k = String(key || '').trim();
+    if (!k) {
+      return { ok: false, message: 'APIキーが入力されていません' };
+    }
+    if (/^AQ\./.test(k)) {
+      return {
+        ok: false,
+        message: 'これはAPIキーではなく、Googleのログイン用トークンです。'
+          + 'Google AI Studio の「APIキーを作成」から発行される、AIza で始まるキーを貼り付けてください。'
+          + '（貼り付けたトークンは念のためGoogleアカウントのセキュリティ設定で無効化することをおすすめします）',
+      };
+    }
+    if (/^ya29\./.test(k) || /^ey[A-Za-z0-9_-]+\./.test(k)) {
+      return {
+        ok: false,
+        message: 'これはOAuthのアクセストークンです。Google AI Studio で発行した AIza で始まるAPIキーを貼り付けてください。',
+      };
+    }
+    if (/^https?:\/\//i.test(k)) {
+      return { ok: false, message: 'URLが貼り付けられています。APIキー（AIza で始まる文字列）だけを貼り付けてください。' };
+    }
+    if (!/^AIza[A-Za-z0-9_-]{20,}$/.test(k)) {
+      return {
+        ok: false,
+        message: 'APIキーの形式が想定と異なります。Gemini のAPIキーは AIza で始まる39文字です。'
+          + 'Google AI Studio の「APIキーを作成」で発行したキーを、余分な空白や引用符を含めずに貼り付けてください。',
+      };
+    }
+    return { ok: true, message: '' };
+  },
+
   // ==========================================================
   // モデル解決
   // ==========================================================
@@ -407,7 +450,9 @@ window.GeminiVision = {
     } catch (e) { /* JSONでない場合は無視 */ }
 
     if (res.status === 400 && /API key/i.test(detail)) {
-      return 'APIキーが正しくありません。Google AI Studio で発行したキーを確認してください';
+      return 'APIキーが正しくありません。Google AI Studio の「APIキーを作成」で発行した、'
+        + 'AIza で始まる39文字のキーを貼り付けてください'
+        + '（ログイン用トークンやURLを貼るとこのエラーになります）';
     }
     if (res.status === 403) {
       return 'APIキーが拒否されました（権限またはリファラ制限を確認してください）' + (detail ? ': ' + detail : '');

@@ -627,13 +627,14 @@
           <label for="gemini-api-key" class="form-label">Gemini APIキー</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input type="password" id="gemini-api-key" class="form-input" autocomplete="off"
-              placeholder="AIza..." style="flex:1;min-width:240px;">
+              placeholder="AIza で始まる39文字のキー" style="flex:1;min-width:240px;">
             <button id="btn-gemini-key-save" class="btn btn-primary btn-sm">保存</button>
             <button id="btn-gemini-key-clear" class="btn btn-secondary btn-sm">削除</button>
           </div>
           <p style="font-size:11px;color:#999;margin-top:6px;">
             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>
-            で無料のAPIキーを発行できます（無料枠：Flash系モデルで1日あたり数百〜1,500回）。
+            の「APIキーを作成」で無料のAPIキーを発行できます（無料枠：Flash系モデルで1日あたり数百〜1,500回）。
+            貼り付けるのは <strong>AIza</strong> で始まる39文字のキーです（<code>AQ.</code> や <code>ya29.</code> で始まる値はログイン用トークンで、APIキーではありません）。
             キーはこの端末のブラウザ（localStorage）にのみ保存され、サーバーには送信されません。
             共用端末では使用後に「削除」してください。
           </p>

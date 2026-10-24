@@ -2307,6 +2307,7 @@ window.App = {
           localStorage.removeItem('drawSystem_tournamentBackup');
           localStorage.removeItem('drawSystem_drawResults');
           localStorage.removeItem('drawSystem_schedule');
+          this._clearAllDrawDrafts();
           // メモリ上のデータをクリア
           EntryStore.entries = [];
           EntryStore.nextId = 1;
@@ -3377,6 +3378,17 @@ window.App = {
       return;
     }
 
+    // ドロー表画面の「やり直し」から戻ってきた場合はその種目を開く
+    if (this._pendingDrawEvent) {
+      const pending = this._pendingDrawEvent;
+      this._pendingDrawEvent = null;
+      if (Array.from(select.options).some(o => o.value === pending)) {
+        select.value = pending;
+        this._onDrawEventChange();
+        return;
+      }
+    }
+
     // 抽選中の状態を維持: 前回の種目が選択肢に残っていて配置中なら復元
     if (prevValue && this._currentDrawData && this._currentDrawData.eventCode === prevValue && this._manualDraw) {
       // 選択肢に前回の種目があるか確認
@@ -3487,6 +3499,19 @@ window.App = {
     }
 
     this._currentDrawData = { eventCode, entries: withSeeds, drawSize, seeds };
+
+    // 確定を取り消した種目: 確定前の配置を復元（エントリーが変わっていなければ）
+    const draft = this._drawDrafts ? this._drawDrafts[eventCode] : null;
+    if (draft) {
+      if (this._draftMatchesEntries(draft, withSeeds, drawSize)) {
+        this._restoreDraftPlacement(draft);
+        this.showMessage('確定前の配置を復元しました。修正後に再度「ドロー確定」してください。', 'info');
+        return;
+      }
+      // エントリーが変わっている場合は復元できないので下書きを破棄
+      this._clearDrawDraft(eventCode);
+      this.showMessage('エントリーが変更されているため確定前の配置は復元できません。新しく配置してください。', 'info');
+    }
 
     // シード位置選択UIを構築
     this._buildSeedPositionUI(withSeeds, drawSize, seeds);
@@ -4254,6 +4279,7 @@ window.App = {
     this.confirmedEvents[eventCode] = true;
 
     this._saveDrawResults();
+    this._clearDrawDraft(eventCode);
     this.showMessage(evt.name + ' のドローを確定しました', 'success');
   },
 
@@ -4272,18 +4298,118 @@ window.App = {
   _restoreDrawResults() {
     try {
       const saved = localStorage.getItem('drawSystem_drawResults');
-      if (!saved) return;
-      const data = JSON.parse(saved);
-      if (data.drawResults) this.drawResults = data.drawResults;
-      if (data.confirmedEvents) this.confirmedEvents = data.confirmedEvents;
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.drawResults) this.drawResults = data.drawResults;
+        if (data.confirmedEvents) this.confirmedEvents = data.confirmedEvents;
+      }
     } catch (e) {
       console.warn('drawResults復元に失敗:', e);
     }
+    // 確定取り消し後の配置（下書き）
+    try {
+      const savedDrafts = localStorage.getItem(this.DRAW_DRAFTS_KEY);
+      this._drawDrafts = savedDrafts ? (JSON.parse(savedDrafts) || {}) : {};
+    } catch (e) {
+      this._drawDrafts = {};
+    }
+  },
+
+  // ================================================================
+  // 配置の下書き（ドロー確定を取り消したときに配置済み状態を保持する）
+  // ================================================================
+  DRAW_DRAFTS_KEY: 'drawSystem_drawDrafts',
+  _drawDrafts: {},
+
+  _saveDrawDrafts() {
+    try {
+      if (!this._drawDrafts || Object.keys(this._drawDrafts).length === 0) {
+        localStorage.removeItem(this.DRAW_DRAFTS_KEY);
+      } else {
+        localStorage.setItem(this.DRAW_DRAFTS_KEY, JSON.stringify(this._drawDrafts));
+      }
+    } catch (e) {
+      console.warn('配置下書きの保存に失敗:', e);
+    }
+  },
+
+  _setDrawDraft(eventCode, draft) {
+    if (!this._drawDrafts) this._drawDrafts = {};
+    this._drawDrafts[eventCode] = draft;
+    this._saveDrawDrafts();
+  },
+
+  _clearDrawDraft(eventCode) {
+    if (!this._drawDrafts || !this._drawDrafts[eventCode]) return;
+    delete this._drawDrafts[eventCode];
+    this._saveDrawDrafts();
+  },
+
+  _clearAllDrawDrafts() {
+    this._drawDrafts = {};
+    try { localStorage.removeItem(this.DRAW_DRAFTS_KEY); } catch (e) { }
+  },
+
+  /**
+   * 下書きが現在のエントリー内容と一致するか（選手名の集合が同じか）
+   */
+  _draftMatchesEntries(draft, entries, drawSize) {
+    if (!draft || !Array.isArray(draft.draw) || draft.drawSize !== drawSize) return false;
+    const placedNames = draft.draw.filter(d => d && d.name && !d.isBye).map(d => d.name).sort();
+    const entryNames = entries.filter(e => !e.isBye).map(e => e.name).sort();
+    if (placedNames.length !== entryNames.length) return false;
+    return placedNames.every((n, i) => n === entryNames[i]);
+  },
+
+  /**
+   * 確定前の配置（下書き）を抽選画面に復元する
+   */
+  _restoreDraftPlacement(draft) {
+    const drawSize = draft.drawSize;
+    const draw = draft.draw.map((d, i) => {
+      const isBye = !!(d && d.isBye);
+      const hasPlayer = !!(d && d.name && !isBye);
+      return {
+        position: i + 1,
+        name: hasPlayer ? d.name : '',
+        furigana: hasPlayer ? (d.furigana || '') : '',
+        affiliation: hasPlayer ? (d.affiliation || '') : '',
+        affiliation1: hasPlayer ? (d.affiliation1 || '') : '',
+        affiliation2: hasPlayer ? (d.affiliation2 || '') : '',
+        points: hasPlayer ? (d.points || 0) : 0,
+        seed: hasPlayer ? (d.seed || 0) : 0,
+        isBye: isBye,
+        isEmpty: !hasPlayer && !isBye,
+      };
+    });
+    while (draw.length < drawSize) {
+      draw.push({ position: draw.length + 1, name: '', furigana: '', affiliation: '', points: 0, seed: 0, isBye: false, isEmpty: true });
+    }
+
+    // 配置されていない選手・BYEを未配置リストへ（通常は空）
+    const placedNames = new Set(draw.filter(d => d.name).map(d => d.name));
+    const players = this._currentDrawData.entries;
+    this._unplacedPlayers = players.filter(p => !placedNames.has(p.name)).map(p => ({ ...p }));
+    const byeCount = drawSize - players.length;
+    const placedByes = draw.filter(d => d.isBye).length;
+    this._unplacedByes = Math.max(0, byeCount - placedByes);
+    this._manualDraw = draw;
+    this._selectedPlayer = null;
+
+    // シード位置選択UIは不要（配置済み）
+    const seedContainer = document.getElementById('seed-position-selection');
+    if (seedContainer) seedContainer.style.display = 'none';
+    const placementArea = document.getElementById('draw-placement-area');
+    if (placementArea) placementArea.style.display = '';
+
+    this._renderManualPlacement();
   },
 
   _resetDraw() {
     if (!this._currentDrawData) return;
-    const { entries, drawSize, seeds } = this._currentDrawData;
+    const { eventCode, entries, drawSize, seeds } = this._currentDrawData;
+    // 抽選画面でのリセットは下書きも破棄してまっさらの状態に戻す
+    this._clearDrawDraft(eventCode);
     this._initManualPlacement(entries, drawSize, seeds);
     this.showMessage('配置をリセットしました', 'info');
   },
@@ -4652,12 +4778,23 @@ window.App = {
       btnRedo.addEventListener('click', () => {
         const eventCode = select ? select.value : '';
         if (!eventCode || !this.drawResults[eventCode]) return;
-        if (!confirm('このドローを取り消して抽選画面でやり直しますか？')) return;
+        if (!confirm('このドローの確定を取り消して、抽選画面で配置を修正しますか？\n（確定前の配置済みの状態は保持されます）')) return;
+        const result = this.drawResults[eventCode];
+        // 確定前の配置を下書きとして保持（まっさらに戻すのは抽選画面のリセット時のみ）
+        this._setDrawDraft(eventCode, {
+          draw: result.draw,
+          drawSize: result.drawSize,
+          entries: result.entries,
+          seeds: result.seeds,
+          savedAt: new Date().toISOString(),
+        });
         // 確定を解除
         delete this.drawResults[eventCode];
         if (this.confirmedEvents) delete this.confirmedEvents[eventCode];
         this._saveDrawResults();
-        this.showMessage('ドローを取り消しました。抽選画面でやり直してください。', 'info');
+        // 抽選画面でこの種目を開き、配置済みの状態を復元する
+        this._pendingDrawEvent = eventCode;
+        this.showMessage('ドローの確定を取り消しました。抽選画面で配置を修正できます。', 'info');
         this.switchScreen('screen-draw');
       });
     }
@@ -5522,6 +5659,7 @@ window.App = {
         localStorage.removeItem('drawSystem_rankingBackup');
         localStorage.removeItem('drawSystem_tournamentBackup');
         localStorage.removeItem('drawSystem_drawResults');
+        this._clearAllDrawDrafts();
         EntryStore.entries = [];
         EntryStore.nextId = 1;
         TournamentStore.tournaments = [];
@@ -5628,6 +5766,7 @@ window.App = {
           this.drawResults = {};
           this.confirmedEvents = {};
           localStorage.removeItem('drawSystem_drawResults');
+          this._clearAllDrawDrafts();
         },
         onExport: () => {
           const data = localStorage.getItem('drawSystem_drawResults');

@@ -1330,6 +1330,30 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* 印刷用エリア（画面上では非表示） */
+.bracket-print-area {
+  display: none;
+}
+
+/* 印刷/JPEG出力モーダル */
+.bracket-output-event {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  margin: 0 0 12px;
+}
+
+.bracket-output-info {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin: 4px 0 0;
+  line-height: 1.6;
+}
+
 /* --- トーナメント表全画面表示 --- */
 .bracket-fullscreen-overlay {
   position: fixed;

@@ -1050,7 +1050,52 @@
           <button id="btn-bracket-redo" class="btn btn-secondary" style="display:none;">やり直し</button>
           <button id="btn-export-excel" class="btn btn-success">Excel出力</button>
           <button id="btn-export-csv" class="btn btn-success">CSV出力</button>
+          <button id="btn-export-jpeg" class="btn btn-secondary">JPEG出力</button>
           <button id="btn-print" class="btn btn-primary">印刷</button>
+        </div>
+      </div>
+
+      <!-- 印刷 / JPEG出力 設定モーダル -->
+      <div id="modal-bracket-output" class="modal-overlay no-print" style="display:none;">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title" id="bracket-output-title">印刷設定</h3>
+            <button class="modal-close" data-modal-close>&times;</button>
+          </div>
+          <div class="modal-body">
+            <p id="bracket-output-event" class="bracket-output-event"></p>
+            <div class="form-group">
+              <label for="bracket-output-paper" class="form-label">用紙サイズ</label>
+              <select id="bracket-output-paper" class="form-select">
+                <option value="auto">自動（A4 / 128ドロー以上はA3）</option>
+                <option value="A4">A4</option>
+                <option value="A3">A3</option>
+                <option value="B4">B4</option>
+                <option value="B5">B5</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="bracket-output-orient" class="form-label">向き</label>
+              <select id="bracket-output-orient" class="form-select">
+                <option value="auto">自動（基本は縦）</option>
+                <option value="portrait">縦</option>
+                <option value="landscape">横</option>
+              </select>
+            </div>
+            <div class="form-group" id="bracket-output-dpi-group">
+              <label for="bracket-output-dpi" class="form-label">画質（JPEG）</label>
+              <select id="bracket-output-dpi" class="form-select">
+                <option value="150">標準（150dpi）</option>
+                <option value="200" selected>高画質（200dpi）</option>
+                <option value="300">最高画質（300dpi）</option>
+              </select>
+            </div>
+            <p id="bracket-output-info" class="bracket-output-info"></p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-modal-close>キャンセル</button>
+            <button class="btn btn-primary" id="btn-bracket-output-run">印刷する</button>
+          </div>
         </div>
       </div>
 
@@ -1917,7 +1962,8 @@
             </svg>
           </div>
           <ul class="manual-steps">
-            <li><strong>印刷ボタン</strong>でブラウザの印刷機能が起動します（A3横推奨）</li>
+            <li><strong>印刷ボタン</strong>で用紙サイズ（自動/A4/A3/B4/B5）と向きを選んで印刷します。ドロー表は用紙の印刷範囲にぴったり収まるよう自動でサイズ調整されます（標準はA4縦、128ドロー以上はA3）</li>
+            <li><strong>JPEG出力ボタン</strong>でドロー表を画像（JPEG）として保存できます。基本はA4縦サイズの画像で、用紙・向き・画質（150/200/300dpi）を選べます。LINE等での共有に便利です</li>
             <li><strong>Excel出力</strong>でドロー表をExcelファイルとしてダウンロードできます</li>
             <li><strong>全画面ボタン</strong>で大画面表示し、会議中にプロジェクター等で共有できます</li>
           </ul>
@@ -2391,7 +2437,7 @@
 
           <div class="manual-faq-item">
             <div class="faq-q">ドロー表の印刷で文字が切れてしまいます</div>
-            <div class="faq-a">ブラウザのズーム倍率を100%に設定し、用紙サイズをA3横に変更してください。32ドロー以上ではA3横推奨です。印刷プレビューで確認してから印刷してください。</div>
+            <div class="faq-a">「印刷」ボタンから印刷すると、選んだ用紙サイズにドロー表全体が自動で収まります。ブラウザの印刷ダイアログ側の用紙サイズが設定と同じ（例: A4）になっているか確認してください。文字が小さすぎる場合は用紙をA3にするか、「JPEG出力」で画像として保存して拡大表示してください。</div>
           </div>
 
           <div class="manual-faq-item">
@@ -2484,10 +2530,10 @@
           <div class="trouble-item">
             <h4>ドロー表の印刷がうまくいかない</h4>
             <ul>
-              <li>ブラウザのズーム倍率を100%に設定してください。</li>
-              <li>用紙サイズ: A3横推奨（32ドロー以上の場合）。16ドロー以下はA4でも可。</li>
+              <li>ドロー表画面の「印刷」ボタンから印刷してください。選んだ用紙（標準はA4縦）にドロー表全体が自動で収まります。</li>
+              <li>ブラウザの印刷ダイアログ側の用紙サイズが、印刷設定で選んだ用紙（A4/A3など）と同じになっているか確認してください。</li>
+              <li>文字が小さい場合は用紙をA3にするか、「JPEG出力」で画像として保存し、拡大して確認・共有してください。</li>
               <li>印刷プレビューで確認してから印刷してください。</li>
-              <li>「余白なし」や「最小余白」の設定にすると、より多くの情報が印刷されます。</li>
             </ul>
           </div>
 
@@ -2548,7 +2594,7 @@
                 <tr>
                   <td><strong>2.5</strong></td>
                   <td>2026.10.24</td>
-                  <td>エントリー画面をスマホ入力向けに再構成（上部固定バー、大会・種目パネルの折りたたみ）。起動時の自動読込を廃止しボタン操作時のみ読込。</td>
+                  <td>エントリー画面をスマホ入力向けに再構成（上部固定バー、大会・種目パネルの折りたたみ）。起動時の自動読込を廃止しボタン操作時のみ読込。ドロー表の印刷を用紙サイズに自動フィット、JPEG出力を追加。</td>
                 </tr>
                 <tr>
                   <td>2.4</td>
@@ -2649,6 +2695,9 @@
   <!-- 通知トースト -->
   <div id="toast-container" class="toast-container"></div>
 
+  <!-- ドロー表 印刷用エリア（印刷時のみ表示。用紙サイズに合わせて自動フィットしたSVGを配置） -->
+  <div id="bracket-print-area" class="bracket-print-area" aria-hidden="true"></div>
+
   <!-- 外部ライブラリ -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -2699,6 +2748,20 @@
                 <span class="version-tag improve">改善</span>
               </div>
               <div class="version-entry-text">大会設定・シングルス/ダブルス切替・種目タブは初回のみ表示し、スクロールすると自動的に隠れます。必要なときは上部バーの種目ボタンから展開できます。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">10/24</span>
+                <span class="version-tag new">新機能</span>
+              </div>
+              <div class="version-entry-text">ドロー表の「JPEG出力」を追加。基本はA4縦サイズの画像（128ドロー以上はA3、8ドロー以下は横向き）で保存でき、用紙・向き・画質（150/200/300dpi）も選べます。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">10/24</span>
+                <span class="version-tag improve">改善</span>
+              </div>
+              <div class="version-entry-text">ドロー表の印刷時に、選んだ用紙（A4/A3/B4/B5）の印刷範囲にぴったり収まるようサイズを自動調整するようにしました。ブラウザメニューやCtrl+Pからの印刷でも自動フィットします。</div>
             </div>
             <div class="version-entry">
               <div class="version-entry-head">

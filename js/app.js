@@ -4606,8 +4606,13 @@ window.App = {
 
     const btnPrint = document.getElementById('btn-print');
     if (btnPrint) {
-      btnPrint.addEventListener('click', () => window.print());
+      btnPrint.addEventListener('click', () => this._openBracketOutputModal('print'));
     }
+    const btnExportJpeg = document.getElementById('btn-export-jpeg');
+    if (btnExportJpeg) {
+      btnExportJpeg.addEventListener('click', () => this._openBracketOutputModal('jpeg'));
+    }
+    this._initBracketOutput();
 
     const btnExportExcel = document.getElementById('btn-export-excel');
     if (btnExportExcel) {
@@ -4968,6 +4973,366 @@ window.App = {
     this.showMessage('CSVファイルをダウンロードしました', 'success');
   },
 
+  /**
+   * DrawRenderer.render に渡すドロー表データを組み立てる
+   */
+  _buildBracketRenderData(eventCode) {
+    const result = this.drawResults[eventCode];
+    if (!result) return null;
+    const evtInfo = AppConfig.EVENTS.find(e => e.code === eventCode);
+    return {
+      draw: result.draw,
+      drawSize: result.drawSize,
+      eventName: result.eventName,
+      tournamentName: AppConfig.TOURNAMENT_NAME || '',
+      date: AppConfig.TOURNAMENT_DATE || '',
+      venue: AppConfig.TOURNAMENT_VENUE || '',
+      matchFormat: AppConfig.MATCH_FORMAT || '',
+      entries: result.entries,
+      seeds: result.seeds,
+      entryCount: result.entryCount,
+      isDoubles: evtInfo ? (evtInfo.category === 'doubles' || evtInfo.category === 'mixed_doubles') : false,
+    };
+  },
+
+  // ================================================================
+  // ドロー表の印刷（用紙に自動フィット） / JPEG出力
+  // ================================================================
+
+  BRACKET_PAPERS: {
+    A4: { label: 'A4', w: 210, h: 297 },
+    A3: { label: 'A3', w: 297, h: 420 },
+    B4: { label: 'B4', w: 257, h: 364 },
+    B5: { label: 'B5', w: 182, h: 257 },
+  },
+  BRACKET_PRINT_MARGIN_MM: 10,
+  BRACKET_OUTPUT_STORAGE_KEY: 'drawSystem_bracketOutput',
+
+  _initBracketOutput() {
+    const runBtn = document.getElementById('btn-bracket-output-run');
+    const modal = document.getElementById('modal-bracket-output');
+    if (!runBtn || !modal) return;
+
+    // 前回の設定を復元
+    try {
+      const saved = JSON.parse(localStorage.getItem(this.BRACKET_OUTPUT_STORAGE_KEY) || '{}');
+      ['paper', 'orient', 'dpi'].forEach(key => {
+        const el = document.getElementById('bracket-output-' + key);
+        if (el && saved[key] && Array.from(el.options).some(o => o.value === saved[key])) el.value = saved[key];
+      });
+    } catch (e) { }
+    const dpiEl = document.getElementById('bracket-output-dpi');
+    if (dpiEl && !dpiEl.value) dpiEl.value = '200';
+
+    ['paper', 'orient', 'dpi'].forEach(key => {
+      const el = document.getElementById('bracket-output-' + key);
+      if (el) el.addEventListener('change', () => this._updateBracketOutputInfo());
+    });
+
+    runBtn.addEventListener('click', () => {
+      const mode = modal.dataset.mode || 'print';
+      const settings = this._getBracketOutputSettings();
+      try { localStorage.setItem(this.BRACKET_OUTPUT_STORAGE_KEY, JSON.stringify(settings)); } catch (e) { }
+      modal.style.display = 'none';
+      if (mode === 'jpeg') this._exportBracketJpeg(settings);
+      else this._printBracket(settings);
+    });
+
+    // ブラウザメニューや Ctrl+P からの印刷でも用紙に自動フィットさせる
+    window.addEventListener('beforeprint', () => {
+      if (this._bracketPrintPrepared) return;
+      if (this.currentScreen !== 'screen-bracket') return;
+      if (document.body.classList.contains('schedule-print-mode')) return;
+      const select = document.getElementById('bracket-event-select');
+      if (!select || !select.value || !this.drawResults[select.value]) return;
+      this._prepareBracketPrint(select.value, this._getBracketOutputSettings());
+    });
+    window.addEventListener('afterprint', () => this._cleanupBracketPrint());
+  },
+
+  _getBracketOutputSettings() {
+    const get = (id, def) => { const el = document.getElementById(id); return el && el.value ? el.value : def; };
+    return {
+      paper: get('bracket-output-paper', 'auto'),
+      orient: get('bracket-output-orient', 'auto'),
+      dpi: parseInt(get('bracket-output-dpi', '200'), 10) || 200,
+    };
+  },
+
+  /**
+   * 用紙設定（自動含む）を実際の用紙・向きに解決する
+   */
+  _resolveBracketPage(settings, drawSize) {
+    let paperKey = settings.paper;
+    if (!paperKey || paperKey === 'auto' || !this.BRACKET_PAPERS[paperKey]) {
+      paperKey = (drawSize >= 128) ? 'A3' : 'A4';
+    }
+    let orient = settings.orient;
+    if (!orient || orient === 'auto') {
+      // 基本は縦。8ドロー以下は横長になるため横向き
+      orient = (drawSize <= 8) ? 'landscape' : 'portrait';
+    }
+    const paper = this.BRACKET_PAPERS[paperKey];
+    const wmm = orient === 'landscape' ? paper.h : paper.w;
+    const hmm = orient === 'landscape' ? paper.w : paper.h;
+    const margin = this.BRACKET_PRINT_MARGIN_MM;
+    const pxPerMm = 96 / 25.4;
+    return {
+      paperKey, label: paper.label, orient,
+      orientLabel: orient === 'landscape' ? '横' : '縦',
+      wmm, hmm, margin,
+      innerWpx: Math.floor((wmm - margin * 2) * pxPerMm),
+      innerHpx: Math.floor((hmm - margin * 2) * pxPerMm),
+    };
+  },
+
+  _openBracketOutputModal(mode) {
+    const select = document.getElementById('bracket-event-select');
+    const eventCode = select ? select.value : '';
+    if (!eventCode || !this.drawResults[eventCode]) {
+      this.showMessage('出力するドロー表（種目）を選択してください', 'error');
+      return;
+    }
+    const modal = document.getElementById('modal-bracket-output');
+    if (!modal) return;
+    modal.dataset.mode = mode;
+    modal.dataset.eventCode = eventCode;
+    const title = document.getElementById('bracket-output-title');
+    const runBtn = document.getElementById('btn-bracket-output-run');
+    const dpiGroup = document.getElementById('bracket-output-dpi-group');
+    const evtEl = document.getElementById('bracket-output-event');
+    if (title) title.textContent = mode === 'jpeg' ? 'JPEG出力設定' : '印刷設定';
+    if (runBtn) runBtn.textContent = mode === 'jpeg' ? 'JPEGを保存' : '印刷する';
+    if (dpiGroup) dpiGroup.style.display = mode === 'jpeg' ? '' : 'none';
+    if (evtEl) {
+      const r = this.drawResults[eventCode];
+      evtEl.textContent = (r.eventName || eventCode) + '（' + r.drawSize + 'ドロー / ' + (r.entryCount || 0) + '名）';
+    }
+    this._updateBracketOutputInfo();
+    modal.style.display = 'flex';
+  },
+
+  _updateBracketOutputInfo() {
+    const modal = document.getElementById('modal-bracket-output');
+    const info = document.getElementById('bracket-output-info');
+    if (!modal || !info) return;
+    const eventCode = modal.dataset.eventCode;
+    const r = eventCode ? this.drawResults[eventCode] : null;
+    if (!r) { info.textContent = ''; return; }
+    const settings = this._getBracketOutputSettings();
+    const page = this._resolveBracketPage(settings, r.drawSize);
+    let text = page.label + ' ' + page.orientLabel + '（余白 ' + page.margin + 'mm）にドロー表全体が収まるよう自動でサイズ調整します。';
+    if (modal.dataset.mode === 'jpeg') {
+      const px = this._bracketJpegPixelSize(page, settings.dpi);
+      text += ' 画像サイズ: ' + px.w + ' × ' + px.h + ' px（' + px.dpi + 'dpi）';
+    } else {
+      text += ' ブラウザの印刷ダイアログでも用紙サイズを「' + page.label + '」にしてください。';
+    }
+    info.textContent = text;
+  },
+
+  _bracketJpegPixelSize(page, dpi) {
+    let d = dpi || 200;
+    const pxOf = (mm, dd) => Math.round(mm / 25.4 * dd);
+    // 端末のcanvas上限（約1,600万画素）を超えないように解像度を調整
+    while (d > 72 && pxOf(page.wmm, d) * pxOf(page.hmm, d) > 16000000) d -= 10;
+    return { w: pxOf(page.wmm, d), h: pxOf(page.hmm, d), dpi: d };
+  },
+
+  /**
+   * 用紙の印刷範囲に収まるようドロー表SVGを描画し、サイズ情報を返す
+   * 縦方向（スロット高さ）は用紙に合わせて伸縮し、横方向はコンテナ幅に自動フィットさせた上で
+   * 最後に全体を等倍縮小して確実に収める。
+   */
+  _renderBracketForPage(eventCode, page) {
+    const data = this._buildBracketRenderData(eventCode);
+    if (!data) return null;
+    // 小さいドローは文字ごと拡大して用紙を活かす（レイアウトを縮小領域で組み、最後に等倍拡大）
+    const up = data.drawSize <= 8 ? 1.5 : (data.drawSize <= 16 ? 1.2 : 1);
+    const areaW = Math.floor(page.innerWpx / up);
+    const areaH = Math.floor(page.innerHpx / up);
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;left:-20000px;top:0;width:' + areaW + 'px;background:#fff;';
+    document.body.appendChild(host);
+
+    const opts = { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode, scale: 1.0 };
+    DrawRenderer.render(host, data, opts);
+    let svg = host.querySelector('svg');
+    let w = parseFloat(svg.getAttribute('width')) || 1;
+    let h = parseFloat(svg.getAttribute('height')) || 1;
+
+    // ヘッダー/フッター以外（ブラケット本体）の高さを用紙に合わせる
+    const P = DrawRenderer.PARAMS;
+    const seedCount = (data.seeds || []).length;
+    const fixedH = P.headerHeight + (seedCount > 8 ? P.footerHeight2Row : P.footerHeight);
+    const bodyH = Math.max(1, h - fixedH);
+    const targetBodyH = Math.max(1, areaH - fixedH);
+    let vScale = targetBodyH / bodyH;
+    vScale = Math.max(0.5, Math.min(1.6, vScale));
+    if (Math.abs(vScale - 1) > 0.02) {
+      opts.scale = vScale;
+      DrawRenderer.render(host, data, opts);
+      svg = host.querySelector('svg');
+      w = parseFloat(svg.getAttribute('width')) || 1;
+      h = parseFloat(svg.getAttribute('height')) || 1;
+    }
+
+    // 等倍で確実に収める（拡大は小さいドローの場合のみ）
+    const fit = Math.min(page.innerWpx / w, page.innerHpx / h, up);
+    const outW = Math.floor(w * fit);
+    const outH = Math.floor(h * fit);
+    svg.setAttribute('width', outW);
+    svg.setAttribute('height', outH);
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.removeAttribute('id');
+    return { host, svg, svgW: w, svgH: h, outW, outH, fit, data };
+  },
+
+  _prepareBracketPrint(eventCode, settings) {
+    const r = this.drawResults[eventCode];
+    const area = document.getElementById('bracket-print-area');
+    if (!r || !area) return false;
+    const page = this._resolveBracketPage(settings, r.drawSize);
+    const rendered = this._renderBracketForPage(eventCode, page);
+    if (!rendered) return false;
+
+    area.innerHTML = '';
+    area.appendChild(rendered.svg);
+    rendered.host.remove();
+
+    // 用紙サイズ・向きを@pageで指定（print.cssのデフォルトA3横を上書き）
+    let styleEl = document.getElementById('bracket-print-page-override');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'bracket-print-page-override';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = '@media print { @page { size: ' + page.label + ' ' + page.orient + '; margin: ' + page.margin + 'mm; } }';
+    document.body.classList.add('bracket-print-mode');
+    this._bracketPrintPrepared = true;
+    return true;
+  },
+
+  _cleanupBracketPrint() {
+    if (!this._bracketPrintPrepared) return;
+    this._bracketPrintPrepared = false;
+    document.body.classList.remove('bracket-print-mode');
+    const styleEl = document.getElementById('bracket-print-page-override');
+    if (styleEl) styleEl.remove();
+    const area = document.getElementById('bracket-print-area');
+    if (area) area.innerHTML = '';
+  },
+
+  _printBracket(settings) {
+    const select = document.getElementById('bracket-event-select');
+    const eventCode = select ? select.value : '';
+    if (!eventCode || !this.drawResults[eventCode]) {
+      this.showMessage('印刷するドロー表（種目）を選択してください', 'error');
+      return;
+    }
+    if (!this._prepareBracketPrint(eventCode, settings)) {
+      this.showMessage('印刷用ドロー表の作成に失敗しました', 'error');
+      return;
+    }
+    // レイアウト反映後に印刷ダイアログを開く
+    setTimeout(() => {
+      try { window.print(); } finally {
+        // afterprint が発火しない環境向けの保険
+        setTimeout(() => this._cleanupBracketPrint(), 1500);
+      }
+    }, 80);
+  },
+
+  /**
+   * ドロー表をJPEG画像として保存（基本はA4縦サイズ）
+   */
+  async _exportBracketJpeg(settings) {
+    const select = document.getElementById('bracket-event-select');
+    const eventCode = select ? select.value : '';
+    const r = eventCode ? this.drawResults[eventCode] : null;
+    if (!r) {
+      this.showMessage('出力するドロー表（種目）を選択してください', 'error');
+      return;
+    }
+    const page = this._resolveBracketPage(settings, r.drawSize);
+    const px = this._bracketJpegPixelSize(page, settings.dpi);
+    const rendered = this._renderBracketForPage(eventCode, page);
+    if (!rendered) {
+      this.showMessage('JPEG用ドロー表の作成に失敗しました', 'error');
+      return;
+    }
+    this._showLoadingOverlay('JPEG画像を作成中...');
+    try {
+      const svg = rendered.svg;
+      // 画像化用: 実寸(px)でサイズ指定し、フォント指定を属性として埋め込む
+      const pxPerMm = px.dpi / 25.4;
+      const marginPx = page.margin * pxPerMm;
+      const cssToImg = px.dpi / 96;
+      const imgW = Math.round(rendered.outW * cssToImg);
+      const imgH = Math.round(rendered.outH * cssToImg);
+      svg.setAttribute('width', imgW);
+      svg.setAttribute('height', imgH);
+      svg.setAttribute('font-family', "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif");
+      const xml = new XMLSerializer().serializeToString(svg);
+      rendered.host.remove();
+
+      const img = await this._loadSvgImage(xml);
+      const canvas = document.createElement('canvas');
+      canvas.width = px.w;
+      canvas.height = px.h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // 用紙中央（横）・上寄せ（縦、余白分）に配置
+      const dx = Math.round((canvas.width - imgW) / 2);
+      const dy = Math.round(marginPx);
+      ctx.drawImage(img, dx, dy, imgW, imgH);
+
+      const blob = await new Promise((resolve, reject) => {
+        try {
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error('画像の生成に失敗しました')), 'image/jpeg', 0.92);
+        } catch (e) { reject(e); }
+      });
+      const safe = (t) => String(t || '').replace(/[\\/:*?"<>|]/g, '_').trim();
+      const tName = safe(AppConfig.TOURNAMENT_NAME) || 'ドロー表';
+      const fileName = safe(tName + '_' + (r.eventName || eventCode) + '_ドロー表_' + page.label + page.orientLabel) + '.jpg';
+      this._downloadBlob(blob, fileName);
+      this.showMessage('JPEG画像を保存しました（' + page.label + ' ' + page.orientLabel + ' / ' + px.w + '×' + px.h + 'px）', 'success');
+    } catch (err) {
+      console.error(err);
+      if (rendered.host && rendered.host.parentNode) rendered.host.remove();
+      this.showMessage('JPEG出力に失敗しました: ' + (err && err.message ? err.message : err), 'error');
+    } finally {
+      this._hideLoadingOverlay();
+    }
+  },
+
+  _loadSvgImage(svgXml) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG画像の読み込みに失敗しました')); };
+      img.src = url;
+    });
+  },
+
+  _downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 2000);
+  },
+
   _refreshBracketEventSelect() {
     const select = document.getElementById('bracket-event-select');
     if (!select) return;
@@ -5051,20 +5416,8 @@ window.App = {
     // SVG 描画
     const container = document.getElementById('bracket-container');
     if (container) {
-      const evtInfo = AppConfig.EVENTS.find(e => e.code === eventCode);
-      DrawRenderer.render(container, {
-        draw: result.draw,
-        drawSize: result.drawSize,
-        eventName: result.eventName,
-        tournamentName: AppConfig.TOURNAMENT_NAME || '',
-        date: AppConfig.TOURNAMENT_DATE || '',
-        venue: AppConfig.TOURNAMENT_VENUE || '',
-        matchFormat: AppConfig.MATCH_FORMAT || '',
-        entries: result.entries,
-        seeds: result.seeds,
-        entryCount: result.entryCount,
-        isDoubles: evtInfo ? (evtInfo.category === 'doubles' || evtInfo.category === 'mixed_doubles') : false,
-      }, { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode });
+      DrawRenderer.render(container, this._buildBracketRenderData(eventCode),
+        { confirmed: true, scheduleMap: this._getScheduleMap(), eventCode: eventCode });
     }
 
     // クリア・やり直しボタン表示

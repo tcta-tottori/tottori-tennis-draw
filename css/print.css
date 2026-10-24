@@ -152,6 +152,41 @@
   }
 
   /* ========================================
+     ドロー表 印刷モード（用紙サイズに自動フィット）
+     body.bracket-print-mode が付与された時のみ有効
+     ======================================== */
+  body.bracket-print-mode .screen,
+  body.bracket-print-mode .app-header,
+  body.bracket-print-mode .tab-bar,
+  body.bracket-print-mode .app-main {
+    display: none !important;
+  }
+
+  body.bracket-print-mode #bracket-print-area {
+    display: block !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.bracket-print-mode #bracket-print-area svg {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.bracket-print-mode #bracket-print-area svg line,
+  body.bracket-print-mode #bracket-print-area svg path,
+  body.bracket-print-mode #bracket-print-area svg polyline {
+    shape-rendering: crispEdges;
+  }
+
+  /* ========================================
      スケジュール印刷モード（PDF出力用）
      body.schedule-print-mode が付与された時のみ有効
      ======================================== */

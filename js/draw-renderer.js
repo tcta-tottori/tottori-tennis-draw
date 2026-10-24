@@ -59,6 +59,19 @@ window.DrawRenderer = {
   },
 
   /**
+   * 確定済みモード用: 圧縮ドローに含まれる選手（連番を付ける対象）の数
+   * 右山の連番を左山の続きから始めるために使う
+   */
+  _countCompactPlayers(compact) {
+    let count = 0;
+    for (const item of compact) {
+      if (item.type === 'match') count += 2;
+      else if (item.type === 'bye-pass') count += 1;
+    }
+    return count;
+  },
+
+  /**
    * SVGでトーナメント表を描画（左右の山形式・参考Excel準拠レイアウト）
    */
   render(container, drawData, options) {
@@ -156,8 +169,13 @@ window.DrawRenderer = {
     const leftDraw = draw.slice(0, halfSize);
     const rightDraw = draw.slice(halfSize);
 
-    this._drawHalf(svg, leftDraw, halfSize, halfRounds, bodyTop, 0, 'left', options);
-    this._drawHalf(svg, rightDraw, halfSize, halfRounds, bodyTop, halfWidth + P.centerGap, 'right', options);
+    // 確定済みモードでは左山のBYE分だけ番号が詰まるので、右山は左山の続きから採番する
+    const rightStartNum = isConfirmed
+      ? this._countCompactPlayers(this._buildCompactDraw(leftDraw, halfSize)) + 1
+      : halfSize + 1;
+
+    this._drawHalf(svg, leftDraw, halfSize, halfRounds, bodyTop, 0, 'left', options, 1);
+    this._drawHalf(svg, rightDraw, halfSize, halfRounds, bodyTop, halfWidth + P.centerGap, 'right', options, rightStartNum);
     this._drawFinal(svg, halfSize, halfRounds, bodyTop, halfWidth, totalWidth, bracketBodyHeight);
     this._drawSeedInfo(svg, drawData, bodyTop + bracketBodyHeight + 8, totalWidth);
 
@@ -199,7 +217,7 @@ window.DrawRenderer = {
   /**
    * 半分のブラケットを描画
    */
-  _drawHalf(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction, options) {
+  _drawHalf(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction, options, startNum) {
     const P = this.PARAMS;
     const isLeft = direction === 'left';
     const isConfirmed = options && options.confirmed;
@@ -249,7 +267,7 @@ window.DrawRenderer = {
 
     // 確定済みモード: BYE圧縮描画
     if (isConfirmed) {
-      this._drawHalfConfirmed(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction, clipId, affiliationX_offset);
+      this._drawHalfConfirmed(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction, clipId, affiliationX_offset, startNum);
       return;
     }
 
@@ -261,13 +279,13 @@ window.DrawRenderer = {
   /**
    * 確定済みモード: BYEを除去した圧縮描画
    */
-  _drawHalfConfirmed(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction, clipId, affiliationX_offset) {
+  _drawHalfConfirmed(svg, halfDraw, halfSize, rounds, bodyTop, offsetX, direction, clipId, affiliationX_offset, startNum) {
     const P = this.PARAMS;
     const isLeft = direction === 'left';
     const compact = this._buildCompactDraw(halfDraw, halfSize);
 
-    // 連番カウンター
-    let posCounter = direction === 'left' ? 1 : halfSize + 1;
+    // 連番カウンター（右山は左山の続き番号から開始）
+    let posCounter = startNum != null ? startNum : (isLeft ? 1 : halfSize + 1);
 
     // 圧縮後のスロットY位置マッピング
     // 各compactアイテムにY位置を割り当て（match=2スロット分, bye-pass=1スロット分）
@@ -921,8 +939,10 @@ window.DrawRenderer = {
     const rightCompact = this._buildCompactDraw(rightDraw, halfSize);
 
     const maxPairs = Math.max(leftCompact.length, rightCompact.length);
+    // 右山は左山の続き番号から開始（BYE分を詰めた連番）
+    const rightStartPos = this._countCompactPlayers(leftCompact) + 1;
     let leftPos = 1;
-    let rightPos = halfSize + 1;
+    let rightPos = rightStartPos;
 
     const leftItemRows = [];
     const rightItemRows = [];
@@ -1034,7 +1054,7 @@ window.DrawRenderer = {
     // 上のwriteSideの結果を使わず、同時処理に書き直し
     wsData.length = headerRows; // リセット
     leftPos = 1;
-    rightPos = halfSize + 1;
+    rightPos = rightStartPos;
 
     for (let ci = 0; ci < maxPairs; ci++) {
       const lc = ci < leftCompact.length ? leftCompact[ci] : { type: 'bye-pair' };

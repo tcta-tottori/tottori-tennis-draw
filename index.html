@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#7c3aed">
@@ -117,8 +117,8 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
       <button class="header-version" id="btn-version-info" title="バージョン情報・更新履歴">
-        <span class="version-badge">v2.4</span>
-        <span class="version-date">2026.8.1 更新</span>
+        <span class="version-badge">v2.5</span>
+        <span class="version-date">2026.10.24 更新</span>
       </button>
     </div>
   </header>
@@ -586,91 +586,130 @@
     <section id="screen-ranking" class="screen">
       <h2 class="screen-title">エントリー</h2>
 
-      <!-- データ状況サマリー -->
-      <div id="entry-data-summary" class="card" style="margin-bottom:16px;display:none;">
-        <h3 class="card-title" style="font-size:13px;margin-bottom:8px;">データ状況</h3>
-        <div id="entry-data-summary-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      <!-- 展開パネル: 大会設定・種目など（初回は表示。スクロールで隠れ、上部バーのボタンで再表示） -->
+      <div id="ranking-filter-panel-wrap" class="ranking-filter-panel-wrap">
+        <div id="ranking-filter-panel" class="ranking-filter-panel">
+
+          <!-- 選手データ読込（起動時の自動読込は行わない） -->
+          <div class="card ranking-data-card" id="ranking-data-card">
+            <div class="ranking-data-row">
+              <div class="ranking-data-text">
+                <span class="ranking-data-label">選手データ</span>
+                <span id="ranking-data-status" class="ranking-data-status">未読込</span>
+              </div>
+              <button id="btn-ranking-load" class="btn btn-primary btn-sm" type="button">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+                <span>選手データを読込</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- データ状況サマリー -->
+          <div id="entry-data-summary" class="card" style="margin-bottom:16px;display:none;">
+            <h3 class="card-title" style="font-size:13px;margin-bottom:8px;">データ状況</h3>
+            <div id="entry-data-summary-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+          </div>
+
+          <!-- 大会設定 -->
+          <div class="card" style="margin-bottom:16px;" id="tournament-settings-card">
+            <!-- 選択モード -->
+            <div id="tournament-select-mode">
+              <h3 class="card-title">大会設定</h3>
+              <div class="form-group" style="margin-bottom:8px;">
+                <label for="tournament-select" class="form-label">大会選択</label>
+                <select id="tournament-select" class="form-select" style="width:100%;">
+                  <option value="">-- 大会を選択 --</option>
+                </select>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:8px;">
+                <div class="form-group" style="margin-bottom:0;flex:0 0 auto;min-width:0;">
+                  <label for="tournament-date-input" class="form-label">開催日</label>
+                  <input type="text" id="tournament-date-input" class="form-input tournament-auto-field" placeholder="自動入力"
+                    readonly style="width:11em;">
+                </div>
+                <div class="form-group" style="margin-bottom:0;flex:1 1 0;min-width:12em;max-width:20em;">
+                  <label for="tournament-venue-input" class="form-label">会場</label>
+                  <select id="tournament-venue-input" class="form-select">
+                  </select>
+                </div>
+              </div>
+              <div style="text-align:right;margin-top:8px;">
+                <button id="btn-tournament-confirm" class="btn btn-primary" disabled>この大会でエントリーを開始</button>
+              </div>
+            </div>
+            <!-- 確定表示モード -->
+            <div id="tournament-confirmed-mode" style="display:none;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <div style="font-size:15px;font-weight:700;color:var(--color-text);" id="tournament-confirmed-name"></div>
+                <button id="btn-tournament-change" class="btn btn-secondary btn-sm">大会を変更</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- カテゴリ切替（シングルス/ダブルス） -->
+          <div class="ranking-category-toggle" id="ranking-category-toggle">
+            <button class="category-btn active" data-category="singles">シングルス</button>
+            <button class="category-btn" data-category="doubles">ダブルス</button>
+          </div>
+
+          <!-- 種目タブ -->
+          <div class="ranking-event-tabs" id="ranking-event-tabs"></div>
+          <!-- 並べ替えバー（必要時にJSで追加） -->
+        </div>
       </div>
+      <!-- 展開パネル表示時の背景（タップで閉じる） -->
+      <div id="ranking-filter-backdrop" class="ranking-filter-backdrop"></div>
 
-      <!-- 大会設定 -->
-      <div class="card" style="margin-bottom:16px;" id="tournament-settings-card">
-        <!-- 選択モード -->
-        <div id="tournament-select-mode">
-          <h3 class="card-title">大会設定</h3>
-          <div class="form-group" style="margin-bottom:8px;">
-            <label for="tournament-select" class="form-label">大会選択</label>
-            <select id="tournament-select" class="form-select" style="width:100%;">
-              <option value="">-- 大会を選択 --</option>
-            </select>
+      <!-- 上部固定バー: 現在の種目・検索・件数（キーボード表示中も見える最小構成） -->
+      <div class="ranking-sticky-filter" id="ranking-sticky-filter">
+        <div class="ranking-compact-bar">
+          <button type="button" id="btn-ranking-filter-toggle" class="ranking-filter-toggle" aria-expanded="false"
+            aria-controls="ranking-filter-panel" title="大会・種目の選択を開く/閉じる">
+            <span class="ranking-filter-toggle-text">
+              <span class="ranking-filter-toggle-label" id="ranking-filter-toggle-label">種目</span>
+              <span class="ranking-filter-toggle-sub" id="ranking-filter-toggle-sub" style="display:none;"></span>
+            </span>
+            <svg class="ranking-filter-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          <div class="ranking-search-wrap">
+            <input type="text" id="ranking-search" class="form-input" placeholder="氏名・ふりがな・所属で検索..."
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+            <svg class="ranking-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <button type="button" id="btn-ranking-search-clear" class="ranking-search-clear" aria-label="検索をクリア" style="display:none;">&times;</button>
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:8px;">
-            <div class="form-group" style="margin-bottom:0;flex:0 0 auto;min-width:0;">
-              <label for="tournament-date-input" class="form-label">開催日</label>
-              <input type="text" id="tournament-date-input" class="form-input tournament-auto-field" placeholder="自動入力"
-                readonly style="width:11em;">
-            </div>
-            <div class="form-group" style="margin-bottom:0;flex:1 1 0;min-width:12em;max-width:20em;">
-              <label for="tournament-venue-input" class="form-label">会場</label>
-              <select id="tournament-venue-input" class="form-select">
-              </select>
-            </div>
-          </div>
-          <div style="text-align:right;margin-top:8px;">
-            <button id="btn-tournament-confirm" class="btn btn-primary" disabled>この大会でエントリーを開始</button>
-          </div>
-        </div>
-        <!-- 確定表示モード -->
-        <div id="tournament-confirmed-mode" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div style="font-size:15px;font-weight:700;color:var(--color-text);" id="tournament-confirmed-name"></div>
-            <button id="btn-tournament-change" class="btn btn-secondary btn-sm">大会を変更</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- スティッキーフィルターエリア -->
-      <div class="ranking-sticky-filter">
-        <!-- カテゴリ切替（シングルス/ダブルス） -->
-        <div class="ranking-category-toggle" id="ranking-category-toggle">
-          <button class="category-btn active" data-category="singles">シングルス</button>
-          <button class="category-btn" data-category="doubles">ダブルス</button>
-        </div>
-
-        <!-- 検索＆フィルター -->
-        <div class="toolbar">
-          <div class="toolbar-left" style="flex:1;gap:12px;display:flex;align-items:center;flex-wrap:wrap;">
-            <div class="ranking-event-tabs" id="ranking-event-tabs"></div>
-            <div style="position:relative;min-width:240px;flex:1;max-width:360px;">
-              <input type="text" id="ranking-search" class="form-input" placeholder="氏名・ふりがな・所属で検索..."
-                style="padding-left:36px;">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
-                style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </div>
-            <span id="ranking-count" style="font-size:12px;color:#6b7280;white-space:nowrap;"></span>
-          </div>
+          <span id="ranking-count" class="ranking-count"></span>
         </div>
       </div><!-- /.ranking-sticky-filter -->
 
       <!-- ランキングテーブル -->
-      <div class="table-wrapper">
-        <table class="data-table ranking-auto-width" id="ranking-table">
-          <thead>
-            <tr>
-              <th>氏名</th>
-              <th class="col-furigana">ふりがな</th>
-              <th>所属</th>
-              <th class="col-points">ポイント</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="ranking-table-body">
-          </tbody>
-        </table>
+      <div class="ranking-list-area">
+        <div class="table-wrapper">
+          <table class="data-table ranking-auto-width" id="ranking-table">
+            <thead>
+              <tr>
+                <th>氏名</th>
+                <th class="col-furigana">ふりがな</th>
+                <th>所属</th>
+                <th class="col-points">ポイント</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="ranking-table-body">
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-message ranking-empty" id="ranking-empty-msg">
+          <p>選手データが読み込まれていません。</p>
+          <p class="ranking-empty-sub">起動時の自動読込は行いません。ボタンを押して読み込んでください。</p>
+          <button id="btn-ranking-load-empty" class="btn btn-primary" type="button">選手データを読込</button>
+        </div>
       </div>
-      <p class="empty-message" id="ranking-empty-msg">データが読み込まれていません。起動時に自動読込されます。</p>
 
       <!-- エントリー用紙の画像取込（Gemini API） -->
       <details class="collapsible-section" style="margin-top:16px;">
@@ -1549,7 +1588,7 @@
             <li>進捗バーで読み込み状況を確認します。全項目が「完了」になれば成功です</li>
           </ul>
           <div class="manual-tip">
-            <strong>ヒント：</strong>起動時にデフォルトURLから自動読み込みされるため、通常は手動操作不要です。データが古い場合のみ再読込してください。
+            <strong>ヒント：</strong>起動時の自動読込は行いません。エントリー画面の「選手データを読込」か、この「ランキング読込」ボタンで読み込んでください。一度読み込んだデータは端末に保存され、次回以降は起動時に復元されます（データが古い場合のみ再読込してください）。
           </div>
         </div>
 
@@ -1619,6 +1658,8 @@
             </svg>
           </div>
           <ul class="manual-steps">
+            <li>初回は<strong>「選手データを読込」</strong>ボタンで選手データを読み込みます（起動時の自動読込は行いません。前回のデータは端末に保存され、次回起動時に復元されます）</li>
+            <li>大会設定・シングルス/ダブルス切替・種目タブは<strong>初回のみ表示</strong>され、一覧をスクロールすると隠れます。画面上部に残る<strong>種目ボタン（例: 男子S ▾）</strong>を押すと再表示できます</li>
             <li><strong>種目タブ</strong>で表示する種目を切り替えます（男子S/女子S/男子45S/男子55S/男子65S 等）</li>
             <li><strong>「男子全員」「女子全員」タブ</strong>を使うと、同性の全種目の選手をまとめて表示できます（重複排除済み）</li>
             <li>男子全員/女子全員表示時は<strong>並べ替え</strong>機能が使えます（ポイント順・ふりがな順・氏名順・所属順）</li>
@@ -2505,7 +2546,22 @@
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>2.2</strong></td>
+                  <td><strong>2.5</strong></td>
+                  <td>2026.10.24</td>
+                  <td>エントリー画面をスマホ入力向けに再構成（上部固定バー、大会・種目パネルの折りたたみ）。起動時の自動読込を廃止しボタン操作時のみ読込。</td>
+                </tr>
+                <tr>
+                  <td>2.4</td>
+                  <td>2026.8.1</td>
+                  <td>AI設定の一元化、ふりがな自動付与のGemini対応、氏名スペース整形</td>
+                </tr>
+                <tr>
+                  <td>2.3</td>
+                  <td>2026.8.1</td>
+                  <td>ふりがな振り分け不具合の修正、同梱ふりがなDBの取り込み、エントリー用紙の画像取込（AI画像認識）</td>
+                </tr>
+                <tr>
+                  <td>2.2</td>
                   <td>2026.3.11</td>
                   <td>AI（kuromoji.js）を活用したふりがなの自動付与機能を実装。JSON取込/出力機能を廃止。</td>
                 </tr>
@@ -2623,8 +2679,38 @@
         <button class="version-modal-close" id="version-modal-close">&times;</button>
       </div>
       <div class="version-modal-body">
-        <!-- 2026年8月 -->
+        <!-- 2026年10月 -->
         <div class="version-group open">
+          <button class="version-group-header">
+            <span class="vg-arrow">▶</span>
+            2026年10月
+          </button>
+          <div class="version-group-body">
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">10/24</span>
+                <span class="version-tag improve">改善</span>
+              </div>
+              <div class="version-entry-text">エントリー画面をスマホ入力向けに再構成。画面上部に「現在の種目・検索欄・件数」だけの固定バーを置き、キーボード表示中でも検索欄と選手一覧が見えるようにしました。スマホではブランドヘッダーを固定せず、タブバーのみ上部に残します。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">10/24</span>
+                <span class="version-tag improve">改善</span>
+              </div>
+              <div class="version-entry-text">大会設定・シングルス/ダブルス切替・種目タブは初回のみ表示し、スクロールすると自動的に隠れます。必要なときは上部バーの種目ボタンから展開できます。</div>
+            </div>
+            <div class="version-entry">
+              <div class="version-entry-head">
+                <span class="version-entry-date">10/24</span>
+                <span class="version-tag improve">改善</span>
+              </div>
+              <div class="version-entry-text">起動時の自動読込（スプレッドシート・Google Drive）を廃止。選手データの読込は「選手データを読込」「ランキング読込」ボタンを押したときのみ行います。前回読み込んだデータは端末に保存され、起動時に復元されます。</div>
+            </div>
+          </div>
+        </div>
+        <!-- 2026年8月 -->
+        <div class="version-group">
           <button class="version-group-header">
             <span class="vg-arrow">▶</span>
             2026年8月

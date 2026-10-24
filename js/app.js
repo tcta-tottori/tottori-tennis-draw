@@ -61,11 +61,12 @@ window.App = {
     // 初期データ状況サマリーを更新
     this._refreshDataSummary();
 
-    // 同梱のふりがなDBを取り込んでから、ランキング等の自動読み込みを開始する。
+    // 同梱のふりがなDBを取り込んでから、端末に保存済みの選手データ（バックアップ）を復元する。
+    // ※ 起動時にスプレッドシートへは接続しない。最新データの読込はボタン操作時のみ行う。
     // （ランキング同期はふりがなDBを参照するため、順序を守る必要がある）
     this._bootstrapFuriganaFromBundle()
       .catch(() => { /* 取得失敗時もアプリ起動は継続 */ })
-      .then(() => this._autoLoadSpreadsheets());
+      .then(() => this._restoreRankingFromBackup());
   },
 
   /**
@@ -107,59 +108,63 @@ window.App = {
     });
   },
 
-  async _autoLoadSpreadsheets() {
-    // まずlocalStorageのバックアップから復元を試みる
-    if (RankingLoader.restoreFromBackup()) {
-      const backupDate = RankingLoader.getBackupDate();
-      const status = RankingLoader.getStatus();
-      this._updateRankingStatus(status);
-      const dateStr = backupDate ? new Date(backupDate).toLocaleString('ja-JP') : '';
-      this.showMessage('バックアップからデータを復元しました (' + status.total + '名' + (dateStr ? ' / ' + dateStr : '') + ')', 'info');
-
-      // ステータス表示を更新
-      const gsRankingStatus = document.getElementById('gs-ranking-status');
-      if (gsRankingStatus) {
-        gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">バックアップから復元: ' + status.total + '名' + (dateStr ? ' (' + dateStr + ')' : '') + '</span>';
-      }
-      // ふりがなをランキングと同期
-      this._syncFuriganaWithRanking();
-
-      // バックグラウンドでスプレッドシートから最新データを取得
-      this._silentRefreshFromSpreadsheets();
+  /**
+   * 端末に保存済みの選手データ（localStorageバックアップ）を復元する。
+   * ネットワーク通信は行わない。最新データの取得は「選手データを読込」ボタンで行う。
+   */
+  _restoreRankingFromBackup() {
+    if (!RankingLoader.restoreFromBackup()) {
+      this._setRankingDataStatus('未読込', 'none');
+      this.refreshRankingTable();
       return;
     }
+    const backupDate = RankingLoader.getBackupDate();
+    const status = RankingLoader.getStatus();
+    this._updateRankingStatus(status);
+    const dateStr = backupDate ? new Date(backupDate).toLocaleString('ja-JP') : '';
+    const shortDate = backupDate ? this._formatShortDateTime(backupDate) : '';
 
-    // バックアップがない場合はスプレッドシートから読み込み
-    this._showLoadingOverlay('選手データを読込中...');
-    try {
-      this._updateLoadingProgress(5, 'ランキングデータを取得中...');
-      await this._loadRankingFromGS(true);
-      this._updateLoadingProgress(80, 'ふりがなデータを同期中...');
-      this._syncFuriganaWithRanking();
-      this._updateLoadingProgress(95, 'データ整理中...');
-    } finally {
-      this._hideLoadingOverlay();
+    // データ画面のステータス表示
+    const gsRankingStatus = document.getElementById('gs-ranking-status');
+    if (gsRankingStatus) {
+      gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">前回読込データを復元: ' + status.total + '名' + (dateStr ? ' (' + dateStr + ')' : '') + '</span>';
     }
+    this._setRankingDataStatus('前回読込 ' + status.total + '名' + (shortDate ? '（' + shortDate + '）' : ''), 'backup');
+
+    // ふりがなをランキングと同期
+    this._syncFuriganaWithRanking();
+    this.refreshRankingTable();
+    this._refreshDataSummary();
   },
 
-  async _silentRefreshFromSpreadsheets() {
+  /**
+   * エントリー画面の「選手データ」読込状況表示を更新
+   * @param {string} text 表示テキスト
+   * @param {'none'|'backup'|'loaded'|'error'} state 状態
+   */
+  _formatShortDateTime(value) {
     try {
-      const urlInput = document.getElementById('gs-ranking-url');
-      if (urlInput && urlInput.value.trim()) {
-        await RankingLoader.loadRankingFromSpreadsheet(urlInput.value.trim());
-        const status = RankingLoader.getStatus();
-        this._updateRankingStatus(status);
-        const gsRankingStatus = document.getElementById('gs-ranking-status');
-        const now = new Date().toLocaleString('ja-JP');
-        if (gsRankingStatus) {
-          gsRankingStatus.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">最新データ読込済: ' + status.total + '名 (' + now + ')</span>';
-        }
-        // ランキング読込後、ふりがなを自動同期
-        this._syncFuriganaWithRanking();
-      }
-    } catch (e) {
-      console.warn('バックグラウンド更新に失敗（バックアップデータを使用中）:', e.message);
-    }
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    } catch (e) { return ''; }
+  },
+
+  _setRankingDataStatus(text, state) {
+    const el = document.getElementById('ranking-data-status');
+    if (!el) return;
+    el.textContent = text;
+    el.dataset.state = state || 'none';
+  },
+
+  /**
+   * エントリー画面の「選手データを読込」ボタン処理
+   */
+  async _loadRankingFromEntryScreen() {
+    await this._loadRankingFromGS(false);
+    this.refreshRankingTable();
+    this._refreshDataSummary();
   },
 
   /**
@@ -167,6 +172,10 @@ window.App = {
    * @param {string} screenId 画面要素のid
    */
   switchScreen(screenId) {
+    // エントリー画面の展開パネルが開いていれば閉じる
+    if (this.currentScreen === 'screen-ranking' && screenId !== 'screen-ranking') {
+      this._closeRankingPanel();
+    }
     // 全画面を非表示
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     // 対象画面を表示
@@ -193,6 +202,7 @@ window.App = {
       }
       this.refreshRankingTable();
       this._refreshDataSummary();
+      this._updateRankingPanelState();
     }
     if (screenId === 'screen-entry') this.refreshEntryTable();
     if (screenId === 'screen-data') this._renderFuriganaTable();
@@ -292,6 +302,7 @@ window.App = {
         statusEl.style.display = '';
         statusEl.innerHTML = '<span class="status-icon status-ok">&#9679;</span><span class="status-text">読込済: ' + status.total + '名 (' + now + ')</span>';
       }
+      this._setRankingDataStatus('読込済 ' + status.total + '名（' + this._formatShortDateTime(new Date()) + '）', 'loaded');
       // ランキング読込後、ふりがなを自動同期（個別呼び出し時のみ）
       if (!useGlobalOverlay) this._syncFuriganaWithRanking();
       if (!useGlobalOverlay) this.showMessage('ランキングデータを読み込みました (' + status.total + '名)', 'success');
@@ -301,6 +312,7 @@ window.App = {
         statusEl.style.display = '';
         statusEl.innerHTML = '<span class="status-icon status-error">&#9679;</span><span class="status-text">エラー: ' + err.message + '</span>';
       }
+      this._setRankingDataStatus('読込エラー: ' + err.message, 'error');
       this.showMessage('読み込み失敗: ' + err.message, 'error');
     } finally {
       if (btnEl) btnEl.disabled = false;
@@ -435,16 +447,48 @@ window.App = {
 
   initRankingScreen() {
     const searchInput = document.getElementById('ranking-search');
+    const searchClear = document.getElementById('btn-ranking-search-clear');
     if (searchInput) {
       let timer = null;
+      const updateClear = () => {
+        if (searchClear) searchClear.style.display = searchInput.value ? '' : 'none';
+      };
       searchInput.addEventListener('input', () => {
+        updateClear();
         clearTimeout(timer);
         timer = setTimeout(() => {
           this._rankingFilter.query = searchInput.value.trim();
           this._renderRankingRows();
         }, 200);
       });
+      // Enter（スマホの検索キー）でキーボードを閉じる
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); searchInput.blur(); }
+      });
+      // 入力開始時: 大会・種目パネルを畳んで、検索欄と一覧を画面上部に集める
+      searchInput.addEventListener('focus', () => {
+        if (this._rankingPanel && this._rankingPanel.open) this._closeRankingPanel();
+        if (this._isTouchLayout()) this._collapseRankingPanelByScroll();
+      });
+      if (searchClear) {
+        searchClear.addEventListener('click', () => {
+          searchInput.value = '';
+          updateClear();
+          this._rankingFilter.query = '';
+          this._renderRankingRows();
+          searchInput.focus();
+        });
+      }
     }
+
+    // 選手データ読込ボタン（パネル内 / 空表示）
+    ['btn-ranking-load', 'btn-ranking-load-empty'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', () => this._loadRankingFromEntryScreen());
+    });
+
+    // 大会・種目パネルの折りたたみ制御
+    this._initRankingFilterPanel();
 
     // カテゴリ切替ボタン
     const toggleEl = document.getElementById('ranking-category-toggle');
@@ -484,6 +528,7 @@ window.App = {
           this._rankingFilter.showAllFemale = false;
           this._rankingFilter.showFuriganaDB = false;
           this.refreshRankingTable();
+          this._afterRankingEventSelected();
         });
         tabsEl.appendChild(btn);
       }
@@ -513,6 +558,7 @@ window.App = {
           this._rankingFilter.showFuriganaDB = false;
           this._rankingFilter.eventCode = '';
           this.refreshRankingTable();
+          this._afterRankingEventSelected();
         });
         tabsEl.appendChild(maleAllBtn);
       }
@@ -530,6 +576,7 @@ window.App = {
           this._rankingFilter.showFuriganaDB = false;
           this._rankingFilter.eventCode = '';
           this.refreshRankingTable();
+          this._afterRankingEventSelected();
         });
         tabsEl.appendChild(femaleAllBtn);
       }
@@ -552,6 +599,7 @@ window.App = {
           this._rankingFilter.showFuriganaDB = false;
           this._rankingFilter.eventCode = '';
           this.refreshRankingTable();
+          this._afterRankingEventSelected();
         });
         tabsEl.appendChild(listBtn);
       }
@@ -575,6 +623,7 @@ window.App = {
           this._rankingFilter.showAllFemale = false;
           this._rankingFilter.eventCode = '';
           this.refreshRankingTable();
+          this._afterRankingEventSelected();
         });
         tabsEl.appendChild(dbBtn);
       }
@@ -590,6 +639,9 @@ window.App = {
       }
     }
 
+    // 上部バーの現在選択ラベルを更新
+    this._updateRankingFilterToggleLabel();
+
     // 並べ替えコントロールの表示/更新
     this._updateRankingSortControls();
 
@@ -597,10 +649,205 @@ window.App = {
   },
 
   /**
+   * 種目タブ選択後の処理（展開パネルが浮いていれば閉じて一覧に戻る）
+   */
+  _afterRankingEventSelected() {
+    if (this._rankingPanel && this._rankingPanel.open) this._closeRankingPanel();
+  },
+
+  /**
+   * 上部固定バーのラベル（現在の種目・大会名）を更新
+   */
+  _updateRankingFilterToggleLabel() {
+    const labelEl = document.getElementById('ranking-filter-toggle-label');
+    const subEl = document.getElementById('ranking-filter-toggle-sub');
+    if (!labelEl) return;
+    const f = this._rankingFilter;
+    let label;
+    if (f.showFuriganaDB) label = '全選手DB';
+    else if (f.showAllMale) label = '男子全員';
+    else if (f.showAllFemale) label = '女子全員';
+    else if (f.showList) label = 'リスト登録者';
+    else if (f.eventCode) {
+      const evt = AppConfig.EVENTS.find(e => e.code === f.eventCode);
+      label = evt ? (evt.shortName || evt.name) : f.eventCode;
+    } else {
+      label = f.category === 'doubles' ? 'ダブルス' : 'シングルス';
+    }
+    labelEl.textContent = label;
+
+    if (subEl) {
+      const t = (this._confirmedTournamentId && typeof TournamentStore !== 'undefined')
+        ? TournamentStore.getById(this._confirmedTournamentId) : null;
+      subEl.textContent = t ? t.name : '';
+      subEl.style.display = t ? '' : 'none';
+    }
+  },
+
+  /**
+   * タッチ端末（ソフトキーボードが出る環境）かどうか
+   */
+  _isTouchLayout() {
+    try {
+      return window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 768px)').matches;
+    } catch (e) { return false; }
+  },
+
+  /**
+   * 大会・種目パネルの折りたたみ制御を初期化
+   *  - 初回はパネルを通常表示
+   *  - スクロールしてパネルが隠れると上部バーが「折りたたみ状態」になり、
+   *    ボタンでパネルをバー直下にドロップダウン表示できる
+   */
+  _initRankingFilterPanel() {
+    const section = document.getElementById('screen-ranking');
+    const panel = document.getElementById('ranking-filter-panel');
+    const wrap = document.getElementById('ranking-filter-panel-wrap');
+    const bar = document.getElementById('ranking-sticky-filter');
+    const toggleBtn = document.getElementById('btn-ranking-filter-toggle');
+    const backdrop = document.getElementById('ranking-filter-backdrop');
+    if (!section || !panel || !wrap || !bar || !toggleBtn) return;
+
+    this._rankingPanel = { open: false, collapsed: false, stickyTop: 98, openedAt: 0 };
+
+    const updateStickyTop = () => {
+      const header = document.querySelector('.app-header');
+      const tabBar = document.getElementById('tab-bar');
+      let top = 0;
+      if (header && getComputedStyle(header).position === 'sticky') top += header.offsetHeight;
+      if (tabBar && getComputedStyle(tabBar).position === 'sticky') top += tabBar.offsetHeight;
+      this._rankingPanel.stickyTop = top;
+      section.style.setProperty('--ranking-sticky-top', top + 'px');
+    };
+    updateStickyTop();
+    this._updateRankingStickyTop = updateStickyTop;
+
+    toggleBtn.addEventListener('click', () => {
+      if (!this._rankingPanel.collapsed) {
+        // パネル表示中: 畳んで一覧に集中
+        this._collapseRankingPanelByScroll();
+        return;
+      }
+      if (this._rankingPanel.open) this._closeRankingPanel();
+      else this._openRankingPanel();
+    });
+
+    if (backdrop) {
+      backdrop.addEventListener('click', () => this._closeRankingPanel());
+    }
+
+    window.addEventListener('scroll', () => {
+      if (this.currentScreen !== 'screen-ranking') return;
+      this._updateRankingPanelState();
+      // ドロップダウン表示中にページがスクロールされたら閉じる（開いた直後のレイアウト揺れは無視）
+      if (this._rankingPanel.open && Date.now() - this._rankingPanel.openedAt > 300) {
+        this._closeRankingPanel();
+      }
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      updateStickyTop();
+      if (this.currentScreen !== 'screen-ranking') return;
+      this._updateRankingPanelState();
+      if (this._rankingPanel.open) this._positionRankingPanel();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._rankingPanel.open) this._closeRankingPanel();
+    });
+
+    this._updateRankingPanelState();
+  },
+
+  /**
+   * パネルが画面外にスクロールしたかを判定し、上部バーの状態を更新
+   */
+  _updateRankingPanelState() {
+    const st = this._rankingPanel;
+    const wrap = document.getElementById('ranking-filter-panel-wrap');
+    const bar = document.getElementById('ranking-sticky-filter');
+    if (!st || !wrap || !bar) return;
+    const rect = wrap.getBoundingClientRect();
+    const collapsed = rect.height > 0 && rect.bottom <= st.stickyTop + 1;
+    if (collapsed === st.collapsed) return;
+    st.collapsed = collapsed;
+    bar.classList.toggle('is-collapsed', collapsed);
+    // 先頭まで戻ってパネルが通常表示に戻ったらドロップダウンは不要
+    if (!collapsed && st.open) this._closeRankingPanel();
+  },
+
+  /**
+   * パネルが隠れる位置までスクロールして、上部バー＋一覧だけの表示にする
+   */
+  _collapseRankingPanelByScroll() {
+    const st = this._rankingPanel;
+    const wrap = document.getElementById('ranking-filter-panel-wrap');
+    if (!st || !wrap) return;
+    const target = window.scrollY + wrap.getBoundingClientRect().bottom - st.stickyTop;
+    if (target > window.scrollY + 1) {
+      window.scrollTo({ top: target, behavior: 'auto' });
+    }
+    this._updateRankingPanelState();
+  },
+
+  /**
+   * ドロップダウンの位置を上部バー直下に合わせる
+   */
+  _positionRankingPanel() {
+    const panel = document.getElementById('ranking-filter-panel');
+    const bar = document.getElementById('ranking-sticky-filter');
+    if (!panel || !bar) return;
+    const r = bar.getBoundingClientRect();
+    panel.style.top = Math.round(r.bottom) + 'px';
+    panel.style.left = Math.round(r.left) + 'px';
+    panel.style.width = Math.round(r.width) + 'px';
+    panel.style.maxHeight = Math.max(160, Math.floor(window.innerHeight - r.bottom - 12)) + 'px';
+  },
+
+  _openRankingPanel() {
+    const st = this._rankingPanel;
+    const panel = document.getElementById('ranking-filter-panel');
+    const wrap = document.getElementById('ranking-filter-panel-wrap');
+    const bar = document.getElementById('ranking-sticky-filter');
+    const toggleBtn = document.getElementById('btn-ranking-filter-toggle');
+    const backdrop = document.getElementById('ranking-filter-backdrop');
+    if (!st || !panel || !wrap || !bar || st.open) return;
+    // 通常フロー上の高さを保持してレイアウトのズレを防ぐ
+    wrap.style.height = wrap.getBoundingClientRect().height + 'px';
+    panel.classList.add('is-floating');
+    this._positionRankingPanel();
+    if (backdrop) backdrop.classList.add('is-visible');
+    bar.classList.add('is-open');
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+    st.open = true;
+    st.openedAt = Date.now();
+  },
+
+  _closeRankingPanel() {
+    const st = this._rankingPanel;
+    const panel = document.getElementById('ranking-filter-panel');
+    const wrap = document.getElementById('ranking-filter-panel-wrap');
+    const bar = document.getElementById('ranking-sticky-filter');
+    const toggleBtn = document.getElementById('btn-ranking-filter-toggle');
+    const backdrop = document.getElementById('ranking-filter-backdrop');
+    if (!st || !panel || !wrap || !bar || !st.open) return;
+    panel.classList.remove('is-floating');
+    panel.style.top = '';
+    panel.style.left = '';
+    panel.style.width = '';
+    panel.style.maxHeight = '';
+    wrap.style.height = '';
+    if (backdrop) backdrop.classList.remove('is-visible');
+    bar.classList.remove('is-open');
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    st.open = false;
+  },
+
+  /**
    * 並べ替えコントロール表示/更新
    */
   _updateRankingSortControls() {
-    const stickyFilter = document.querySelector('.ranking-sticky-filter');
+    const stickyFilter = document.getElementById('ranking-filter-panel');
     if (!stickyFilter) return;
 
     let sortBar = document.getElementById('ranking-sort-bar');
@@ -1814,6 +2061,7 @@ window.App = {
         if (confirmedMode) confirmedMode.style.display = '';
         const dateStr = t.date ? (t.date + (t.dayOfWeek || '')) : '';
         if (confirmedName) confirmedName.textContent = t.name + (dateStr ? '　' + dateStr : '');
+        this._updateRankingFilterToggleLabel();
         this.showMessage(t.name + ' でエントリーを開始します', 'success');
       });
     }
@@ -1824,6 +2072,7 @@ window.App = {
         this._confirmedTournamentId = null;
         if (selectMode) selectMode.style.display = '';
         if (confirmedMode) confirmedMode.style.display = 'none';
+        this._updateRankingFilterToggleLabel();
       });
     }
 
@@ -6741,8 +6990,7 @@ window.App = {
       });
     }
 
-    // 起動時にGoogle Driveからふりがなデータを自動読み込み
-    this._autoLoadFuriganaFromGDrive();
+    // ※ 起動時のGoogle Drive自動読込は行わない（「Google Driveから読込」ボタン操作時のみ）
 
     // ふりがな編集モーダルの初期化
     this._initFuriganaEditModal();
@@ -6929,41 +7177,6 @@ window.App = {
       localStorage.setItem(this.FURIGANA_STORAGE_KEY, JSON.stringify(this._furiganaData));
     } catch (e) {
       console.error('ふりがなデータの保存に失敗:', e);
-    }
-  },
-
-  /**
-   * 起動時にGoogle Driveから自動取得（トークンが有効な場合のみ）
-   */
-  async _autoLoadFuriganaFromGDrive() {
-    if (typeof GoogleDriveBackup === 'undefined' || !GoogleDriveBackup.isTokenValid()) return;
-    try {
-      const token = GoogleDriveBackup.getSavedToken();
-      const folderId = await GoogleDriveBackup.getBackupFolderId(token);
-      const q = `'${folderId}' in parents and name='furigana.json' and trashed=false`;
-      const params = new URLSearchParams({ q, fields: 'files(id,name,modifiedTime)', pageSize: '1' });
-      const res = await fetch(`${GoogleDriveBackup.DRIVE_API}/files?${params}`, { headers: GoogleDriveBackup._headers(token) });
-      if (!res.ok) return;
-      const result = await res.json();
-      const file = result.files?.[0];
-      if (!file) return;
-
-      const dataRes = await fetch(`${GoogleDriveBackup.DRIVE_API}/files/${file.id}?alt=media`, { headers: GoogleDriveBackup._headers(token) });
-      if (!dataRes.ok) return;
-      const data = await dataRes.json();
-      if (!data || !Array.isArray(data) || data.length === 0) return;
-
-      // マージ: Google Driveのデータで未登録・未設定分を補う
-      const { added, filled } = this._mergeFuriganaRecords(data, 'gdrive');
-      const merged = added + filled;
-      if (merged > 0) {
-        this._saveFuriganaDataLocal();
-        this._syncFuriganaToRankingLoader();
-        this._renderFuriganaTable();
-        console.log('Google Driveからふりがなデータを ' + merged + '件マージしました');
-      }
-    } catch (e) {
-      console.warn('起動時のGoogle Drive自動同期に失敗しました:', e);
     }
   },
 

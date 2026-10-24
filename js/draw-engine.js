@@ -142,9 +142,17 @@ window.DrawEngine = {
 
   /**
    * BYE 位置を決定する
-   * シード選手の対戦相手位置に優先的に BYE を配置し、
-   * 残りは下端→上端の交互で配置する
-   * @param {Array} draw ドロー配列
+   *
+   * ルール:
+   *  1. BYEは1回戦の対戦枠（(1,2),(3,4),...）ごとに最大1つ。
+   *     → 同じ枠に2つのBYEを置かない＝「2回戦まで不戦勝（2回待ち）」の選手を作らない。
+   *  2. まずシード選手にシード順（1,2,3,...）でBYEを与える（対戦相手枠をBYEにする）。
+   *  3. 残りのBYEは、上半分/下半分 → 各1/4 → 各1/8 … の順にBYE数が少ない区画へ
+   *     均等に割り当てる（同数なら下端・上端を交互に選ぶ）。
+   *  例: 64ドロー37名（BYE27）→ シード16名全員が初戦BYE、1回戦は5試合、
+   *      1回戦から出る10名は優勝まで6試合、残り27名は5試合。
+   *
+   * @param {Array} draw ドロー配列（シード配置済み）
    * @param {number} drawSize ドローサイズ
    * @param {number} byeCount BYE 数
    * @returns {Array<number>} BYE位置の 0-indexed 配列
@@ -152,126 +160,77 @@ window.DrawEngine = {
   _determineBYEPositions(draw, drawSize, byeCount) {
     if (byeCount <= 0) return [];
 
-    const byePositions = [];
-    const isUsed = new Set();
-
-    // シードが配置されている位置を記録
-    const seedPositions = new Set();
-    const seedEntries = [];
+    const pairCount = Math.floor(drawSize / 2);
+    const isSeedAt = (i) => !!(draw[i] && draw[i].seed > 0);
+    const pairHasBye = new Array(pairCount).fill(false);
+    const pairMinSeed = new Array(pairCount).fill(0);
     for (let i = 0; i < drawSize; i++) {
-      if (draw[i] && draw[i].seed > 0) {
-        seedPositions.add(i);
-        seedEntries.push({ index: i, seed: draw[i].seed });
-      }
+      if (!isSeedAt(i)) continue;
+      const p = i >> 1;
+      const sd = draw[i].seed;
+      pairMinSeed[p] = pairMinSeed[p] ? Math.min(pairMinSeed[p], sd) : sd;
     }
-    seedEntries.sort((a, b) => a.seed - b.seed);
 
-    // 1. シード選手の対戦相手位置に優先配置（シード順位が高い順）
-    for (const se of seedEntries) {
+    const byePositions = [];
+    const used = new Set();
+    const placeByeInPair = (p) => {
+      const a = p * 2, b = p * 2 + 1;
+      let slot;
+      if (isSeedAt(a) && !isSeedAt(b)) slot = b;
+      else if (isSeedAt(b) && !isSeedAt(a)) slot = a;
+      else if (isSeedAt(a) && isSeedAt(b)) return false;
+      else slot = (p < pairCount / 2) ? b : a; // 上半分は下側、下半分は上側の枠にBYE（上下対称）
+      if (used.has(slot)) return false;
+      byePositions.push(slot);
+      used.add(slot);
+      pairHasBye[p] = true;
+      return true;
+    };
+
+    // 1. シード選手にシード順でBYE
+    const seedPairs = [];
+    for (let p = 0; p < pairCount; p++) if (pairMinSeed[p] > 0) seedPairs.push(p);
+    seedPairs.sort((a, b) => pairMinSeed[a] - pairMinSeed[b]);
+    for (const p of seedPairs) {
       if (byePositions.length >= byeCount) break;
-      const opponentPos = this.getOpponentIndex(se.index);
-      if (opponentPos >= 0 && opponentPos < drawSize &&
-          !seedPositions.has(opponentPos) && !isUsed.has(opponentPos)) {
-        byePositions.push(opponentPos);
-        isUsed.add(opponentPos);
-      }
+      placeByeInPair(p);
     }
 
-    // 2. 残りのBYEを4つの山に均等分散配置
-    const remainingByes = byeCount - byePositions.length;
-    if (remainingByes > 0) {
-      const halfSize = drawSize / 2;
-      const quarterSize = halfSize / 2;
-      // 4つの山: 左上(0~q-1), 左下(q~h-1), 右上(h~h+q-1), 右下(h+q~end)
-      const quarters = [
-        { start: 0, end: quarterSize },
-        { start: quarterSize, end: halfSize },
-        { start: halfSize, end: halfSize + quarterSize },
-        { start: halfSize + quarterSize, end: drawSize },
-      ];
-
-      // 各山の空き位置を収集
-      const quarterSlots = quarters.map(q => {
-        const slots = [];
-        for (let i = q.start; i < q.end; i++) {
-          if (!seedPositions.has(i) && !isUsed.has(i)) slots.push(i);
+    // 2. 残りのBYEを区画ごとに均等配分（上半分/下半分 → 1/4 → 1/8 …）
+    const levelSizes = [];
+    for (let size = pairCount / 2; size >= 1; size = size / 2) levelSizes.push(size);
+    let preferBottom = true;
+    while (byePositions.length < byeCount) {
+      let best = -1;
+      let bestKey = null;
+      for (let p = 0; p < pairCount; p++) {
+        if (pairHasBye[p]) continue;
+        const key = [];
+        for (const size of levelSizes) {
+          const start = Math.floor(p / size) * size;
+          let c = 0;
+          for (let q = start; q < start + size; q++) if (pairHasBye[q]) c++;
+          key.push(c);
         }
-        return slots;
-      });
-
-      // 各山に既に配置済みのBYE数を計算
-      const quarterByeCount = quarters.map((q, qi) => {
-        let count = 0;
-        for (const pos of byePositions) {
-          if (pos >= q.start && pos < q.end) count++;
-        }
-        return count;
-      });
-
-      // 各山のシード優先度を決定（最小シード番号を持つ山が優先）
-      const quarterSeedPriority = quarters.map((q, qi) => {
-        let minSeed = 999;
-        for (const se of seedEntries) {
-          if (se.index >= q.start && se.index < q.end) {
-            minSeed = Math.min(minSeed, se.seed);
+        // 同数のときは下端・上端を交互に優先
+        key.push(preferBottom ? (pairCount - 1 - p) : p);
+        let less = best < 0;
+        if (!less) {
+          for (let k = 0; k < key.length; k++) {
+            if (key[k] !== bestKey[k]) { less = key[k] < bestKey[k]; break; }
           }
         }
-        return minSeed;
-      });
-
-      // 均等配分: 残りのBYEを各山に分配
-      const totalByePerQuarter = quarters.map((_, qi) => quarterByeCount[qi]);
-      const baseBye = Math.floor(remainingByes / 4);
-      let extra = remainingByes % 4;
-
-      // 各山の追加BYE数を計算
-      const additionalByes = [0, 0, 0, 0];
-      for (let qi = 0; qi < 4; qi++) additionalByes[qi] = baseBye;
-
-      // 端数をシード優先度の高い山から割り当て
-      const sortedQuarters = [0, 1, 2, 3].sort((a, b) => quarterSeedPriority[a] - quarterSeedPriority[b]);
-      for (let i = 0; i < extra; i++) {
-        additionalByes[sortedQuarters[i]]++;
+        if (less) { best = p; bestKey = key; }
       }
+      if (best < 0) break;
+      if (!placeByeInPair(best)) { pairHasBye[best] = true; continue; }
+      preferBottom = !preferBottom;
+    }
 
-      // 各山にBYEを配置（BYE同士が1回戦で対戦しないよう考慮）
-      for (let qi = 0; qi < 4; qi++) {
-        let count = additionalByes[qi];
-        const slots = quarterSlots[qi];
-        if (count <= 0 || slots.length === 0) continue;
-
-        // BYE同士の1回戦対戦を避ける: ペア(0,1),(2,3)...で片方ずつにBYEを配置
-        // 空きスロットをペア単位で管理
-        const pairSlots = [];
-        for (const s of slots) {
-          const pairStart = Math.floor(s / 2) * 2;
-          const opponent = s % 2 === 0 ? s + 1 : s - 1;
-          const opponentAlreadyBye = isUsed.has(opponent);
-          pairSlots.push({ pos: s, pairStart, opponentAlreadyBye });
-        }
-
-        // 対戦相手がまだBYEでないスロットを優先
-        pairSlots.sort((a, b) => {
-          if (a.opponentAlreadyBye !== b.opponentAlreadyBye) return a.opponentAlreadyBye ? 1 : -1;
-          return a.pos - b.pos;
-        });
-
-        // 端（上端・下端交互）から配置して分散
-        const fromTop = pairSlots.filter(s => !s.opponentAlreadyBye);
-        const fromBoth = fromTop.length > 0 ? fromTop : pairSlots;
-        let tIdx = 0, bIdx = fromBoth.length - 1;
-        let fromBottom = true;
-        let placed = 0;
-        const usedInRound = new Set();
-        while (placed < count && tIdx <= bIdx) {
-          const slot = fromBottom ? fromBoth[bIdx--] : fromBoth[tIdx++];
-          if (!isUsed.has(slot.pos)) {
-            byePositions.push(slot.pos);
-            isUsed.add(slot.pos);
-            placed++;
-          }
-          fromBottom = !fromBottom;
-        }
+    // 3. それでも足りない場合（参加者がドローサイズの半数以下）は空き枠を順に使う
+    if (byePositions.length < byeCount) {
+      for (let i = 0; i < drawSize && byePositions.length < byeCount; i++) {
+        if (!isSeedAt(i) && !used.has(i)) { byePositions.push(i); used.add(i); }
       }
     }
 
